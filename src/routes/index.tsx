@@ -12,9 +12,11 @@ function Landing() {
       {/* Nav */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <div className="flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-md bg-hero text-hero-foreground shadow-hero">
-            <Sword className="h-5 w-5" strokeWidth={2.5} />
-          </div>
+          <img
+            src="/logo.png"
+            alt="V-Project"
+            className="h-9 w-9 rounded-md object-cover shadow-hero"
+          />
           <span className="font-display text-lg font-bold tracking-tight">V-Project</span>
         </div>
         <div className="flex items-center gap-2">

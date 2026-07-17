@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { Sword, LayoutDashboard, Target, Flame, LogOut, User } from "lucide-react";
+import { LayoutDashboard, Target, Flame, LogOut, User } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 
@@ -32,9 +32,11 @@ function AuthedLayout() {
       <header className="sticky top-0 z-40 border-b border-border bg-background/70 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link to="/journey" className="flex items-center gap-2">
-            <div className="grid h-8 w-8 place-items-center rounded-md bg-hero text-hero-foreground shadow-hero">
-              <Sword className="h-4 w-4" strokeWidth={2.5} />
-            </div>
+            <img
+              src="/logo.png"
+              alt="V-Project"
+              className="h-8 w-8 rounded-md object-cover shadow-hero"
+            />
             <span className="font-display text-base font-bold">V-Project</span>
           </Link>
           <nav className="hidden items-center gap-1 md:flex">

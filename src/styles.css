@@ -361,3 +361,318 @@
     animation: none;
   }
 }
+
+/* ── Auth door open (login success) ─────────────────────────────────────── */
+.auth-door {
+  --auth-door-accent: #fc6e20;
+  --auth-door-ms: 1100ms;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden;
+  background: #0a0a0a;
+  pointer-events: all;
+  touch-action: none;
+}
+
+.auth-door__void {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 55% 70% at 50% 50%, color-mix(in srgb, #fc6e20 55%, #1b1b1b), transparent 70%),
+    radial-gradient(circle at 50% 50%, #ffe7d0 0%, transparent 42%),
+    #050505;
+  opacity: 0;
+  transform: scale(0.92);
+  transition:
+    opacity 420ms ease,
+    transform var(--auth-door-ms) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.auth-door--open .auth-door__void {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.auth-door__bloom {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: min(28vw, 120px);
+  translate: -50% 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, #fc6e20 70%, transparent),
+    #ffe7d0,
+    color-mix(in srgb, #fc6e20 70%, transparent),
+    transparent
+  );
+  opacity: 0;
+  filter: blur(10px);
+  transition: opacity 280ms ease;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.auth-door--arming .auth-door__bloom,
+.auth-door--open .auth-door__bloom {
+  opacity: 0.85;
+  animation: auth-door-bloom-pulse 520ms ease-in-out infinite alternate;
+}
+
+.auth-door--open .auth-door__bloom {
+  opacity: 0;
+  transition-delay: 380ms;
+  animation: none;
+}
+
+.auth-door__panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 54%;
+  z-index: 3;
+  will-change: transform;
+  transition: transform var(--auth-door-ms) cubic-bezier(0.7, 0.05, 0.2, 1);
+}
+
+.auth-door__panel--left {
+  left: 0;
+  clip-path: polygon(
+    0% 0%,
+    92% 0%,
+    92% 7%,
+    100% 12%,
+    100% 18%,
+    92% 23%,
+    92% 30%,
+    100% 35%,
+    100% 42%,
+    92% 47%,
+    92% 54%,
+    100% 59%,
+    100% 66%,
+    92% 71%,
+    92% 78%,
+    100% 83%,
+    100% 90%,
+    92% 95%,
+    92% 100%,
+    0% 100%
+  );
+}
+
+.auth-door__panel--right {
+  right: 0;
+  clip-path: polygon(
+    8% 0%,
+    100% 0%,
+    100% 100%,
+    8% 100%,
+    8% 95%,
+    0% 90%,
+    0% 83%,
+    8% 78%,
+    8% 71%,
+    0% 66%,
+    0% 59%,
+    8% 54%,
+    8% 47%,
+    0% 42%,
+    0% 35%,
+    8% 30%,
+    8% 23%,
+    0% 18%,
+    0% 12%,
+    8% 7%,
+    8% 0%
+  );
+}
+
+.auth-door--open .auth-door__panel--left {
+  transform: translateX(-104%);
+}
+
+.auth-door--open .auth-door__panel--right {
+  transform: translateX(104%);
+}
+
+.auth-door__face {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100vw;
+  background-image: url("/porta-login.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter:
+    saturate(1.05)
+    contrast(1.05)
+    drop-shadow(0 0 18px color-mix(in srgb, #fc6e20 35%, transparent));
+}
+
+.auth-door__panel--left .auth-door__face {
+  left: 0;
+}
+
+.auth-door__panel--right .auth-door__face {
+  right: 0;
+}
+
+.auth-door__seam {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  z-index: 2;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    var(--auth-door-accent) 12%,
+    #ffe7d0 50%,
+    var(--auth-door-accent) 88%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 8px var(--auth-door-accent),
+    0 0 22px color-mix(in srgb, #fc6e20 70%, transparent),
+    0 0 48px color-mix(in srgb, #fc6e20 40%, transparent);
+  opacity: 0.9;
+}
+
+.auth-door__seam--left {
+  right: 0;
+}
+
+.auth-door__seam--right {
+  left: 0;
+}
+
+.auth-door--arming {
+  animation: auth-door-shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.auth-door__hud {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 1.25rem 12dvh;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 360ms ease;
+}
+
+.auth-door--open .auth-door__hud {
+  opacity: 0;
+}
+
+.auth-door__brand {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(0.7rem, 2.8vw, 0.95rem);
+  letter-spacing: 0.28em;
+  color: color-mix(in srgb, #ffe7d0 80%, #fc6e20);
+  text-shadow: 0 0 18px color-mix(in srgb, #fc6e20 55%, transparent);
+}
+
+.auth-door__status {
+  margin: 0.55rem 0 0;
+  font-family: var(--font-sans);
+  font-size: clamp(0.72rem, 3.2vw, 0.9rem);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #fc6e20;
+  text-shadow:
+    0 0 1px #fff6,
+    0 0 12px color-mix(in srgb, #fc6e20 80%, transparent);
+}
+
+.auth-door__bar {
+  margin-top: 1rem;
+  width: min(220px, 55vw);
+  height: 2px;
+  background: color-mix(in srgb, #323232 70%, #ffe7d0 30%);
+  overflow: hidden;
+}
+
+.auth-door__bar > span {
+  display: block;
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, #fc6e20, #ffe7d0);
+  animation: auth-door-scan 900ms linear infinite;
+}
+
+@keyframes auth-door-shake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  15% {
+    transform: translate(-3px, 1px);
+  }
+  30% {
+    transform: translate(4px, -2px);
+  }
+  45% {
+    transform: translate(-4px, 0);
+  }
+  60% {
+    transform: translate(3px, 2px);
+  }
+  75% {
+    transform: translate(-2px, -1px);
+  }
+}
+
+@keyframes auth-door-bloom-pulse {
+  from {
+    opacity: 0.45;
+    filter: blur(8px);
+  }
+  to {
+    opacity: 0.95;
+    filter: blur(14px);
+  }
+}
+
+@keyframes auth-door-scan {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+
+@media (min-width: 768px) {
+  .auth-door__panel {
+    width: 52%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-door,
+  .auth-door__void,
+  .auth-door__bloom,
+  .auth-door__panel,
+  .auth-door__hud,
+  .auth-door__bar > span {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .auth-door--open .auth-door__panel--left,
+  .auth-door--open .auth-door__panel--right {
+    transform: none;
+    opacity: 0;
+  }
+}
