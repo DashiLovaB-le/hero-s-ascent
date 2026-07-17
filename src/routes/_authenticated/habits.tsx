@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery, useQueryClient, useMutation, queryOptions } from "@tanstack/react-query";
+import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { Plus, Trash2, Flame } from "lucide-react";
 import { toast } from "sonner";
 
-import { getJourney, createHabit, deleteHabit, completeHabit } from "@/lib/journey.functions";
+import { createHabit, deleteHabit, completeHabit } from "@/lib/journey.functions";
+import { journeyQueryOptions, type JourneyData } from "@/lib/journey-queries";
 import { ATRIBUTO_LABELS, CATEGORIAS } from "@/lib/journey";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,20 +15,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-const qo = () => queryOptions({
-  queryKey: ["journey"],
-  queryFn: () => getJourney({ data: undefined as unknown as never }),
-});
-
 export const Route = createFileRoute("/_authenticated/habits")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(qo()),
+  loader: ({ context }) => context.queryClient.ensureQueryData(journeyQueryOptions()),
   errorComponent: ({ error }) => <div className="p-6 text-destructive">{String(error)}</div>,
   notFoundComponent: () => <div>Não encontrado</div>,
   component: HabitsPage,
 });
 
 function HabitsPage() {
-  const { data } = useSuspenseQuery(qo());
+  const { data } = useSuspenseQuery(journeyQueryOptions());
   const qc = useQueryClient();
   const createFn = useServerFn(createHabit);
   const deleteFn = useServerFn(deleteHabit);
@@ -36,18 +32,78 @@ function HabitsPage() {
 
   const createM = useMutation({
     mutationFn: (input: NewHabitInput) => createFn({ data: input }),
-    onSuccess: () => { toast.success("Hábito criado"); setOpen(false); qc.invalidateQueries({ queryKey: ["journey"] }); },
+    onSuccess: (row) => {
+      toast.success("Hábito criado");
+      setOpen(false);
+      qc.setQueryData<JourneyData>(["journey"], (old) =>
+        old ? { ...old, habits: [...old.habits, row] } : old,
+      );
+    },
     onError: (e) => toast.error(e.message),
   });
+
   const deleteM = useMutation({
     mutationFn: (id: string) => deleteFn({ data: { id } }),
-    onSuccess: () => { toast.success("Hábito removido"); qc.invalidateQueries({ queryKey: ["journey"] }); },
-    onError: (e) => toast.error(e.message),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ["journey"] });
+      const prev = qc.getQueryData<JourneyData>(["journey"]);
+      qc.setQueryData<JourneyData>(["journey"], (old) =>
+        old
+          ? {
+              ...old,
+              habits: old.habits.filter((h) => h.id !== id),
+              completedToday: old.completedToday.filter((hid) => hid !== id),
+            }
+          : old,
+      );
+      return { prev };
+    },
+    onSuccess: () => toast.success("Hábito removido"),
+    onError: (e, _id, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["journey"], ctx.prev);
+      toast.error(e.message);
+    },
   });
+
   const completeM = useMutation({
     mutationFn: (id: string) => completeFn({ data: { habitId: id } }),
-    onSuccess: (r) => { toast.success(`+${r.xpGanho} XP`); qc.invalidateQueries({ queryKey: ["journey"] }); },
-    onError: (e) => toast.error(e.message),
+    onMutate: async (habitId) => {
+      await qc.cancelQueries({ queryKey: ["journey"] });
+      const prev = qc.getQueryData<JourneyData>(["journey"]);
+      if (prev && !prev.completedToday.includes(habitId)) {
+        qc.setQueryData<JourneyData>(["journey"], {
+          ...prev,
+          completedToday: [...prev.completedToday, habitId],
+        });
+      }
+      return { prev };
+    },
+    onSuccess: (r) => {
+      toast.success(`+${r.xpGanho} XP`);
+      qc.setQueryData<JourneyData>(["journey"], (old) => {
+        if (!old?.profile) return old;
+        return {
+          ...old,
+          completedToday: old.completedToday.includes(r.habitId)
+            ? old.completedToday
+            : [...old.completedToday, r.habitId],
+          profile: {
+            ...old.profile,
+            xp_total: r.novoXpTotal,
+            streak_atual: r.streak,
+            streak_maximo: r.streakMaximo,
+          },
+          attributes:
+            old.attributes && r.atributo && r.novoAttrValor != null
+              ? { ...old.attributes, [r.atributo]: r.novoAttrValor }
+              : old.attributes,
+        };
+      });
+    },
+    onError: (e, _id, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["journey"], ctx.prev);
+      toast.error(e.message);
+    },
   });
 
   return (
@@ -103,15 +159,27 @@ function HabitsPage() {
   );
 }
 
-type NewHabitInput = { titulo: string; xp_recompensa: number; atributo: "forca"|"disciplina"|"sabedoria"|"espirito"|"testosterona"|"prosperidade"|"conhecimento"|"lideranca"; categoria?: "corpo"|"mente"|"espirito"|"prosperidade"|"relacionamentos"|"proposito" };
+type NewHabitInput = {
+  titulo: string;
+  xp_recompensa: number;
+  atributo: "forca" | "disciplina" | "sabedoria" | "espirito" | "testosterona" | "prosperidade" | "conhecimento" | "lideranca";
+  categoria?: "corpo" | "mente" | "espirito" | "prosperidade" | "relacionamentos" | "proposito";
+};
+
 function NewHabitForm({ onSubmit, loading }: { onSubmit: (v: NewHabitInput) => void; loading: boolean }) {
   const [titulo, setTitulo] = useState("");
   const [xp, setXp] = useState(10);
-  const [atributo, setAtributo] = useState<"forca"|"disciplina"|"sabedoria"|"espirito"|"testosterona"|"prosperidade"|"conhecimento"|"lideranca">("disciplina");
-  const [categoria, setCategoria] = useState<"corpo"|"mente"|"espirito"|"prosperidade"|"relacionamentos"|"proposito">("mente");
+  const [atributo, setAtributo] = useState<NewHabitInput["atributo"]>("disciplina");
+  const [categoria, setCategoria] = useState<NonNullable<NewHabitInput["categoria"]>>("mente");
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ titulo, xp_recompensa: xp, atributo, categoria }); }} className="space-y-4">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit({ titulo, xp_recompensa: xp, atributo, categoria });
+      }}
+      className="space-y-4"
+    >
       <div className="space-y-2">
         <Label>Título</Label>
         <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex: Treinar 30 min" required minLength={2} maxLength={80} />

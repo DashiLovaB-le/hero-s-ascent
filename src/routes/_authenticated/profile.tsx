@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery, queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { getJourney, updateProfile } from "@/lib/journey.functions";
+import { updateProfile } from "@/lib/journey.functions";
+import { journeyQueryOptions, type JourneyData } from "@/lib/journey-queries";
 import { calcularNivel, ATRIBUTO_LABELS } from "@/lib/journey";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,20 +13,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-const qo = () => queryOptions({
-  queryKey: ["journey"],
-  queryFn: () => getJourney({ data: undefined as unknown as never }),
-});
-
 export const Route = createFileRoute("/_authenticated/profile")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(qo()),
+  loader: ({ context }) => context.queryClient.ensureQueryData(journeyQueryOptions()),
   errorComponent: ({ error }) => <div className="p-6 text-destructive">{String(error)}</div>,
   notFoundComponent: () => <div>Não encontrado</div>,
   component: ProfilePage,
 });
 
 function ProfilePage() {
-  const { data } = useSuspenseQuery(qo());
+  const { data } = useSuspenseQuery(journeyQueryOptions());
   const updateFn = useServerFn(updateProfile);
   const qc = useQueryClient();
 
@@ -34,11 +30,22 @@ function ProfilePage() {
 
   const m = useMutation({
     mutationFn: () => updateFn({ data: { nome, bio } }),
-    onSuccess: () => { toast.success("Perfil atualizado"); qc.invalidateQueries({ queryKey: ["journey"] }); },
+    onSuccess: () => {
+      toast.success("Perfil atualizado");
+      qc.setQueryData<JourneyData>(["journey"], (old) =>
+        old?.profile ? { ...old, profile: { ...old.profile, nome, bio } } : old,
+      );
+    },
     onError: (e) => toast.error(e.message),
   });
 
-  if (!data.profile || !data.attributes) return null;
+  if (!data.profile || !data.attributes) {
+    return (
+      <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive">
+        Não foi possível carregar seu perfil. Tente atualizar a página.
+      </div>
+    );
+  }
   const level = calcularNivel(data.profile.xp_total);
 
   return (

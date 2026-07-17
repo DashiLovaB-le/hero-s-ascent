@@ -2,34 +2,39 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-// ---------- BOOTSTRAP: garante profile + attributes ----------
-export const bootstrapUser = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabase, userId } = context;
-    // profile
-    const { data: prof } = await supabase.from("profiles").select("id").eq("id", userId).maybeSingle();
-    if (!prof) {
-      await supabase.from("profiles").insert({ id: userId, nome: "Herói" });
-    }
-    const { data: attr } = await supabase.from("attributes").select("user_id").eq("user_id", userId).maybeSingle();
-    if (!attr) {
-      await supabase.from("attributes").insert({ user_id: userId });
-    }
-    return { ok: true };
-  });
+const ATTR_KEYS = [
+  "forca",
+  "disciplina",
+  "sabedoria",
+  "espirito",
+  "testosterona",
+  "prosperidade",
+  "conhecimento",
+  "lideranca",
+] as const;
 
-// ---------- GET JOURNEY (dashboard data) ----------
+const PROFILE_COLS =
+  "id, nome, avatar_url, bio, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, frase_motivacional, onboarding_completo";
+const ATTR_COLS =
+  "user_id, forca, disciplina, sabedoria, espirito, testosterona, prosperidade, conhecimento, lideranca";
+const HABIT_COLS = "id, titulo, descricao, xp_recompensa, atributo, categoria, ativo, created_at";
+
+function hojeISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// ---------- GET JOURNEY (bootstrap embutido + selects enxutos) ----------
 export const getJourney = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
+    const hoje = hojeISO();
 
-    const [profileRes, attrsRes, habitsRes, todayRes, achRes] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
-      supabase.from("attributes").select("*").eq("user_id", userId).maybeSingle(),
-      supabase.from("habits").select("*").eq("user_id", userId).eq("ativo", true).order("created_at"),
-      supabase.from("habit_completions").select("habit_id").eq("user_id", userId).eq("dia", new Date().toISOString().slice(0, 10)),
+    let [profileRes, attrsRes, habitsRes, todayRes, achRes] = await Promise.all([
+      supabase.from("profiles").select(PROFILE_COLS).eq("id", userId).maybeSingle(),
+      supabase.from("attributes").select(ATTR_COLS).eq("user_id", userId).maybeSingle(),
+      supabase.from("habits").select(HABIT_COLS).eq("user_id", userId).eq("ativo", true).order("created_at"),
+      supabase.from("habit_completions").select("habit_id").eq("user_id", userId).eq("dia", hoje),
       supabase
         .from("user_achievements")
         .select("achievement_id, desbloqueado_em, achievements(codigo, titulo, descricao, icone)")
@@ -37,6 +42,50 @@ export const getJourney = createServerFn({ method: "POST" })
         .order("desbloqueado_em", { ascending: false })
         .limit(5),
     ]);
+
+    for (const [label, res] of [
+      ["profiles", profileRes],
+      ["attributes", attrsRes],
+      ["habits", habitsRes],
+      ["habit_completions", todayRes],
+      ["user_achievements", achRes],
+    ] as const) {
+      if (res.error) throw new Error(`Falha ao carregar ${label}: ${res.error.message}`);
+    }
+
+    // Bootstrap só se faltar — service role evita falha silenciosa por RLS sem INSERT
+    if (!profileRes.data || !attrsRes.data) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+      const [pUp, aUp] = await Promise.all([
+        !profileRes.data
+          ? supabaseAdmin.from("profiles").upsert({ id: userId, nome: "Herói" }, { onConflict: "id", ignoreDuplicates: true })
+          : Promise.resolve({ error: null }),
+        !attrsRes.data
+          ? supabaseAdmin.from("attributes").upsert({ user_id: userId }, { onConflict: "user_id", ignoreDuplicates: true })
+          : Promise.resolve({ error: null }),
+      ]);
+
+      if (pUp.error) throw new Error(`Falha ao criar perfil: ${pUp.error.message}`);
+      if (aUp.error) throw new Error(`Falha ao criar atributos: ${aUp.error.message}`);
+
+      const [p2, a2] = await Promise.all([
+        !profileRes.data
+          ? supabase.from("profiles").select(PROFILE_COLS).eq("id", userId).maybeSingle()
+          : Promise.resolve(profileRes),
+        !attrsRes.data
+          ? supabase.from("attributes").select(ATTR_COLS).eq("user_id", userId).maybeSingle()
+          : Promise.resolve(attrsRes),
+      ]);
+      if (p2.error) throw new Error(`Falha ao recarregar perfil: ${p2.error.message}`);
+      if (a2.error) throw new Error(`Falha ao recarregar atributos: ${a2.error.message}`);
+      profileRes = p2;
+      attrsRes = a2;
+    }
+
+    if (!profileRes.data || !attrsRes.data) {
+      throw new Error("Não foi possível inicializar seu perfil de herói. Tente sair e entrar de novo.");
+    }
 
     return {
       profile: profileRes.data,
@@ -47,7 +96,12 @@ export const getJourney = createServerFn({ method: "POST" })
     };
   });
 
-// ---------- COMPLETE HABIT ----------
+/** @deprecated bootstrap embutido em getJourney — mantido por compat */
+export const bootstrapUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => ({ ok: true as const }));
+
+// ---------- COMPLETE HABIT (3 RTTs em vez de ~8) ----------
 export const completeHabit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -55,33 +109,33 @@ export const completeHabit = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = hojeISO();
 
-    // hábito
-    const { data: habit, error: hErr } = await supabase
-      .from("habits").select("*").eq("id", data.habitId).eq("user_id", userId).maybeSingle();
-    if (hErr || !habit) throw new Error("Hábito não encontrado");
+    const [habitRes, existingRes, profRes, attrsRes] = await Promise.all([
+      supabase.from("habits").select(HABIT_COLS).eq("id", data.habitId).eq("user_id", userId).maybeSingle(),
+      supabase
+        .from("habit_completions")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("habit_id", data.habitId)
+        .eq("dia", hoje)
+        .maybeSingle(),
+      supabase.from("profiles").select("xp_total, streak_atual, streak_maximo, ultimo_dia_completo").eq("id", userId).maybeSingle(),
+      supabase.from("attributes").select(ATTR_COLS).eq("user_id", userId).maybeSingle(),
+    ]);
 
-    // já feito hoje?
-    const { data: existing } = await supabase
-      .from("habit_completions").select("id")
-      .eq("user_id", userId).eq("habit_id", data.habitId).eq("dia", hoje).maybeSingle();
-    if (existing) throw new Error("Hábito já concluído hoje");
+    const habit = habitRes.data;
+    if (habitRes.error || !habit) throw new Error("Hábito não encontrado");
+    if (existingRes.data) throw new Error("Hábito já concluído hoje");
 
-    const xp = habit.xp_recompensa ?? 10;
-
-    // registra
-    const { error: cErr } = await supabase.from("habit_completions").insert({
-      user_id: userId, habit_id: data.habitId, dia: hoje, xp_ganho: xp,
-    });
-    if (cErr) throw new Error(cErr.message);
-
-    // profile: xp + streak
-    const { data: prof } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+    const prof = profRes.data;
     if (!prof) throw new Error("Perfil não encontrado");
 
-    const ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
+    const xp = habit.xp_recompensa ?? 10;
+    const ontem = new Date();
+    ontem.setDate(ontem.getDate() - 1);
     const ontemStr = ontem.toISOString().slice(0, 10);
+
     let streak = prof.streak_atual;
     if (prof.ultimo_dia_completo === hoje) {
       // mantém
@@ -91,52 +145,90 @@ export const completeHabit = createServerFn({ method: "POST" })
       streak = 1;
     }
     const streakMax = Math.max(prof.streak_maximo, streak);
-
-    await supabase.from("profiles").update({
-      xp_total: prof.xp_total + xp,
-      streak_atual: streak,
-      streak_maximo: streakMax,
-      ultimo_dia_completo: hoje,
-    }).eq("id", userId);
-
-    // atributos
+    const novoXpTotal = prof.xp_total + xp;
     const attrKey = habit.atributo;
-    const { data: attrs } = await supabase.from("attributes").select("*").eq("user_id", userId).maybeSingle();
-    if (attrs && attrKey && attrKey in attrs) {
-      const current = ((attrs as unknown) as Record<string, number>)[attrKey] ?? 1;
-      const patch: Record<string, number> = { [attrKey]: current + 1 };
-      await supabase.from("attributes").update(patch as never).eq("user_id", userId);
+
+    const { error: cErr } = await supabase.from("habit_completions").insert({
+      user_id: userId,
+      habit_id: data.habitId,
+      dia: hoje,
+      xp_ganho: xp,
+    });
+    if (cErr) throw new Error(cErr.message);
+
+    const attrPatch: Record<string, number> = {};
+    let novoAttrValor: number | undefined;
+    if (attrsRes.data && attrKey && (ATTR_KEYS as readonly string[]).includes(attrKey)) {
+      const current = ((attrsRes.data as unknown) as Record<string, number>)[attrKey] ?? 1;
+      novoAttrValor = current + 1;
+      attrPatch[attrKey] = novoAttrValor;
     }
 
-    // histórico
-    await supabase.from("activity_history").insert({
-      user_id: userId,
-      tipo: "habit_complete",
-      descricao: `Concluiu: ${habit.titulo}`,
-      xp_delta: xp,
-      metadata: { habit_id: habit.id, atributo: attrKey },
-    });
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .update({
+          xp_total: novoXpTotal,
+          streak_atual: streak,
+          streak_maximo: streakMax,
+          ultimo_dia_completo: hoje,
+        })
+        .eq("id", userId),
+      Object.keys(attrPatch).length
+        ? supabase.from("attributes").update(attrPatch as never).eq("user_id", userId)
+        : Promise.resolve(),
+      supabase.from("activity_history").insert({
+        user_id: userId,
+        tipo: "habit_complete",
+        descricao: `Concluiu: ${habit.titulo}`,
+        xp_delta: xp,
+        metadata: { habit_id: habit.id, atributo: attrKey },
+      }),
+    ]);
 
-    return { xpGanho: xp, streak, novoXpTotal: prof.xp_total + xp };
+    return {
+      xpGanho: xp,
+      streak,
+      streakMaximo: streakMax,
+      novoXpTotal,
+      atributo: attrKey,
+      novoAttrValor,
+      habitId: data.habitId,
+    };
   });
 
 // ---------- CREATE HABIT ----------
 export const createHabit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({
-      titulo: z.string().trim().min(2).max(80),
-      descricao: z.string().trim().max(280).optional(),
-      xp_recompensa: z.number().int().min(5).max(200).default(10),
-      atributo: z.enum(["forca","disciplina","sabedoria","espirito","testosterona","prosperidade","conhecimento","lideranca"]),
-      categoria: z.enum(["corpo","mente","espirito","prosperidade","relacionamentos","proposito"]).optional(),
-    }).parse(input),
+    z
+      .object({
+        titulo: z.string().trim().min(2).max(80),
+        descricao: z.string().trim().max(280).optional(),
+        xp_recompensa: z.number().int().min(5).max(200).default(10),
+        atributo: z.enum([
+          "forca",
+          "disciplina",
+          "sabedoria",
+          "espirito",
+          "testosterona",
+          "prosperidade",
+          "conhecimento",
+          "lideranca",
+        ]),
+        categoria: z
+          .enum(["corpo", "mente", "espirito", "prosperidade", "relacionamentos", "proposito"])
+          .optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
-    const { data: row, error } = await supabase.from("habits").insert({
-      user_id: userId, ...data,
-    }).select().single();
+    const { data: row, error } = await supabase
+      .from("habits")
+      .insert({ user_id: userId, ...data })
+      .select(HABIT_COLS)
+      .single();
     if (error) throw new Error(error.message);
     return row;
   });
@@ -156,19 +248,77 @@ export const deleteHabit = createServerFn({ method: "POST" })
 export const listGoals = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data } = await context.supabase.from("goals").select("*").eq("user_id", context.userId).order("created_at");
+    const { data } = await context.supabase
+      .from("goals")
+      .select("id, categoria, titulo, descricao, ativo, created_at")
+      .eq("user_id", context.userId)
+      .eq("ativo", true)
+      .order("created_at");
     return data ?? [];
+  });
+
+export const createGoal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        categoria: z.enum([
+          "corpo",
+          "mente",
+          "espirito",
+          "prosperidade",
+          "relacionamentos",
+          "proposito",
+        ]),
+        titulo: z.string().trim().min(2).max(80),
+      })
+      .parse(i),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: row, error } = await context.supabase
+      .from("goals")
+      .insert({ ...data, user_id: context.userId })
+      .select("id, categoria, titulo, descricao, ativo, created_at")
+      .single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
+export const deleteGoal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase
+      .from("goals")
+      .delete()
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const setGoals = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({
-      goals: z.array(z.object({
-        categoria: z.enum(["corpo","mente","espirito","prosperidade","relacionamentos","proposito"]),
-        titulo: z.string().trim().min(2).max(80),
-      })).max(20),
-    }).parse(i),
+    z
+      .object({
+        goals: z
+          .array(
+            z.object({
+              categoria: z.enum([
+                "corpo",
+                "mente",
+                "espirito",
+                "prosperidade",
+                "relacionamentos",
+                "proposito",
+              ]),
+              titulo: z.string().trim().min(2).max(80),
+            }),
+          )
+          .max(20),
+      })
+      .parse(i),
   )
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
@@ -184,10 +334,12 @@ export const setGoals = createServerFn({ method: "POST" })
 export const updateProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({
-      nome: z.string().trim().min(2).max(60).optional(),
-      bio: z.string().trim().max(280).optional(),
-    }).parse(i),
+    z
+      .object({
+        nome: z.string().trim().min(2).max(60).optional(),
+        bio: z.string().trim().max(280).optional(),
+      })
+      .parse(i),
   )
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase.from("profiles").update(data).eq("id", context.userId);

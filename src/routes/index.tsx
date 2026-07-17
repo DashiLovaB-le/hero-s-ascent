@@ -63,7 +63,7 @@ function Landing() {
             { icon: Sword, title: "Missões reais", desc: "Desafios diários e semanais adaptados às suas metas." },
             { icon: Sparkles, title: "Mentor com IA", desc: "Um conselheiro que aprende com você e sugere o próximo passo." },
           ].map((p) => (
-            <div key={p.title} className="rounded-xl border border-border bg-card p-6 transition-colors hover:border-hero/40">
+            <div key={p.title} className="cp-panel border border-transparent bg-card p-6 transition-colors hover:brightness-110">
               <div className="grid h-11 w-11 place-items-center rounded-lg bg-surface-elevated text-hero">
                 <p.icon className="h-5 w-5" />
               </div>
