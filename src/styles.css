@@ -130,16 +130,67 @@
   }
   html {
     color-scheme: dark;
+    background-color: var(--background);
   }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-    background-image:
-      radial-gradient(ellipse 80% 50% at 50% -10%, color-mix(in srgb, #FC6E20 12%, transparent), transparent),
-      radial-gradient(ellipse 60% 40% at 100% 100%, color-mix(in srgb, #FFE7D0 6%, transparent), transparent);
   }
+
+  /* Fundos fixos por breakpoint (position:fixed — confiável no iOS/desktop) */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-color: #1B1B1B;
+    background-size: cover;
+    background-repeat: no-repeat;
+  }
+
+  /* Mobile: personagem */
+  @media (max-width: 767px) {
+    body {
+      background-color: transparent;
+      background-image: none;
+    }
+
+    body::before {
+      background-image:
+        linear-gradient(
+          180deg,
+          color-mix(in srgb, #1B1B1B 62%, transparent) 0%,
+          color-mix(in srgb, #1B1B1B 78%, transparent) 42%,
+          color-mix(in srgb, #1B1B1B 90%, transparent) 100%
+        ),
+        url("/images/hero-bg-mobile.png");
+      background-position: center top;
+    }
+  }
+
+  /* Desktop: oficina cyberpunk */
+  @media (min-width: 768px) {
+    body {
+      background-color: transparent;
+      background-image: none;
+    }
+
+    body::before {
+      background-image:
+        linear-gradient(
+          180deg,
+          color-mix(in srgb, #1B1B1B 58%, transparent) 0%,
+          color-mix(in srgb, #1B1B1B 72%, transparent) 40%,
+          color-mix(in srgb, #1B1B1B 88%, transparent) 100%
+        ),
+        url("/images/hero-bg-desktop.png");
+      background-position: center center;
+    }
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
     letter-spacing: 0.04em;
@@ -262,5 +313,51 @@
       linear-gradient(var(--hero), var(--hero)) 100% 100% / 14px 1.5px no-repeat,
       linear-gradient(var(--hero), var(--hero)) 100% 100% / 1.5px 14px no-repeat;
     opacity: 0.7;
+  }
+}
+
+/* Ícone ativo na navbar — contorno laranja luminoso */
+@utility nav-icon-glow {
+  color: var(--hero);
+  filter:
+    drop-shadow(0 0 1px #fff6)
+    drop-shadow(0 0 3px var(--hero))
+    drop-shadow(0 0 8px color-mix(in srgb, var(--hero) 80%, transparent))
+    drop-shadow(0 0 14px color-mix(in srgb, var(--hero) 45%, transparent));
+}
+
+/* Transição entre páginas autenticadas — slide-up + fade + flash laranja */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes page-enter-glow {
+  0% {
+    box-shadow: 0 -1px 0 0 color-mix(in srgb, #FC6E20 0%, transparent);
+  }
+  35% {
+    box-shadow: 0 -1px 0 0 color-mix(in srgb, #FC6E20 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 -1px 0 0 color-mix(in srgb, #FC6E20 0%, transparent);
+  }
+}
+
+@utility page-enter {
+  animation:
+    page-enter 200ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    page-enter-glow 180ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
   }
 }

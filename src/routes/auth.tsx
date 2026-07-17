@@ -94,7 +94,7 @@ function AuthPage() {
           <span className="font-display text-xl font-bold">V-Project</span>
         </Link>
 
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-elevated">
+        <div className="cp-modal cp-brackets border border-transparent bg-card p-6 shadow-elevated">
           <Tabs defaultValue="signin">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Entrar</TabsTrigger>

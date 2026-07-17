@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Sword, LayoutDashboard, Target, Flame, LogOut, User } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -18,6 +18,7 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthedLayout() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -28,7 +29,7 @@ function AuthedLayout() {
 
   return (
     <div className="min-h-screen pb-24 md:pb-0">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/70 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link to="/journey" className="flex items-center gap-2">
             <div className="grid h-8 w-8 place-items-center rounded-md bg-hero text-hero-foreground shadow-hero">
@@ -48,12 +49,14 @@ function AuthedLayout() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 animate-in fade-in duration-300">
-        <Outlet />
+      <main className="mx-auto max-w-6xl px-4 py-6">
+        <div key={pathname} className="page-enter">
+          <Outlet />
+        </div>
       </main>
 
       {/* Bottom nav mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/85 backdrop-blur-md md:hidden">
         <div className="mx-auto grid max-w-md grid-cols-4">
           <BottomItem to="/journey" icon={<LayoutDashboard className="h-5 w-5" />} label="Jornada" />
           <BottomItem to="/habits" icon={<Flame className="h-5 w-5" />} label="Hábitos" />
@@ -69,10 +72,14 @@ function NavItem({ to, icon, label }: { to: string; icon: React.ReactNode; label
   return (
     <Link
       to={to}
-      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      activeProps={{ className: "flex items-center gap-2 rounded-md px-3 py-2 text-sm bg-accent text-hero" }}
+      className="group flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      activeProps={{
+        className:
+          "group flex items-center gap-2 rounded-md px-3 py-2 text-sm bg-accent/60 text-hero [&_.nav-icon]:nav-icon-glow",
+      }}
     >
-      {icon}{label}
+      <span className="nav-icon inline-flex transition-[filter,color] duration-200">{icon}</span>
+      {label}
     </Link>
   );
 }
@@ -81,10 +88,14 @@ function BottomItem({ to, icon, label }: { to: string; icon: React.ReactNode; la
   return (
     <Link
       to={to}
-      className="flex flex-col items-center gap-1 py-3 text-xs text-muted-foreground"
-      activeProps={{ className: "flex flex-col items-center gap-1 py-3 text-xs text-hero" }}
+      className="flex flex-col items-center gap-1 py-3 text-xs text-muted-foreground transition-colors"
+      activeProps={{
+        className:
+          "flex flex-col items-center gap-1 py-3 text-xs text-hero [&_.nav-icon]:nav-icon-glow",
+      }}
     >
-      {icon}<span>{label}</span>
+      <span className="nav-icon inline-flex transition-[filter,color] duration-200">{icon}</span>
+      <span>{label}</span>
     </Link>
   );
 }
