@@ -71,24 +71,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "V-Project — Desperte o herói dentro de você" },
+      { title: "V-Project" },
       {
         name: "description",
         content:
           "Transforme seus dias em uma Jornada do Herói. Ganhe XP, evolua atributos e construa o homem que você quer se tornar — um hábito por vez.",
       },
       { name: "author", content: "V-Project" },
-      { property: "og:title", content: "V-Project — Desperte o herói dentro de você" },
+      { property: "og:title", content: "V-Project" },
       {
         property: "og:description",
         content: "Transforme seus dias em uma Jornada do Herói. Ganhe XP, evolua atributos e construa o homem que você quer se tornar — um hábito por vez.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "V-Project — Desperte o herói dentro de você" },
+      { name: "twitter:title", content: "V-Project" },
       { name: "twitter:description", content: "Transforme seus dias em uma Jornada do Herói. Ganhe XP, evolua atributos e construa o homem que você quer se tornar — um hábito por vez." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/19f35a11-c472-4408-a384-43566acf00b7/id-preview-e0c8c509--cf587967-65c8-4d5b-92c8-76f0ab8cb3be.lovable.app-1784250446579.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/19f35a11-c472-4408-a384-43566acf00b7/id-preview-e0c8c509--cf587967-65c8-4d5b-92c8-76f0ab8cb3be.lovable.app-1784250446579.png" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/S6Ob3zuOa9dZQVmS1FswMevIGHq1/social-images/social-1784264454383-img-boasvindas.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/S6Ob3zuOa9dZQVmS1FswMevIGHq1/social-images/social-1784264454383-img-boasvindas.webp" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
