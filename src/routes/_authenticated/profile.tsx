@@ -1,11 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
+import { Check, Swords } from "lucide-react";
 import { toast } from "sonner";
 
 import { updateProfile } from "@/lib/journey.functions";
 import { journeyQueryOptions, type JourneyData } from "@/lib/journey-queries";
+import { completedChallengesQueryOptions } from "@/mentor/queries";
 import { calcularNivel, ATRIBUTO_LABELS } from "@/lib/journey";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +16,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_authenticated/profile")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(journeyQueryOptions()),
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(journeyQueryOptions()),
+      context.queryClient.ensureQueryData(completedChallengesQueryOptions()),
+    ]);
+  },
   errorComponent: ({ error }) => <div className="p-6 text-destructive">{String(error)}</div>,
   notFoundComponent: () => <div>Não encontrado</div>,
   component: ProfilePage,
@@ -22,6 +29,7 @@ export const Route = createFileRoute("/_authenticated/profile")({
 
 function ProfilePage() {
   const { data } = useSuspenseQuery(journeyQueryOptions());
+  const { data: completedChallenges } = useSuspenseQuery(completedChallengesQueryOptions());
   const updateFn = useServerFn(updateProfile);
   const qc = useQueryClient();
 
@@ -41,7 +49,7 @@ function ProfilePage() {
 
   if (!data.profile || !data.attributes) {
     return (
-      <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive">
+      <div className="cp-panel border border-transparent bg-destructive/10 p-6 text-sm text-destructive">
         Não foi possível carregar seu perfil. Tente atualizar a página.
       </div>
     );
@@ -50,7 +58,7 @@ function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
+      <Card className="border-transparent p-6">
         <div className="flex items-center gap-4">
           <div className="grid h-20 w-20 place-items-center rounded-full bg-hero text-hero-foreground shadow-hero">
             <span className="font-display text-3xl font-bold">{level.atual.nivel}</span>
@@ -59,15 +67,22 @@ function ProfilePage() {
             <p className="text-xs uppercase tracking-[0.25em] text-hero">{level.atual.titulo}</p>
             <h1 className="font-display text-2xl font-bold">{data.profile.nome}</h1>
             <p className="text-sm text-muted-foreground">
-              {data.profile.xp_total.toLocaleString("pt-BR")} XP · Streak {data.profile.streak_atual} · Máx {data.profile.streak_maximo}
+              {data.profile.xp_total.toLocaleString("pt-BR")} XP · Streak {data.profile.streak_atual} · Máx{" "}
+              {data.profile.streak_maximo}
             </p>
           </div>
         </div>
       </Card>
 
-      <Card className="p-6">
+      <Card className="border-transparent p-6">
         <h2 className="mb-4 font-display font-semibold">Editar perfil</h2>
-        <form onSubmit={(e) => { e.preventDefault(); m.mutate(); }} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            m.mutate();
+          }}
+          className="space-y-4"
+        >
           <div className="space-y-2">
             <Label>Nome</Label>
             <Input value={nome} onChange={(e) => setNome(e.target.value)} minLength={2} maxLength={60} />
@@ -76,11 +91,13 @@ function ProfilePage() {
             <Label>Bio</Label>
             <Textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280} rows={3} />
           </div>
-          <Button type="submit" disabled={m.isPending}>Salvar</Button>
+          <Button type="submit" disabled={m.isPending} className="rounded-none shadow-hero">
+            Salvar
+          </Button>
         </form>
       </Card>
 
-      <Card className="p-6">
+      <Card className="border-transparent p-6">
         <h2 className="mb-4 font-display font-semibold">Atributos</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {Object.entries(ATRIBUTO_LABELS).map(([key, label]) => {
@@ -95,8 +112,47 @@ function ProfilePage() {
         </div>
       </Card>
 
+      <Card className="border-transparent p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 font-display font-semibold">
+            <Swords className="h-4 w-4 text-hero" />
+            Desafios do Charlie
+          </h2>
+          <Link to="/mentor" className="text-xs uppercase tracking-[0.18em] text-hero hover:underline">
+            Abrir Charlie
+          </Link>
+        </div>
+
+        {completedChallenges.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Nenhum desafio concluído ainda. Fale com Charlie para receber missões.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {completedChallenges.map((c) => (
+              <li
+                key={c.id}
+                className="cp-panel flex items-center gap-3 border border-transparent bg-surface/80 px-4 py-3"
+              >
+                <Check className="h-4 w-4 shrink-0 text-hero" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{c.titulo}</p>
+                  <p className="text-xs text-muted-foreground">
+                    +{c.xp_recompensa} XP
+                    {c.completed_at
+                      ? ` · ${new Date(c.completed_at).toLocaleDateString("pt-BR")}`
+                      : ""}
+                    {c.titulo_recompensa ? ` · ${c.titulo_recompensa}` : ""}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
       {data.achievements.length > 0 && (
-        <Card className="p-6">
+        <Card className="border-transparent p-6">
           <h2 className="mb-4 font-display font-semibold">Conquistas</h2>
           <ul className="space-y-2">
             {data.achievements.map((a) => {

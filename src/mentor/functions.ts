@@ -256,9 +256,9 @@ export const getMentorThread = createServerFn({ method: "POST" })
         .from("mentor_challenges")
         .select(CHALLENGE_COLS)
         .eq("user_id", userId)
-        .in("status", ["ativo", "concluido"])
+        .eq("status", "ativo")
         .order("created_at", { ascending: false })
-        .limit(10),
+        .limit(5),
       supabase.from("profiles").select("nome, onboarding_completo").eq("id", userId).maybeSingle(),
     ]);
 
@@ -469,4 +469,19 @@ export const updateMentorChallenge = createServerFn({ method: "POST" })
     });
 
     return { challenge: updated, xpGanho: chal.xp_recompensa };
+  });
+
+/** Desafios concluídos — usados no perfil */
+export const listCompletedMentorChallenges = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("mentor_challenges")
+      .select(CHALLENGE_COLS)
+      .eq("user_id", context.userId)
+      .eq("status", "concluido")
+      .order("completed_at", { ascending: false })
+      .limit(20);
+    if (error) throw new Error(error.message);
+    return data ?? [];
   });

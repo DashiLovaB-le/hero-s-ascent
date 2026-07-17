@@ -18,6 +18,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 type Msg = MentorThreadData["messages"][number];
 type Challenge = MentorThreadData["challenges"][number];
 
+const OPTIMISTIC_PREFIX = "optimistic-";
+
 export function MentorPage() {
   const { data } = useSuspenseQuery(mentorThreadQueryOptions());
   const qc = useQueryClient();
@@ -28,21 +30,25 @@ export function MentorPage() {
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<Msg[]>(data.messages);
   const [challenges, setChallenges] = useState<Challenge[]>(data.challenges);
+  const [presencePending, setPresencePending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const presenceStarted = useRef(false);
 
   useEffect(() => {
-    setMessages(data.messages);
+    setMessages((prev) => {
+      const optimistic = prev.filter((m) => m.id.startsWith(OPTIMISTIC_PREFIX));
+      if (optimistic.length === 0) return data.messages;
+      const serverContents = new Set(data.messages.map((m) => m.content));
+      const stillPending = optimistic.filter((m) => !serverContents.has(m.content));
+      return [...data.messages, ...stillPending];
+    });
     setChallenges(data.challenges);
   }, [data.messages, data.challenges]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
 
   const onPresence = useEffectEvent(async () => {
     if (presenceStarted.current) return;
     presenceStarted.current = true;
+    setPresencePending(true);
     try {
       const res = await presenceFn({ data: undefined as unknown as never });
       if (res.created && res.message) {
@@ -59,6 +65,8 @@ export function MentorPage() {
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setPresencePending(false);
     }
   });
 
@@ -69,9 +77,25 @@ export function MentorPage() {
 
   const sendM = useMutation({
     mutationFn: (content: string) => sendFn({ data: { content } }),
-    onSuccess: (res) => {
+    onMutate: async (content) => {
+      const optimistic: Msg = {
+        id: `${OPTIMISTIC_PREFIX}${Date.now()}`,
+        role: "user",
+        kind: "chat",
+        content,
+        metadata: {},
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, optimistic]);
+      setDraft("");
+      return { optimisticId: optimistic.id };
+    },
+    onSuccess: (res, _content, ctx) => {
       setMessages((prev) => {
-        const next = [...prev];
+        const withoutOptimistic = ctx?.optimisticId
+          ? prev.filter((m) => m.id !== ctx.optimisticId)
+          : prev;
+        const next = [...withoutOptimistic];
         if (!next.some((m) => m.id === res.userMessage.id)) next.push(res.userMessage);
         if (!next.some((m) => m.id === res.assistantMessage.id)) next.push(res.assistantMessage);
         return next;
@@ -83,10 +107,15 @@ export function MentorPage() {
         ]);
         toast.message("Novo desafio de Charlie", { description: res.challenge.titulo });
       }
-      setDraft("");
       void qc.invalidateQueries({ queryKey: ["mentor-thread"] });
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e, content, ctx) => {
+      if (ctx?.optimisticId) {
+        setMessages((prev) => prev.filter((m) => m.id !== ctx.optimisticId));
+      }
+      setDraft(content);
+      toast.error(e.message);
+    },
   });
 
   const challengeM = useMutation({
@@ -97,6 +126,7 @@ export function MentorPage() {
       if (res.xpGanho > 0) {
         toast.success(`Desafio concluído · +${res.xpGanho} XP`);
         void qc.invalidateQueries({ queryKey: ["journey"] });
+        void qc.invalidateQueries({ queryKey: ["mentor-challenges-completed"] });
       } else {
         toast.message("Desafio encerrado.");
       }
@@ -104,6 +134,12 @@ export function MentorPage() {
     },
     onError: (e) => toast.error(e.message),
   });
+
+  const charlieTyping = sendM.isPending || presencePending;
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length, charlieTyping]);
 
   if (!data.onboardingCompleto) {
     return (
@@ -153,6 +189,9 @@ export function MentorPage() {
 
       {activeChallenges.length > 0 && (
         <section className="space-y-3">
+          <p className="text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">
+            Desafios ativos
+          </p>
           {activeChallenges.map((c) => (
             <div key={c.id} className="cp-panel border border-transparent bg-card/90 p-4">
               <div className="flex items-start gap-3">
@@ -195,7 +234,7 @@ export function MentorPage() {
       <div className="cp-modal cp-brackets flex h-[min(62dvh,640px)] flex-col overflow-hidden border border-transparent bg-card/95">
         <ScrollArea className="h-full flex-1 px-4 py-5 sm:px-5">
           <div className="space-y-4">
-            {messages.length === 0 && !sendM.isPending && (
+            {messages.length === 0 && !charlieTyping && (
               <div className="flex flex-col items-center gap-3 py-16 text-center">
                 <Sparkles className="h-6 w-6 text-hero" />
                 <p className="max-w-xs text-sm text-muted-foreground">
@@ -209,19 +248,7 @@ export function MentorPage() {
               <MessageBubble key={m.id} message={m} />
             ))}
 
-            {sendM.isPending && (
-              <div className="flex justify-start">
-                <div
-                  className="max-w-[85%] bg-surface px-4 py-3 text-sm text-muted-foreground"
-                  style={{
-                    clipPath:
-                      "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)",
-                  }}
-                >
-                  Charlie pondera…
-                </div>
-              </div>
-            )}
+            {charlieTyping && <TypingIndicator />}
             <div ref={bottomRef} />
           </div>
         </ScrollArea>
@@ -257,6 +284,27 @@ export function MentorPage() {
             Enter envia · Shift+Enter quebra linha
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function TypingIndicator() {
+  return (
+    <div className="flex justify-start" aria-live="polite" aria-label="Charlie está respondendo">
+      <div
+        className="flex items-center gap-3 bg-surface px-4 py-3"
+        style={{
+          clipPath:
+            "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)",
+        }}
+      >
+        <span className="flex items-center gap-1.5" aria-hidden>
+          <span className="mentor-typing-dot" style={{ animationDelay: "0ms" }} />
+          <span className="mentor-typing-dot" style={{ animationDelay: "160ms" }} />
+          <span className="mentor-typing-dot" style={{ animationDelay: "320ms" }} />
+        </span>
+        <span className="text-xs text-muted-foreground">Charlie escreve…</span>
       </div>
     </div>
   );

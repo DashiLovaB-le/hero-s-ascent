@@ -3,7 +3,8 @@ import { createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
-import { getJwtProjectRef, getSupabaseProjectRefFromUrl } from "./auth-session";
+import { getJwtProjectRef } from "./auth-session";
+import { getSupabasePublicEnv } from "./env";
 
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
@@ -19,7 +20,6 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
       new Headers(init.headers).forEach((value, key) => headers.set(key, value));
     }
 
-    // New Supabase API keys are opaque strings, not bearer JWTs.
     if (isNewSupabaseApiKey(supabaseKey) && headers.get("Authorization") === `Bearer ${supabaseKey}`) {
       headers.delete("Authorization");
     }
@@ -31,18 +31,10 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 
 export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
-
-    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-      const missing = [
-        ...(!SUPABASE_URL ? ["SUPABASE_URL"] : []),
-        ...(!SUPABASE_PUBLISHABLE_KEY ? ["SUPABASE_PUBLISHABLE_KEY"] : []),
-      ];
-      const message = `Missing Supabase environment variable(s): ${missing.join(", ")}. Connect Supabase in Lovable Cloud.`;
-      console.error(`[Supabase] ${message}`);
-      throw new Error(message);
-    }
+    // Prefer VITE_* so server valida o MESMO projeto do bundle client (.env),
+    // evitando SUPABASE_URL injetado por outro projeto Lovable Cloud.
+    const { url: SUPABASE_URL, publishableKey: SUPABASE_PUBLISHABLE_KEY, projectRef: expectedRef } =
+      getSupabasePublicEnv();
 
     const request = getRequest();
 
@@ -69,7 +61,6 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
       throw new Error("Unauthorized: Invalid token");
     }
 
-    const expectedRef = getSupabaseProjectRefFromUrl(SUPABASE_URL);
     const tokenRef = getJwtProjectRef(token);
     if (expectedRef && tokenRef && expectedRef !== tokenRef) {
       throw new Error(

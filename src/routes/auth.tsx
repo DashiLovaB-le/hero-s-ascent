@@ -4,7 +4,10 @@ import { z } from "zod";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
+import { clearAllSupabaseAuthStorage, getSupabasePublicEnv } from "@/integrations/supabase/env";
+import {
+  getJwtProjectRef,
+} from "@/integrations/supabase/auth-session";
 import { AuthDoorOverlay } from "@/components/auth/AuthDoorOverlay";
 import { AuthWelcomeDialog } from "@/components/auth/AuthWelcomeDialog";
 import { Button } from "@/components/ui/button";
@@ -60,6 +63,22 @@ function AuthPage() {
     let cancelled = false;
 
     async function checkSession() {
+      // Limpa tokens de outros projetos (ex.: Lovable Cloud antigo)
+      try {
+        const { projectRef } = getSupabasePublicEnv();
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token;
+        if (token && projectRef) {
+          const tokenRef = getJwtProjectRef(token);
+          if (tokenRef && tokenRef !== projectRef) {
+            clearAllSupabaseAuthStorage();
+            await supabase.auth.signOut({ scope: "local" });
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+
       const { data } = await supabase.auth.getUser();
       if (cancelled || !data.user || entering.current) return;
 
@@ -130,20 +149,23 @@ function AuthPage() {
     } catch {
       /* ignore */
     }
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/auth`,
+    // OAuth direto no projeto do .env (gmzddccy...) — NÃO usar Lovable Cloud Auth,
+    // que emite token de outro projeto e causa "Token from a different Supabase project".
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth`,
+      },
     });
-    if (result.error) {
+    if (error) {
       setLoading(false);
       try {
         sessionStorage.removeItem(DOOR_FLAG);
       } catch {
         /* ignore */
       }
-      return toast.error("Erro ao entrar com Google.");
+      return toast.error(error.message || "Erro ao entrar com Google.");
     }
-    if (result.redirected) return;
-    showWelcome();
   }
 
   const locked = loading || welcomeOpen || doorActive;
