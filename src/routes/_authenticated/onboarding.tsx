@@ -73,8 +73,8 @@ function Onboarding() {
                 <button
                   key={c.id}
                   onClick={() => toggleCat(c.id)}
-                  className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all ${
-                    on ? "border-hero bg-hero/10" : "border-border bg-card hover:border-hero/40"
+                  className={`cp-panel flex items-center gap-4 border border-transparent p-4 text-left transition-[filter,background-color] ${
+                    on ? "bg-hero/10 brightness-110" : "bg-card/90 hover:brightness-110"
                   }`}
                 >
                   <span className="text-2xl">{c.emoji}</span>
@@ -87,14 +87,18 @@ function Onboarding() {
               );
             })}
           </div>
-          <Button onClick={proceedToMetas} className="w-full" size="lg">
+          <Button
+            onClick={proceedToMetas}
+            className="cp-panel w-full rounded-none shadow-hero [--cp-cut:10px]"
+            size="lg"
+          >
             Continuar <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </>
       )}
 
       {step === 2 && (
-        <Card className="p-6">
+        <Card className="border-transparent bg-card/90 p-6">
           <div className="space-y-3">
             {metas.map((meta, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -110,8 +114,8 @@ function Onboarding() {
             ))}
           </div>
           <div className="mt-6 flex gap-2">
-            <Button variant="outline" onClick={() => setStep(1)}>Voltar</Button>
-            <Button onClick={() => m.mutate()} disabled={m.isPending || metas.length === 0} className="flex-1">
+            <Button variant="outline" className="rounded-none" onClick={() => setStep(1)}>Voltar</Button>
+            <Button onClick={() => m.mutate()} disabled={m.isPending || metas.length === 0} className="flex-1 rounded-none">
               Iniciar minha jornada
             </Button>
           </div>

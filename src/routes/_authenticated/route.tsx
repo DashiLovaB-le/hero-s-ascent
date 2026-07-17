@@ -8,9 +8,13 @@ import { CharlieNavButton } from "@/mentor/CharlieNavButton";
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) throw redirect({ to: "/auth" });
-    return { user: session.user };
+    // getUser valida no Auth server; getSession só lê cache e pode manter token de projeto antigo
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      await supabase.auth.signOut({ scope: "local" });
+      throw redirect({ to: "/auth" });
+    }
+    return { user };
   },
   component: AuthedLayout,
 });

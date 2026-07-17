@@ -104,7 +104,7 @@ export const bootstrapUser = createServerFn({ method: "POST" })
 // ---------- COMPLETE HABIT (3 RTTs em vez de ~8) ----------
 export const completeHabit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ habitId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ context, data }) => {
@@ -200,7 +200,7 @@ export const completeHabit = createServerFn({ method: "POST" })
 // ---------- CREATE HABIT ----------
 export const createHabit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         titulo: z.string().trim().min(2).max(80),
@@ -236,7 +236,7 @@ export const createHabit = createServerFn({ method: "POST" })
 // ---------- DELETE HABIT ----------
 export const deleteHabit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
+  .validator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const { error } = await supabase.from("habits").delete().eq("id", data.id).eq("user_id", userId);
@@ -259,7 +259,7 @@ export const listGoals = createServerFn({ method: "POST" })
 
 export const createGoal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
+  .validator((i: unknown) =>
     z
       .object({
         categoria: z.enum([
@@ -286,7 +286,7 @@ export const createGoal = createServerFn({ method: "POST" })
 
 export const deleteGoal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
+  .validator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
   .handler(async ({ context, data }) => {
     const { error } = await context.supabase
       .from("goals")
@@ -299,7 +299,7 @@ export const deleteGoal = createServerFn({ method: "POST" })
 
 export const setGoals = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
+  .validator((i: unknown) =>
     z
       .object({
         goals: z
@@ -333,7 +333,7 @@ export const setGoals = createServerFn({ method: "POST" })
 // ---------- UPDATE PROFILE ----------
 export const updateProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
+  .validator((i: unknown) =>
     z
       .object({
         nome: z.string().trim().min(2).max(60).optional(),

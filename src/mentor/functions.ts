@@ -342,7 +342,7 @@ export const ensureMentorPresence = createServerFn({ method: "POST" })
 
 export const sendMentorMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({
       content: z.string().trim().min(1, "Escreva algo.").max(2000),
     }).parse(input),
@@ -406,7 +406,7 @@ export const sendMentorMessage = createServerFn({ method: "POST" })
 
 export const updateMentorChallenge = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({
       id: z.string().uuid(),
       action: z.enum(["complete", "decline"]),
