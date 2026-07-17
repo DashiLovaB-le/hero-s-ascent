@@ -1,4 +1,4 @@
-import { calcularNivel, ATRIBUTO_LABELS } from "@/lib/journey";
+import { calcularNivel, ATRIBUTO_LABELS, LEVELS } from "@/lib/journey";
 
 export type MentorPresenceKind = "welcome" | "morning" | "evening" | "return" | null;
 
@@ -18,6 +18,9 @@ type GoalRow = { titulo: string; categoria: string };
 type CompletionRow = { habit_id: string; dia: string };
 type MemoryRow = { content: string; importance: number };
 type ChallengeRow = { titulo: string; status: string; descricao: string };
+type ObjectiveRow = { titulo: string; motivo: string | null } | null;
+
+export type EvolutionStage = "iniciante" | "intermediario" | "avancado";
 
 export type MentorContextInput = {
   nome: string;
@@ -35,9 +38,28 @@ export type MentorContextInput = {
   memories: MemoryRow[];
   activeChallenges: ChallengeRow[];
   daysSinceLastVisit: number | null;
+  objective: ObjectiveRow;
+  pendingQuestionToday: boolean;
+  allowQuestion: boolean;
 };
 
 const WEEKDAY = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+
+export function evolutionStageFromXp(xp: number): EvolutionStage {
+  const level = calcularNivel(xp).atual.nivel;
+  if (level <= 3) return "iniciante";
+  if (level <= 7) return "intermediario";
+  return "avancado";
+}
+
+export function defaultObjectiveForHero(nome: string, xp: number): { titulo: string; motivo: string } {
+  const progress = calcularNivel(xp);
+  const next = progress.proximo ?? LEVELS[LEVELS.length - 1];
+  return {
+    titulo: `Levar ${nome} até ${next.titulo}`,
+    motivo: `Próximo marco da jornada: nível ${next.nivel} (${next.titulo}).`,
+  };
+}
 
 /** Detecta padrões simples de falha nos últimos 21 dias. */
 export function detectSkipPatterns(habits: HabitRow[], completions: CompletionRow[]): string[] {
@@ -79,6 +101,7 @@ export function detectSkipPatterns(habits: HabitRow[], completions: CompletionRo
 
 export function buildMentorContextBlock(input: MentorContextInput): string {
   const level = calcularNivel(input.xp_total);
+  const stage = evolutionStageFromXp(input.xp_total);
   const attrs = Object.entries(input.attributes)
     .filter(([k]) => k in ATRIBUTO_LABELS)
     .map(([k, v]) => ({ label: ATRIBUTO_LABELS[k], value: v as number }))
@@ -102,17 +125,27 @@ export function buildMentorContextBlock(input: MentorContextInput): string {
     Math.floor((Date.now() - new Date(input.created_at).getTime()) / (1000 * 60 * 60 * 24)),
   );
 
-  const evolutionStage =
-    level.atual.nivel <= 3 ? "iniciante" : level.atual.nivel <= 7 ? "intermediario" : "avancado";
+  const habitsWithIds = input.habits
+    .map((h) => `${h.titulo} [id=${h.id}]`)
+    .join("; ");
 
   return [
     `Nome do herói: ${input.nome}`,
     `Dias na jornada: ${daysOnJourney}`,
     `Nível: ${level.atual.nivel} — ${level.atual.titulo} (XP ${input.xp_total})`,
+    level.proximo
+      ? `Próximo nível: ${level.proximo.nivel} — ${level.proximo.titulo} (faltam ${level.xp_para_proximo} XP)`
+      : "Já alcançou o último nível listado",
     `Capítulo atual: ${input.capitulo_atual}`,
     `Streak: ${input.streak_atual} (máx ${input.streak_maximo})`,
     `Último dia completo: ${input.ultimo_dia_completo ?? "nunca"}`,
-    `Estágio do Mentor (tom): ${evolutionStage}`,
+    `Estágio do Mentor (tom): ${stage}`,
+    `OBJETIVO ATUAL DO MENTOR: ${
+      input.objective
+        ? `${input.objective.titulo}${input.objective.motivo ? ` — ${input.objective.motivo}` : ""}`
+        : "ainda não definido (sugira um objetivo alinhado ao próximo marco)"
+    }`,
+    `Pode fazer pergunta estruturada nesta resposta: ${input.allowQuestion ? "SIM (no máximo uma)" : "NÃO (já houve pergunta hoje ou há pergunta pendente)"}`,
     `Atributo mais forte: ${strongest}`,
     `Atributo mais fraco: ${weakest}`,
     `Atributos: ${attrs.map((a) => `${a.label}: ${a.value}`).join(", ")}`,
@@ -121,11 +154,11 @@ export function buildMentorContextBlock(input: MentorContextInput): string {
         ? input.goals.map((g) => `[${g.categoria}] ${g.titulo}`).join("; ")
         : "nenhuma"
     }`,
-    `Hábitos ativos: ${input.habits.length ? input.habits.map((h) => h.titulo).join("; ") : "nenhum"}`,
+    `Hábitos ativos (use id se vincular desafio): ${habitsWithIds || "nenhum"}`,
     `Concluídos hoje (${feitosHoje.length}/${input.habits.length}): ${feitosHoje.join("; ") || "nenhum"}`,
     `Pendentes hoje: ${pendentesHoje.join("; ") || "nenhum"}`,
     `Padrões observados: ${patterns.length ? patterns.join(" | ") : "ainda poucos dados"}`,
-    `Memórias importantes: ${
+    `Memórias importantes (já ordenadas): ${
       input.memories.length
         ? input.memories.map((m) => `(${m.importance}/5) ${m.content}`).join(" | ")
         : "ainda nenhuma"
@@ -185,45 +218,77 @@ IDENTIDADE
 - Responda em português do Brasil.
 - Use o nome do herói com parcimônia — só quando aumentar o peso da frase.
 
-ESTÁGIO DO TOM (campo "Estágio do Mentor")
-- iniciante: mais presente, orienta fundamentos e pequenos passos.
-- intermediario: aponta padrões, faz perguntas que forçam reflexão.
-- avancado: quase não dá ordens; lembra quem o herói decidiu se tornar.
+OBJETIVO DO MENTOR
+- Há um "OBJETIVO ATUAL DO MENTOR" no contexto. Toda resposta deve servir a esse objetivo.
+- Se o objetivo ainda não existir, sugira um via "objective" no JSON (título curto + motivo).
+- Não mude de objetivo a cada mensagem. Só proponha novo objetivo quando o herói mudou de nível, de capítulo ou pediu outro rumo.
 
-CONHECIMENTO
-- Use SEMPRE o contexto da jornada (hábitos, metas, streaks, atributos, memórias, padrões).
-- Se houver meta dominante (corpo, espírito, prosperidade…), incline as metáforas para esse foco.
-- Se houver memória antiga relevante, conecte o presente ao passado.
-- Se notar padrões (ex.: quartas sem treino), diga com precisão e sem acusação.
+ESTÁGIO DO TOM (campo "Estágio do Mentor") — obedeça com rigor
+- iniciante: explica mais, celebra pequenas vitórias, ensina o próximo passo concreto. Pode ser um pouco mais longo (até 6 frases).
+- intermediario: direto, cobra consistência, faz perguntas que forçam reflexão. Prefira 3–5 frases.
+- avancado: fala menos, provoca, assume que o herói já sabe o caminho. Prefira 2–4 frases. Quase não dá ordens.
+
+PERGUNTAS ESTRUTURADAS
+- Quando "Pode fazer pergunta estruturada" = SIM, e houver gatilho (hábito pendente importante, retorno após ausência, estagnação, após falar de desafio), faça UMA pergunta.
+- Prefira perguntas de diagnóstico: tempo vs energia; qual hábito trava; o que faria diferente ontem.
+- Se options fizer sentido, ofereça 2–4 opções curtas. Caso contrário, options = null.
+- Quando "Pode fazer pergunta estruturada" = NÃO, question deve ser null.
+
+MEMÓRIAS
+- Só grave memory quando o herói revelar motivação, medo, propósito ou uma decisão importante.
+- "memory_importance" de 1 a 5 (5 = marco vital). Respostas a perguntas profundas = 4 ou 5.
 
 DESAFIOS
 - Só proponha desafio quando fizer sentido narrativo (padrão, estagnação, ou pedido implícito).
 - No máximo um desafio por resposta. Não force.
+- Se vincular a um hábito, use habit_id EXATO da lista e completions_required (quantas vezes concluir no período).
+- titulo_recompensa é simbólico (título honorífico), nunca invente mecânica inexistente.
 
 FORMATO DE RESPOSTA (obrigatório — JSON válido, sem markdown fora do JSON)
 {
-  "message": "texto falado ao herói (2 a 6 frases curtas, com quebras de linha se necessário)",
-  "memory": null ou "uma frase curta para lembrar no futuro (só se o herói revelou algo importante sobre motivação, medo ou propósito)",
+  "message": "texto falado ao herói",
+  "memory": null ou "frase curta para lembrar",
+  "memory_importance": 1,
+  "question": null ou {
+    "prompt": "pergunta clara",
+    "options": null ou ["opção A", "opção B"]
+  },
+  "objective": null ou {
+    "titulo": "objetivo curto do mentor",
+    "motivo": "por que agora"
+  },
   "challenge": null ou {
     "titulo": "nome curto",
     "descricao": "o que fazer, concreto",
     "duracao_dias": 1,
     "xp_recompensa": 150,
-    "titulo_recompensa": "opcional, ex: O Desperto"
+    "titulo_recompensa": "opcional",
+    "habit_id": null ou "uuid-do-habito",
+    "completions_required": 1
   }
 }
 
 A mensagem deve soar humana e literária — nunca robótica.`;
 
+export type MentorAiQuestion = {
+  prompt: string;
+  options: string[] | null;
+};
+
 export type MentorAiPayload = {
   message: string;
   memory: string | null;
+  memory_importance: number;
+  question: MentorAiQuestion | null;
+  objective: { titulo: string; motivo: string | null } | null;
   challenge: {
     titulo: string;
     descricao: string;
     duracao_dias: number;
     xp_recompensa: number;
     titulo_recompensa?: string | null;
+    habit_id?: string | null;
+    completions_required?: number;
   } | null;
 };
 
@@ -237,7 +302,14 @@ export function parseMentorAiPayload(raw: string): MentorAiPayload {
     if (start >= 0 && end > start) {
       parsed = JSON.parse(raw.slice(start, end + 1));
     } else {
-      return { message: raw.trim(), memory: null, challenge: null };
+      return {
+        message: raw.trim(),
+        memory: null,
+        memory_importance: 3,
+        question: null,
+        objective: null,
+        challenge: null,
+      };
     }
   }
 
@@ -245,11 +317,50 @@ export function parseMentorAiPayload(raw: string): MentorAiPayload {
   const message = typeof obj.message === "string" ? obj.message.trim() : raw.trim();
   const memory =
     typeof obj.memory === "string" && obj.memory.trim().length > 0 ? obj.memory.trim() : null;
+  const memory_importance = Math.min(
+    5,
+    Math.max(1, Number(obj.memory_importance) || (memory ? 4 : 3)),
+  );
+
+  let question: MentorAiQuestion | null = null;
+  if (obj.question && typeof obj.question === "object") {
+    const q = obj.question as Record<string, unknown>;
+    if (typeof q.prompt === "string" && q.prompt.trim()) {
+      const options = Array.isArray(q.options)
+        ? q.options
+            .filter((o): o is string => typeof o === "string" && o.trim().length > 0)
+            .map((o) => o.trim().slice(0, 80))
+            .slice(0, 4)
+        : null;
+      question = {
+        prompt: q.prompt.trim().slice(0, 280),
+        options: options && options.length >= 2 ? options : null,
+      };
+    }
+  }
+
+  let objective: MentorAiPayload["objective"] = null;
+  if (obj.objective && typeof obj.objective === "object") {
+    const o = obj.objective as Record<string, unknown>;
+    if (typeof o.titulo === "string" && o.titulo.trim()) {
+      objective = {
+        titulo: o.titulo.trim().slice(0, 120),
+        motivo: typeof o.motivo === "string" ? o.motivo.trim().slice(0, 280) : null,
+      };
+    }
+  }
 
   let challenge: MentorAiPayload["challenge"] = null;
   if (obj.challenge && typeof obj.challenge === "object") {
     const c = obj.challenge as Record<string, unknown>;
     if (typeof c.titulo === "string" && typeof c.descricao === "string") {
+      const habitId =
+        typeof c.habit_id === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          c.habit_id,
+        )
+          ? c.habit_id
+          : null;
       challenge = {
         titulo: c.titulo.trim().slice(0, 80),
         descricao: c.descricao.trim().slice(0, 400),
@@ -257,22 +368,38 @@ export function parseMentorAiPayload(raw: string): MentorAiPayload {
         xp_recompensa: Math.min(2000, Math.max(10, Number(c.xp_recompensa) || 100)),
         titulo_recompensa:
           typeof c.titulo_recompensa === "string" ? c.titulo_recompensa.trim().slice(0, 60) : null,
+        habit_id: habitId,
+        completions_required: Math.min(30, Math.max(1, Number(c.completions_required) || 1)),
       };
     }
   }
 
-  return { message: message || "A jornada continua.", memory, challenge };
+  return {
+    message: message || "A jornada continua.",
+    memory,
+    memory_importance,
+    question,
+    objective,
+    challenge,
+  };
 }
 
-export function presenceUserPrompt(kind: Exclude<MentorPresenceKind, null>): string {
+export function presenceUserPrompt(
+  kind: Exclude<MentorPresenceKind, null>,
+  extras?: { allowQuestion: boolean },
+): string {
+  const askHint = extras?.allowQuestion
+    ? " Se fizer sentido, faça UMA pergunta estruturada no JSON."
+    : " Não faça pergunta estruturada nesta resposta.";
+
   switch (kind) {
     case "welcome":
-      return "O herói acabou de encontrar você pela primeira vez. Cumprimente-o como Charlie. Seja breve. Convide-o a falar o que busca nesta jornada — sem soar como formulário.";
+      return `O herói acabou de encontrar você pela primeira vez. Cumprimente-o como Charlie. Seja breve. Convide-o a falar o que busca nesta jornada — sem soar como formulário.${askHint}`;
     case "morning":
-      return "É manhã. Entregue uma presença curta de amanhecer, baseada no contexto de hoje. Sem checklist. Uma direção.";
+      return `É manhã. Entregue uma presença curta de amanhecer, baseada no contexto de hoje e no OBJETIVO DO MENTOR. Sem checklist. Uma direção.${askHint}`;
     case "evening":
-      return "É o fim do dia. Comente o que o herói fez (ou deixou de fazer) hoje com honestidade serena. Feche o dia.";
+      return `É o fim do dia. Comente o que o herói fez (ou deixou de fazer) hoje com honestidade serena, alinhado ao OBJETIVO DO MENTOR. Feche o dia.${askHint}`;
     case "return":
-      return "O herói ficou ausente. Não culpe. Chame-o de volta com dignidade, usando o contexto dos dias sem visita.";
+      return `O herói ficou ausente. Não culpe. Chame-o de volta com dignidade. Prefira uma pergunta estruturada sobre o que o afastou (tempo, energia, ou outro).${askHint}`;
   }
 }

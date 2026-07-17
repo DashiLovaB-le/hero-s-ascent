@@ -1,9 +1,11 @@
 -- =============================================================================
--- Mentor IA ? mensagens, mem?rias e desafios
+-- Mentor IA ? mensagens, mem?rias, desafios e objetivo (Charlie Fase 1)
 -- Fonte can?nica do schema: supabase/migrations/20260717004140_complete_schema.sql
+-- Delta incremental (projeto j? provisionado): 20260717130206_charlie_fase1.sql
 -- Este arquivo ? espelho documental (n?o rode isolado em produ??o).
 -- =============================================================================
 
 -- Ver migration completa para enums, tabelas, RLS, ?ndices e grants do Mentor:
 --   mentor_message_role, mentor_message_kind, mentor_challenge_status
---   mentor_messages, mentor_memories, mentor_challenges
+--   mentor_messages, mentor_memories, mentor_challenges, mentor_objectives
+-- Charlie Fase 1: objetivo persistente; habit_id + completions_required nos desafios

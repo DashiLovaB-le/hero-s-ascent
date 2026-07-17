@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { Send, Sparkles, Swords, Check, X } from "lucide-react";
+import { Send, Sparkles, Swords, Check, X, Target } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -17,6 +17,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 type Msg = MentorThreadData["messages"][number];
 type Challenge = MentorThreadData["challenges"][number];
+type Objective = MentorThreadData["objective"];
+type PendingQuestion = MentorThreadData["pendingQuestion"];
 
 const OPTIMISTIC_PREFIX = "optimistic-";
 
@@ -30,6 +32,8 @@ export function MentorPage() {
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<Msg[]>(data.messages);
   const [challenges, setChallenges] = useState<Challenge[]>(data.challenges);
+  const [objective, setObjective] = useState<Objective>(data.objective);
+  const [pendingQuestion, setPendingQuestion] = useState<PendingQuestion>(data.pendingQuestion);
   const [presencePending, setPresencePending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const presenceStarted = useRef(false);
@@ -43,7 +47,9 @@ export function MentorPage() {
       return [...data.messages, ...stillPending];
     });
     setChallenges(data.challenges);
-  }, [data.messages, data.challenges]);
+    setObjective(data.objective);
+    setPendingQuestion(data.pendingQuestion);
+  }, [data.messages, data.challenges, data.objective, data.pendingQuestion]);
 
   const onPresence = useEffectEvent(async () => {
     if (presenceStarted.current) return;
@@ -61,6 +67,8 @@ export function MentorPage() {
             ...prev.filter((c) => c.id !== res.challenge!.id),
           ]);
         }
+        if (res.pendingQuestion) setPendingQuestion(res.pendingQuestion);
+        if (res.objective) setObjective(res.objective);
         void qc.invalidateQueries({ queryKey: ["mentor-thread"] });
       }
     } catch (e) {
@@ -88,6 +96,7 @@ export function MentorPage() {
       };
       setMessages((prev) => [...prev, optimistic]);
       setDraft("");
+      setPendingQuestion(null);
       return { optimisticId: optimistic.id };
     },
     onSuccess: (res, _content, ctx) => {
@@ -107,6 +116,9 @@ export function MentorPage() {
         ]);
         toast.message("Novo desafio de Charlie", { description: res.challenge.titulo });
       }
+      if (res.pendingQuestion) setPendingQuestion(res.pendingQuestion);
+      else setPendingQuestion(null);
+      if (res.objective) setObjective(res.objective);
       void qc.invalidateQueries({ queryKey: ["mentor-thread"] });
     },
     onError: (e, content, ctx) => {
@@ -123,6 +135,12 @@ export function MentorPage() {
       challengeFn({ data: input }),
     onSuccess: (res) => {
       setChallenges((prev) => prev.map((c) => (c.id === res.challenge.id ? res.challenge : c)));
+      if (res.message) {
+        setMessages((prev) =>
+          prev.some((m) => m.id === res.message!.id) ? prev : [...prev, res.message!],
+        );
+      }
+      if (res.pendingQuestion) setPendingQuestion(res.pendingQuestion);
       if (res.xpGanho > 0) {
         toast.success(`Desafio concluído · +${res.xpGanho} XP`);
         void qc.invalidateQueries({ queryKey: ["journey"] });
@@ -139,7 +157,7 @@ export function MentorPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, charlieTyping]);
+  }, [messages.length, charlieTyping, pendingQuestion]);
 
   if (!data.onboardingCompleto) {
     return (
@@ -158,10 +176,10 @@ export function MentorPage() {
 
   const activeChallenges = challenges.filter((c) => c.status === "ativo");
 
-  function submit() {
-    const text = draft.trim();
-    if (!text || sendM.isPending) return;
-    sendM.mutate(text);
+  function submit(text?: string) {
+    const content = (text ?? draft).trim();
+    if (!content || sendM.isPending) return;
+    sendM.mutate(content);
   }
 
   return (
@@ -187,47 +205,82 @@ export function MentorPage() {
         </div>
       </header>
 
+      {objective && (
+        <div className="flex items-start gap-3 border-l-2 border-hero/70 bg-surface/60 px-4 py-3">
+          <Target className="mt-0.5 h-4 w-4 shrink-0 text-hero" />
+          <div className="min-w-0">
+            <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">
+              Objetivo do mentor
+            </p>
+            <p className="mt-0.5 text-sm font-medium leading-snug">{objective.titulo}</p>
+            {objective.motivo && (
+              <p className="mt-1 text-xs text-muted-foreground">{objective.motivo}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeChallenges.length > 0 && (
         <section className="space-y-3">
           <p className="text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">
             Desafios ativos
           </p>
-          {activeChallenges.map((c) => (
-            <div key={c.id} className="cp-panel border border-transparent bg-card/90 p-4">
-              <div className="flex items-start gap-3">
-                <div className="grid h-9 w-9 place-items-center bg-surface-elevated text-hero">
-                  <Swords className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">Desafio</p>
-                  <h2 className="font-display text-lg leading-tight">{c.titulo}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{c.descricao}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {c.duracao_dias} dia{c.duracao_dias > 1 ? "s" : ""} · {c.xp_recompensa} XP
-                    {c.titulo_recompensa ? ` · ${c.titulo_recompensa}` : ""}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      className="shadow-hero"
-                      disabled={challengeM.isPending}
-                      onClick={() => challengeM.mutate({ id: c.id, action: "complete" })}
-                    >
-                      <Check className="h-4 w-4" /> Concluir
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={challengeM.isPending}
-                      onClick={() => challengeM.mutate({ id: c.id, action: "decline" })}
-                    >
-                      <X className="h-4 w-4" /> Deixar para depois
-                    </Button>
+          {activeChallenges.map((c) => {
+            const linked = Boolean(c.habit_id);
+            const done = c.completions_done ?? 0;
+            const needed = c.completions_required ?? 1;
+            const ready = !linked || done >= needed;
+            const endsLabel = c.ends_at
+              ? ` · até ${new Date(c.ends_at).toLocaleDateString("pt-BR", {
+                  day: "2-digit",
+                  month: "short",
+                })}`
+              : "";
+
+            return (
+              <div key={c.id} className="cp-panel border border-transparent bg-card/90 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="grid h-9 w-9 place-items-center bg-surface-elevated text-hero">
+                    <Swords className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">Desafio</p>
+                    <h2 className="font-display text-lg leading-tight">{c.titulo}</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">{c.descricao}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {c.duracao_dias} dia{c.duracao_dias > 1 ? "s" : ""} · {c.xp_recompensa} XP
+                      {c.titulo_recompensa ? ` · ${c.titulo_recompensa}` : ""}
+                      {endsLabel}
+                    </p>
+                    {linked && (
+                      <p className="mt-2 text-xs text-hero/90">
+                        Hábito: {c.habit_titulo ?? "vinculado"} · {done}/{needed} conclusões
+                        {!ready ? " — complete o hábito para liberar" : " — pronto para concluir"}
+                      </p>
+                    )}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        className="shadow-hero"
+                        disabled={challengeM.isPending || !ready}
+                        onClick={() => challengeM.mutate({ id: c.id, action: "complete" })}
+                      >
+                        <Check className="h-4 w-4" /> Concluir
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={challengeM.isPending}
+                        onClick={() => challengeM.mutate({ id: c.id, action: "decline" })}
+                      >
+                        <X className="h-4 w-4" /> Deixar para depois
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </section>
       )}
 
@@ -254,11 +307,40 @@ export function MentorPage() {
         </ScrollArea>
 
         <div className="border-t border-border/60 bg-background/40 p-3 sm:p-4">
+          {pendingQuestion && !sendM.isPending && (
+            <div className="mb-3 space-y-2 border-l-2 border-hero/50 pl-3">
+              <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">
+                Charlie pergunta
+              </p>
+              <p className="text-sm leading-snug">{pendingQuestion.prompt}</p>
+              {pendingQuestion.options && pendingQuestion.options.length >= 2 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {pendingQuestion.options.map((opt) => (
+                    <Button
+                      key={opt}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={sendM.isPending}
+                      onClick={() => submit(opt)}
+                    >
+                      {opt}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex items-end gap-2">
             <Textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Fale com Charlie…"
+              placeholder={
+                pendingQuestion
+                  ? "Responda à pergunta de Charlie…"
+                  : "Fale com Charlie…"
+              }
               rows={2}
               disabled={sendM.isPending}
               className="min-h-[2.75rem] resize-none bg-surface"
@@ -274,7 +356,7 @@ export function MentorPage() {
               size="icon"
               className="h-11 w-11 shrink-0 shadow-hero"
               disabled={sendM.isPending || !draft.trim()}
-              onClick={submit}
+              onClick={() => submit()}
               aria-label="Enviar"
             >
               <Send className="h-4 w-4" />

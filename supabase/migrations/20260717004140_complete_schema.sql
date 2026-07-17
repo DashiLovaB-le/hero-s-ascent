@@ -554,13 +554,20 @@ CREATE TABLE IF NOT EXISTS public.mentor_challenges (
   starts_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   ends_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
+  habit_id UUID REFERENCES public.habits(id) ON DELETE SET NULL,
+  completions_required INTEGER NOT NULL DEFAULT 1,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT mentor_challenges_duracao_check CHECK (duracao_dias BETWEEN 1 AND 30),
-  CONSTRAINT mentor_challenges_xp_check CHECK (xp_recompensa BETWEEN 10 AND 2000)
+  CONSTRAINT mentor_challenges_xp_check CHECK (xp_recompensa BETWEEN 10 AND 2000),
+  CONSTRAINT mentor_challenges_completions_required_check CHECK (completions_required BETWEEN 1 AND 30)
 );
 
 CREATE INDEX IF NOT EXISTS mentor_challenges_user_status_idx
   ON public.mentor_challenges (user_id, status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS mentor_challenges_habit_idx
+  ON public.mentor_challenges (habit_id)
+  WHERE habit_id IS NOT NULL;
 
 GRANT SELECT, INSERT, UPDATE ON public.mentor_challenges TO authenticated;
 GRANT ALL ON public.mentor_challenges TO service_role;
@@ -583,6 +590,48 @@ CREATE POLICY "Atualizar próprios desafios do mentor"
   ON public.mentor_challenges FOR UPDATE TO authenticated
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- -----------------------------------------------------------------------------
+-- MENTOR — OBJETIVO ATUAL (Charlie Fase 1)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.mentor_objectives (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  titulo TEXT NOT NULL,
+  motivo TEXT,
+  source TEXT NOT NULL DEFAULT 'system',
+  ativo BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT mentor_objectives_source_check CHECK (source IN ('system', 'ai', 'manual'))
+);
+
+GRANT SELECT, INSERT, UPDATE ON public.mentor_objectives TO authenticated;
+GRANT ALL ON public.mentor_objectives TO service_role;
+
+ALTER TABLE public.mentor_objectives ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Ver próprio objetivo do mentor" ON public.mentor_objectives;
+DROP POLICY IF EXISTS "Inserir próprio objetivo do mentor" ON public.mentor_objectives;
+DROP POLICY IF EXISTS "Atualizar próprio objetivo do mentor" ON public.mentor_objectives;
+
+CREATE POLICY "Ver próprio objetivo do mentor"
+  ON public.mentor_objectives FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Inserir próprio objetivo do mentor"
+  ON public.mentor_objectives FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Atualizar próprio objetivo do mentor"
+  ON public.mentor_objectives FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP TRIGGER IF EXISTS trg_mentor_objectives_updated ON public.mentor_objectives;
+CREATE TRIGGER trg_mentor_objectives_updated
+  BEFORE UPDATE ON public.mentor_objectives
+  FOR EACH ROW
+  EXECUTE FUNCTION public.set_updated_at();
 
 -- -----------------------------------------------------------------------------
 -- TRIGGER: signup → profile + attributes + role

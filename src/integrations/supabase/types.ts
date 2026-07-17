@@ -256,10 +256,12 @@ export type Database = {
       mentor_challenges: {
         Row: {
           completed_at: string | null
+          completions_required: number
           created_at: string
           descricao: string
           duracao_dias: number
           ends_at: string | null
+          habit_id: string | null
           id: string
           starts_at: string
           status: Database["public"]["Enums"]["mentor_challenge_status"]
@@ -270,10 +272,12 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
+          completions_required?: number
           created_at?: string
           descricao: string
           duracao_dias?: number
           ends_at?: string | null
+          habit_id?: string | null
           id?: string
           starts_at?: string
           status?: Database["public"]["Enums"]["mentor_challenge_status"]
@@ -284,10 +288,12 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
+          completions_required?: number
           created_at?: string
           descricao?: string
           duracao_dias?: number
           ends_at?: string | null
+          habit_id?: string | null
           id?: string
           starts_at?: string
           status?: Database["public"]["Enums"]["mentor_challenge_status"]
@@ -295,6 +301,36 @@ export type Database = {
           titulo_recompensa?: string | null
           user_id?: string
           xp_recompensa?: number
+        }
+        Relationships: []
+      }
+      mentor_objectives: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          motivo: string | null
+          source: string
+          titulo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          motivo?: string | null
+          source?: string
+          titulo: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          motivo?: string | null
+          source?: string
+          titulo?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

@@ -122,22 +122,22 @@ function JourneyPage() {
   return (
     <div className="space-y-6">
       <Card className="cp-brackets overflow-hidden border-transparent bg-hero-glow p-6 shadow-elevated">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="grid h-16 w-16 place-items-center rounded-full bg-hero text-hero-foreground shadow-hero">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-hero text-hero-foreground shadow-hero">
               <span className="font-display text-2xl font-bold">{level.atual.nivel}</span>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-[0.25em] text-hero">{level.atual.titulo}</p>
-              <h1 className="font-display text-2xl font-bold">{profile.nome}</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <h1 className="truncate font-display text-2xl font-bold">{profile.nome}</h1>
+              <p className="mt-1 truncate text-sm text-muted-foreground">
                 Capítulo {profile.capitulo_atual} — {chapterName(profile.capitulo_atual)}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-strength/30 bg-strength/10 px-3 py-1.5 text-strength">
-            <Flame className="h-4 w-4" />
-            <span className="text-sm font-semibold">{profile.streak_atual}</span>
+          <div className="mt-0.5 flex shrink-0 items-center gap-1.5 border border-strength/30 bg-strength/10 px-2.5 py-1.5 text-strength sm:gap-2 sm:px-3">
+            <Flame className="h-4 w-4 shrink-0" />
+            <span className="text-sm font-semibold tabular-nums">{profile.streak_atual}</span>
           </div>
         </div>
 
