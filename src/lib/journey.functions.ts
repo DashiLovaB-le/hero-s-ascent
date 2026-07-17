@@ -233,6 +233,47 @@ export const createHabit = createServerFn({ method: "POST" })
     return row;
   });
 
+// ---------- UPDATE HABIT ----------
+export const updateHabit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        titulo: z.string().trim().min(2).max(80),
+        descricao: z.string().trim().max(280).optional(),
+        xp_recompensa: z.number().int().min(5).max(200),
+        atributo: z.enum([
+          "forca",
+          "disciplina",
+          "sabedoria",
+          "espirito",
+          "testosterona",
+          "prosperidade",
+          "conhecimento",
+          "lideranca",
+        ]),
+        categoria: z
+          .enum(["corpo", "mente", "espirito", "prosperidade", "relacionamentos", "proposito"])
+          .optional()
+          .nullable(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    const { id, ...fields } = data;
+    const { data: row, error } = await supabase
+      .from("habits")
+      .update(fields)
+      .eq("id", id)
+      .eq("user_id", userId)
+      .select(HABIT_COLS)
+      .single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
 // ---------- DELETE HABIT ----------
 export const deleteHabit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Plus, Trash2, Flame } from "lucide-react";
+import { Plus, Trash2, Flame, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
-import { createHabit, deleteHabit, completeHabit } from "@/lib/journey.functions";
+import { createHabit, updateHabit, deleteHabit, completeHabit } from "@/lib/journey.functions";
 import { journeyQueryOptions, type JourneyData } from "@/lib/journey-queries";
 import { ATRIBUTO_LABELS, CATEGORIAS } from "@/lib/journey";
 import { Card } from "@/components/ui/card";
@@ -22,21 +22,48 @@ export const Route = createFileRoute("/_authenticated/habits")({
   component: HabitsPage,
 });
 
+type HabitRow = JourneyData["habits"][number];
+type HabitAttr = HabitRow["atributo"];
+type HabitCategory = NonNullable<HabitRow["categoria"]>;
+
+type HabitFormValues = {
+  titulo: string;
+  xp_recompensa: number;
+  atributo: HabitAttr;
+  categoria?: HabitCategory;
+};
+
 function HabitsPage() {
   const { data } = useSuspenseQuery(journeyQueryOptions());
   const qc = useQueryClient();
   const createFn = useServerFn(createHabit);
+  const updateFn = useServerFn(updateHabit);
   const deleteFn = useServerFn(deleteHabit);
   const completeFn = useServerFn(completeHabit);
-  const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<HabitRow | null>(null);
 
   const createM = useMutation({
-    mutationFn: (input: NewHabitInput) => createFn({ data: input }),
+    mutationFn: (input: HabitFormValues) => createFn({ data: input }),
     onSuccess: (row) => {
       toast.success("Hábito criado");
-      setOpen(false);
+      setCreateOpen(false);
       qc.setQueryData<JourneyData>(["journey"], (old) =>
         old ? { ...old, habits: [...old.habits, row] } : old,
+      );
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const updateM = useMutation({
+    mutationFn: (input: HabitFormValues & { id: string }) => updateFn({ data: input }),
+    onSuccess: (row) => {
+      toast.success("Hábito atualizado");
+      setEditing(null);
+      qc.setQueryData<JourneyData>(["journey"], (old) =>
+        old
+          ? { ...old, habits: old.habits.map((h) => (h.id === row.id ? row : h)) }
+          : old,
       );
     },
     onError: (e) => toast.error(e.message),
@@ -113,16 +140,47 @@ function HabitsPage() {
           <h1 className="font-display text-2xl font-bold">Hábitos</h1>
           <p className="text-sm text-muted-foreground">Rituais diários que forjam o herói.</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-1 h-4 w-4" />Novo</Button>
+            <Button>
+              <Plus className="mr-1 h-4 w-4" />
+              Novo
+            </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Novo hábito</DialogTitle></DialogHeader>
-            <NewHabitForm onSubmit={(v) => createM.mutate(v)} loading={createM.isPending} />
+            <DialogHeader>
+              <DialogTitle>Novo hábito</DialogTitle>
+            </DialogHeader>
+            <HabitForm
+              submitLabel="Criar hábito"
+              onSubmit={(v) => createM.mutate(v)}
+              loading={createM.isPending}
+            />
           </DialogContent>
         </Dialog>
       </div>
+
+      <Dialog
+        open={Boolean(editing)}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar hábito</DialogTitle>
+          </DialogHeader>
+          {editing && (
+            <HabitForm
+              key={editing.id}
+              initial={editing}
+              submitLabel="Salvar"
+              onSubmit={(v) => updateM.mutate({ id: editing.id, ...v })}
+              loading={updateM.isPending}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Card className="p-4">
         {data.habits.length === 0 ? (
@@ -134,18 +192,38 @@ function HabitsPage() {
             {data.habits.map((h) => {
               const done = data.completedToday.includes(h.id);
               return (
-                <li key={h.id} className="flex items-center justify-between py-3">
-                  <div>
+                <li key={h.id} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
                     <p className="font-medium">{h.titulo}</p>
                     <p className="text-xs text-muted-foreground">
-                      {ATRIBUTO_LABELS[h.atributo]} · +{h.xp_recompensa} XP{h.categoria ? ` · ${h.categoria}` : ""}
+                      {ATRIBUTO_LABELS[h.atributo]} · +{h.xp_recompensa} XP
+                      {h.categoria ? ` · ${h.categoria}` : ""}
                     </p>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant={done ? "secondary" : "default"} disabled={done || completeM.isPending} onClick={() => completeM.mutate(h.id)}>
-                      <Flame className="mr-1 h-3.5 w-3.5" />{done ? "Feito" : "Fazer"}
+                  <div className="flex shrink-0 gap-1 sm:gap-2">
+                    <Button
+                      size="sm"
+                      variant={done ? "secondary" : "default"}
+                      disabled={done || completeM.isPending}
+                      onClick={() => completeM.mutate(h.id)}
+                    >
+                      <Flame className="mr-1 h-3.5 w-3.5" />
+                      {done ? "Feito" : "Fazer"}
                     </Button>
-                    <Button size="icon" variant="ghost" onClick={() => deleteM.mutate(h.id)} aria-label="Remover">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setEditing(h)}
+                      aria-label="Editar"
+                    >
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => deleteM.mutate(h.id)}
+                      aria-label="Remover"
+                    >
                       <Trash2 className="h-4 w-4 text-muted-foreground" />
                     </Button>
                   </div>
@@ -159,18 +237,21 @@ function HabitsPage() {
   );
 }
 
-type NewHabitInput = {
-  titulo: string;
-  xp_recompensa: number;
-  atributo: "forca" | "disciplina" | "sabedoria" | "espirito" | "testosterona" | "prosperidade" | "conhecimento" | "lideranca";
-  categoria?: "corpo" | "mente" | "espirito" | "prosperidade" | "relacionamentos" | "proposito";
-};
-
-function NewHabitForm({ onSubmit, loading }: { onSubmit: (v: NewHabitInput) => void; loading: boolean }) {
-  const [titulo, setTitulo] = useState("");
-  const [xp, setXp] = useState(10);
-  const [atributo, setAtributo] = useState<NewHabitInput["atributo"]>("disciplina");
-  const [categoria, setCategoria] = useState<NonNullable<NewHabitInput["categoria"]>>("mente");
+function HabitForm({
+  initial,
+  onSubmit,
+  loading,
+  submitLabel,
+}: {
+  initial?: Pick<HabitRow, "titulo" | "xp_recompensa" | "atributo" | "categoria">;
+  onSubmit: (v: HabitFormValues) => void;
+  loading: boolean;
+  submitLabel: string;
+}) {
+  const [titulo, setTitulo] = useState(initial?.titulo ?? "");
+  const [xp, setXp] = useState(initial?.xp_recompensa ?? 10);
+  const [atributo, setAtributo] = useState<HabitAttr>(initial?.atributo ?? "disciplina");
+  const [categoria, setCategoria] = useState<HabitCategory>(initial?.categoria ?? "mente");
 
   return (
     <form
@@ -182,27 +263,42 @@ function NewHabitForm({ onSubmit, loading }: { onSubmit: (v: NewHabitInput) => v
     >
       <div className="space-y-2">
         <Label>Título</Label>
-        <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex: Treinar 30 min" required minLength={2} maxLength={80} />
+        <Input
+          value={titulo}
+          onChange={(e) => setTitulo(e.target.value)}
+          placeholder="Ex: Treinar 30 min"
+          required
+          minLength={2}
+          maxLength={80}
+        />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <Label>Atributo</Label>
-          <Select value={atributo} onValueChange={(v) => setAtributo(v as typeof atributo)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select value={atributo} onValueChange={(v) => setAtributo(v as HabitAttr)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               {Object.entries(ATRIBUTO_LABELS).map(([k, l]) => (
-                <SelectItem key={k} value={k}>{l}</SelectItem>
+                <SelectItem key={k} value={k}>
+                  {l}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
           <Label>Categoria</Label>
-          <Select value={categoria} onValueChange={(v) => setCategoria(v as typeof categoria)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select value={categoria} onValueChange={(v) => setCategoria(v as HabitCategory)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               {CATEGORIAS.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.emoji} {c.nome}</SelectItem>
+                <SelectItem key={c.id} value={c.id}>
+                  {c.emoji} {c.nome}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -210,9 +306,19 @@ function NewHabitForm({ onSubmit, loading }: { onSubmit: (v: NewHabitInput) => v
       </div>
       <div className="space-y-2">
         <Label>XP por conclusão ({xp})</Label>
-        <input type="range" min={5} max={100} step={5} value={xp} onChange={(e) => setXp(Number(e.target.value))} className="w-full accent-hero" />
+        <input
+          type="range"
+          min={5}
+          max={100}
+          step={5}
+          value={xp}
+          onChange={(e) => setXp(Number(e.target.value))}
+          className="w-full accent-hero"
+        />
       </div>
-      <Button type="submit" className="w-full" disabled={loading}>Criar hábito</Button>
+      <Button type="submit" className="w-full" disabled={loading}>
+        {submitLabel}
+      </Button>
     </form>
   );
 }

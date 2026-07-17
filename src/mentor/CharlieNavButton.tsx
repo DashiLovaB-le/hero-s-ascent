@@ -9,6 +9,7 @@ export function CharlieNavButton() {
     <div className="relative flex h-full items-end justify-center pb-2">
       <Link
         to="/mentor"
+        preload="intent"
         aria-label="Charlie"
         className={[
           "absolute bottom-[22px] z-10 flex size-[56px] items-center justify-center overflow-hidden rounded-full bg-hero shadow-hero ring-[4px] ring-background transition-transform active:scale-95",
