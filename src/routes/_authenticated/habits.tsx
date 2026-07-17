@@ -35,7 +35,7 @@ function HabitsPage() {
   const [open, setOpen] = useState(false);
 
   const createM = useMutation({
-    mutationFn: (input: Parameters<typeof createFn>[0]["data"]) => createFn({ data: input }),
+    mutationFn: (input: NewHabitInput) => createFn({ data: input }),
     onSuccess: () => { toast.success("Hábito criado"); setOpen(false); qc.invalidateQueries({ queryKey: ["journey"] }); },
     onError: (e) => toast.error(e.message),
   });
@@ -103,7 +103,8 @@ function HabitsPage() {
   );
 }
 
-function NewHabitForm({ onSubmit, loading }: { onSubmit: (v: { titulo: string; xp_recompensa: number; atributo: "forca"|"disciplina"|"sabedoria"|"espirito"|"testosterona"|"prosperidade"|"conhecimento"|"lideranca"; categoria?: "corpo"|"mente"|"espirito"|"prosperidade"|"relacionamentos"|"proposito" }) => void; loading: boolean }) {
+type NewHabitInput = { titulo: string; xp_recompensa: number; atributo: "forca"|"disciplina"|"sabedoria"|"espirito"|"testosterona"|"prosperidade"|"conhecimento"|"lideranca"; categoria?: "corpo"|"mente"|"espirito"|"prosperidade"|"relacionamentos"|"proposito" };
+function NewHabitForm({ onSubmit, loading }: { onSubmit: (v: NewHabitInput) => void; loading: boolean }) {
   const [titulo, setTitulo] = useState("");
   const [xp, setXp] = useState(10);
   const [atributo, setAtributo] = useState<"forca"|"disciplina"|"sabedoria"|"espirito"|"testosterona"|"prosperidade"|"conhecimento"|"lideranca">("disciplina");

@@ -104,9 +104,8 @@ export const completeHabit = createServerFn({ method: "POST" })
     const { data: attrs } = await supabase.from("attributes").select("*").eq("user_id", userId).maybeSingle();
     if (attrs && attrKey && attrKey in attrs) {
       const current = ((attrs as unknown) as Record<string, number>)[attrKey] ?? 1;
-      const patch = { [attrKey]: current + 1 } as unknown as Parameters<typeof supabase.from>[0] extends never ? never : Record<string, number>;
-      // @ts-expect-error dynamic column update
-      await supabase.from("attributes").update(patch).eq("user_id", userId);
+      const patch: Record<string, number> = { [attrKey]: current + 1 };
+      await supabase.from("attributes").update(patch as never).eq("user_id", userId);
     }
 
     // histórico

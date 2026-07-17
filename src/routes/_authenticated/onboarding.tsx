@@ -32,7 +32,7 @@ function Onboarding() {
   const [metas, setMetas] = useState<{ categoria: string; titulo: string }[]>([]);
 
   const m = useMutation({
-    mutationFn: () => setFn({ data: { goals: metas as Parameters<typeof setFn>[0]["data"]["goals"] } }),
+    mutationFn: () => setFn({ data: { goals: metas as { categoria: "corpo"|"mente"|"espirito"|"prosperidade"|"relacionamentos"|"proposito"; titulo: string }[] } }),
     onSuccess: () => { toast.success("Sua jornada está pronta."); navigate({ to: "/journey", replace: true }); },
     onError: (e) => toast.error(e.message),
   });
