@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { AuthDoorOverlay } from "@/components/auth/AuthDoorOverlay";
+import { AuthWelcomeDialog } from "@/components/auth/AuthWelcomeDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,7 @@ const DOOR_FLAG = "v-auth-door";
 function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [doorActive, setDoorActive] = useState(false);
   const entering = useRef(false);
 
@@ -32,15 +34,26 @@ function AuthPage() {
     navigate({ to: "/journey", replace: true });
   }
 
-  function playDoorThenEnter() {
-    if (entering.current) return;
-    entering.current = true;
+  function showWelcome() {
+    if (entering.current || welcomeOpen || doorActive) return;
     try {
       sessionStorage.removeItem(DOOR_FLAG);
     } catch {
       /* ignore */
     }
+    setWelcomeOpen(true);
+  }
+
+  function playDoorThenEnter() {
+    if (entering.current) return;
+    entering.current = true;
+    setWelcomeOpen(false);
     setDoorActive(true);
+  }
+
+  function handleWelcomeContinue() {
+    setWelcomeOpen(false);
+    playDoorThenEnter();
   }
 
   useEffect(() => {
@@ -58,7 +71,7 @@ function AuthPage() {
       }
 
       if (wantsDoor) {
-        playDoorThenEnter();
+        showWelcome();
       } else {
         goJourney();
       }
@@ -84,8 +97,7 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) return toast.error(error.message);
-    toast.success("Bem-vindo de volta, herói.");
-    playDoorThenEnter();
+    showWelcome();
   }
 
   async function handleSignUp(e: React.FormEvent<HTMLFormElement>) {
@@ -131,9 +143,10 @@ function AuthPage() {
       return toast.error("Erro ao entrar com Google.");
     }
     if (result.redirected) return;
-    toast.success("Bem-vindo de volta, herói.");
-    playDoorThenEnter();
+    showWelcome();
   }
+
+  const locked = loading || welcomeOpen || doorActive;
 
   return (
     <div
@@ -173,7 +186,7 @@ function AuthPage() {
                   <Label htmlFor="pass-in">Senha</Label>
                   <Input id="pass-in" name="password" type="password" required autoComplete="current-password" />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading || doorActive}>
+                <Button type="submit" className="w-full" disabled={locked}>
                   Entrar
                 </Button>
               </form>
@@ -200,7 +213,7 @@ function AuthPage() {
                     minLength={6}
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading || doorActive}>
+                <Button type="submit" className="w-full" disabled={locked}>
                   Aceitar o chamado
                 </Button>
               </form>
@@ -211,13 +224,7 @@ function AuthPage() {
             <div className="h-px flex-1 bg-border" /> ou <div className="h-px flex-1 bg-border" />
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={handleGoogle}
-            disabled={loading || doorActive}
-          >
+          <Button type="button" variant="outline" className="w-full" onClick={handleGoogle} disabled={locked}>
             Continuar com Google
           </Button>
         </div>
@@ -227,6 +234,7 @@ function AuthPage() {
         </p>
       </div>
 
+      <AuthWelcomeDialog open={welcomeOpen} onContinue={handleWelcomeContinue} />
       <AuthDoorOverlay active={doorActive} onComplete={goJourney} />
     </div>
   );
