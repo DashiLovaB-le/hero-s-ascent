@@ -3,11 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, Target, Flame, LogOut, User } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { CharlieNavButton } from "@/mentor/CharlieNavButton";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    // getSession é local/cacheado; evita round-trip de rede a cada navegação
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) throw redirect({ to: "/auth" });
     return { user: session.user };
@@ -28,7 +28,7 @@ function AuthedLayout() {
   }
 
   return (
-    <div className="min-h-screen pb-24 md:pb-0">
+    <div className="min-h-screen pb-28 md:pb-0">
       <header className="sticky top-0 z-40 border-b border-border bg-background/70 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link to="/journey" className="flex items-center gap-2">
@@ -42,6 +42,17 @@ function AuthedLayout() {
           <nav className="hidden items-center gap-1 md:flex">
             <NavItem to="/journey" icon={<LayoutDashboard className="h-4 w-4" />} label="Jornada" />
             <NavItem to="/habits" icon={<Flame className="h-4 w-4" />} label="Hábitos" />
+            <NavItem
+              to="/mentor"
+              icon={
+                <img
+                  src="/charlie.png"
+                  alt=""
+                  className="h-5 w-5 rounded-full object-cover object-top ring-1 ring-hero/50"
+                />
+              }
+              label="Charlie"
+            />
             <NavItem to="/goals" icon={<Target className="h-4 w-4" />} label="Metas" />
             <NavItem to="/profile" icon={<User className="h-4 w-4" />} label="Perfil" />
           </nav>
@@ -57,13 +68,13 @@ function AuthedLayout() {
         </div>
       </main>
 
-      {/* Bottom nav mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/85 backdrop-blur-md md:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-4">
-          <BottomItem to="/journey" icon={<LayoutDashboard className="h-5 w-5" />} label="Jornada" />
-          <BottomItem to="/habits" icon={<Flame className="h-5 w-5" />} label="Hábitos" />
-          <BottomItem to="/goals" icon={<Target className="h-5 w-5" />} label="Metas" />
-          <BottomItem to="/profile" icon={<User className="h-5 w-5" />} label="Perfil" />
+      <nav className="fixed bottom-0 left-0 right-0 z-40 overflow-visible border-t border-border bg-background/90 backdrop-blur-md md:hidden">
+        <div className="relative mx-auto grid h-[64px] max-w-[370px] grid-cols-5 items-end">
+          <BottomItem to="/journey" icon={<LayoutDashboard className="size-6" strokeWidth={2} />} label="Jornada" />
+          <BottomItem to="/habits" icon={<Flame className="size-6" strokeWidth={2} />} label="Hábitos" />
+          <CharlieNavButton />
+          <BottomItem to="/goals" icon={<Target className="size-6" strokeWidth={2} />} label="Metas" />
+          <BottomItem to="/profile" icon={<User className="size-6" strokeWidth={2} />} label="Perfil" />
         </div>
       </nav>
     </div>
@@ -90,13 +101,16 @@ function BottomItem({ to, icon, label }: { to: string; icon: React.ReactNode; la
   return (
     <Link
       to={to}
-      className="flex flex-col items-center gap-1 py-3 text-xs text-muted-foreground transition-colors"
+      className="flex h-full flex-col items-center justify-center gap-1 text-[12px] leading-none text-muted-foreground transition-colors"
       activeProps={{
         className:
-          "flex flex-col items-center gap-1 py-3 text-xs text-hero [&_.nav-icon]:nav-icon-glow",
+          "flex h-full flex-col items-center justify-center gap-1 text-[12px] leading-none text-hero [&_.nav-icon]:nav-icon-glow [&_.nav-active-bar]:bg-hero",
       }}
     >
-      <span className="nav-icon inline-flex transition-[filter,color] duration-200">{icon}</span>
+      <span className="nav-active-bar mb-0.5 h-0.5 w-4 rounded-full bg-transparent" aria-hidden />
+      <span className="nav-icon inline-flex size-6 items-center justify-center transition-[filter,color] duration-200">
+        {icon}
+      </span>
       <span>{label}</span>
     </Link>
   );

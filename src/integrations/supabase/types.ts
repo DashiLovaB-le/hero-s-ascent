@@ -253,6 +253,105 @@ export type Database = {
         }
         Relationships: []
       }
+      mentor_challenges: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          descricao: string
+          duracao_dias: number
+          ends_at: string | null
+          id: string
+          starts_at: string
+          status: Database["public"]["Enums"]["mentor_challenge_status"]
+          titulo: string
+          titulo_recompensa: string | null
+          user_id: string
+          xp_recompensa: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          descricao: string
+          duracao_dias?: number
+          ends_at?: string | null
+          id?: string
+          starts_at?: string
+          status?: Database["public"]["Enums"]["mentor_challenge_status"]
+          titulo: string
+          titulo_recompensa?: string | null
+          user_id: string
+          xp_recompensa?: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          descricao?: string
+          duracao_dias?: number
+          ends_at?: string | null
+          id?: string
+          starts_at?: string
+          status?: Database["public"]["Enums"]["mentor_challenge_status"]
+          titulo?: string
+          titulo_recompensa?: string | null
+          user_id?: string
+          xp_recompensa?: number
+        }
+        Relationships: []
+      }
+      mentor_memories: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          importance: number
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          importance?: number
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          importance?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mentor_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["mentor_message_kind"]
+          metadata: Json
+          role: Database["public"]["Enums"]["mentor_message_role"]
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["mentor_message_kind"]
+          metadata?: Json
+          role: Database["public"]["Enums"]["mentor_message_role"]
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["mentor_message_kind"]
+          metadata?: Json
+          role?: Database["public"]["Enums"]["mentor_message_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -376,6 +475,16 @@ export type Database = {
         | "prosperidade"
         | "relacionamentos"
         | "proposito"
+      mentor_challenge_status: "ativo" | "concluido" | "expirado" | "recusado"
+      mentor_message_kind:
+        | "chat"
+        | "morning"
+        | "evening"
+        | "return"
+        | "challenge"
+        | "insight"
+        | "welcome"
+      mentor_message_role: "user" | "assistant"
       mission_kind: "principal" | "secundaria"
     }
     CompositeTypes: {
@@ -523,6 +632,17 @@ export const Constants = {
         "relacionamentos",
         "proposito",
       ],
+      mentor_challenge_status: ["ativo", "concluido", "expirado", "recusado"],
+      mentor_message_kind: [
+        "chat",
+        "morning",
+        "evening",
+        "return",
+        "challenge",
+        "insight",
+        "welcome",
+      ],
+      mentor_message_role: ["user", "assistant"],
       mission_kind: ["principal", "secundaria"],
     },
   },

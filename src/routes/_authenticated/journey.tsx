@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { completeHabit } from "@/lib/journey.functions";
 import { journeyQueryOptions, type JourneyData } from "@/lib/journey-queries";
 import { calcularNivel, fraseDoDia, ATRIBUTO_LABELS } from "@/lib/journey";
+import { MentorJourneyCard } from "@/mentor/MentorJourneyCard";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
@@ -231,6 +232,8 @@ function JourneyPage() {
           </div>
         )}
       </Card>
+
+      <MentorJourneyCard />
 
       <Card className="p-6">
         <h2 className="mb-4 font-display text-lg font-semibold">Atributos</h2>

@@ -1,0 +1,297 @@
+import { Link } from "@tanstack/react-router";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { Send, Sparkles, Swords, Check, X } from "lucide-react";
+import { toast } from "sonner";
+
+import {
+  ensureMentorPresence,
+  sendMentorMessage,
+  updateMentorChallenge,
+} from "@/mentor/functions";
+import { mentorThreadQueryOptions, type MentorThreadData } from "@/mentor/queries";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+type Msg = MentorThreadData["messages"][number];
+type Challenge = MentorThreadData["challenges"][number];
+
+export function MentorPage() {
+  const { data } = useSuspenseQuery(mentorThreadQueryOptions());
+  const qc = useQueryClient();
+  const sendFn = useServerFn(sendMentorMessage);
+  const presenceFn = useServerFn(ensureMentorPresence);
+  const challengeFn = useServerFn(updateMentorChallenge);
+
+  const [draft, setDraft] = useState("");
+  const [messages, setMessages] = useState<Msg[]>(data.messages);
+  const [challenges, setChallenges] = useState<Challenge[]>(data.challenges);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const presenceStarted = useRef(false);
+
+  useEffect(() => {
+    setMessages(data.messages);
+    setChallenges(data.challenges);
+  }, [data.messages, data.challenges]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  const onPresence = useEffectEvent(async () => {
+    if (presenceStarted.current) return;
+    presenceStarted.current = true;
+    try {
+      const res = await presenceFn({ data: undefined as unknown as never });
+      if (res.created && res.message) {
+        setMessages((prev) =>
+          prev.some((m) => m.id === res.message!.id) ? prev : [...prev, res.message!],
+        );
+        if (res.challenge) {
+          setChallenges((prev) => [
+            res.challenge!,
+            ...prev.filter((c) => c.id !== res.challenge!.id),
+          ]);
+        }
+        void qc.invalidateQueries({ queryKey: ["mentor-thread"] });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  });
+
+  useEffect(() => {
+    if (!data.onboardingCompleto) return;
+    void onPresence();
+  }, [data.onboardingCompleto]);
+
+  const sendM = useMutation({
+    mutationFn: (content: string) => sendFn({ data: { content } }),
+    onSuccess: (res) => {
+      setMessages((prev) => {
+        const next = [...prev];
+        if (!next.some((m) => m.id === res.userMessage.id)) next.push(res.userMessage);
+        if (!next.some((m) => m.id === res.assistantMessage.id)) next.push(res.assistantMessage);
+        return next;
+      });
+      if (res.challenge) {
+        setChallenges((prev) => [
+          res.challenge!,
+          ...prev.filter((c) => c.id !== res.challenge!.id),
+        ]);
+        toast.message("Novo desafio de Charlie", { description: res.challenge.titulo });
+      }
+      setDraft("");
+      void qc.invalidateQueries({ queryKey: ["mentor-thread"] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const challengeM = useMutation({
+    mutationFn: (input: { id: string; action: "complete" | "decline" }) =>
+      challengeFn({ data: input }),
+    onSuccess: (res) => {
+      setChallenges((prev) => prev.map((c) => (c.id === res.challenge.id ? res.challenge : c)));
+      if (res.xpGanho > 0) {
+        toast.success(`Desafio concluído · +${res.xpGanho} XP`);
+        void qc.invalidateQueries({ queryKey: ["journey"] });
+      } else {
+        toast.message("Desafio encerrado.");
+      }
+      void qc.invalidateQueries({ queryKey: ["mentor-thread"] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  if (!data.onboardingCompleto) {
+    return (
+      <div className="cp-modal cp-brackets mx-auto max-w-lg border border-transparent bg-card p-8 text-center">
+        <p className="text-xs uppercase tracking-[0.28em] text-hero">Charlie</p>
+        <h1 className="mt-3 font-display text-2xl">Ainda não.</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Complete o chamado antes de encontrar Charlie.
+        </p>
+        <Link to="/onboarding" className="mt-6 inline-block">
+          <Button className="shadow-hero">Ir ao onboarding</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const activeChallenges = challenges.filter((c) => c.status === "ativo");
+
+  function submit() {
+    const text = draft.trim();
+    if (!text || sendM.isPending) return;
+    sendM.mutate(text);
+  }
+
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-4">
+      <header className="flex items-end gap-4">
+        <div className="relative shrink-0">
+          <img
+            src="/charlie.png"
+            alt="Charlie"
+            className="h-16 w-16 object-cover object-top shadow-hero sm:h-20 sm:w-20"
+            style={{
+              clipPath:
+                "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)",
+            }}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs uppercase tracking-[0.28em] text-hero">Presença viva</p>
+          <h1 className="font-display text-2xl font-bold tracking-wide sm:text-3xl">Charlie</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ele conhece sua jornada, {data.heroName}. Fale com verdade.
+          </p>
+        </div>
+      </header>
+
+      {activeChallenges.length > 0 && (
+        <section className="space-y-3">
+          {activeChallenges.map((c) => (
+            <div key={c.id} className="cp-panel border border-transparent bg-card/90 p-4">
+              <div className="flex items-start gap-3">
+                <div className="grid h-9 w-9 place-items-center bg-surface-elevated text-hero">
+                  <Swords className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">Desafio</p>
+                  <h2 className="font-display text-lg leading-tight">{c.titulo}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">{c.descricao}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {c.duracao_dias} dia{c.duracao_dias > 1 ? "s" : ""} · {c.xp_recompensa} XP
+                    {c.titulo_recompensa ? ` · ${c.titulo_recompensa}` : ""}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      className="shadow-hero"
+                      disabled={challengeM.isPending}
+                      onClick={() => challengeM.mutate({ id: c.id, action: "complete" })}
+                    >
+                      <Check className="h-4 w-4" /> Concluir
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={challengeM.isPending}
+                      onClick={() => challengeM.mutate({ id: c.id, action: "decline" })}
+                    >
+                      <X className="h-4 w-4" /> Deixar para depois
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      <div className="cp-modal cp-brackets flex h-[min(62dvh,640px)] flex-col overflow-hidden border border-transparent bg-card/95">
+        <ScrollArea className="h-full flex-1 px-4 py-5 sm:px-5">
+          <div className="space-y-4">
+            {messages.length === 0 && !sendM.isPending && (
+              <div className="flex flex-col items-center gap-3 py-16 text-center">
+                <Sparkles className="h-6 w-6 text-hero" />
+                <p className="max-w-xs text-sm text-muted-foreground">
+                  Charlie está chegando. Aguarde a primeira palavra — ou escreva o que trouxe você
+                  até aqui.
+                </p>
+              </div>
+            )}
+
+            {messages.map((m) => (
+              <MessageBubble key={m.id} message={m} />
+            ))}
+
+            {sendM.isPending && (
+              <div className="flex justify-start">
+                <div
+                  className="max-w-[85%] bg-surface px-4 py-3 text-sm text-muted-foreground"
+                  style={{
+                    clipPath:
+                      "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)",
+                  }}
+                >
+                  Charlie pondera…
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+        </ScrollArea>
+
+        <div className="border-t border-border/60 bg-background/40 p-3 sm:p-4">
+          <div className="flex items-end gap-2">
+            <Textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Fale com Charlie…"
+              rows={2}
+              disabled={sendM.isPending}
+              className="min-h-[2.75rem] resize-none bg-surface"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+            />
+            <Button
+              type="button"
+              size="icon"
+              className="h-11 w-11 shrink-0 shadow-hero"
+              disabled={sendM.isPending || !draft.trim()}
+              onClick={submit}
+              aria-label="Enviar"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="mt-2 text-[0.65rem] tracking-wide text-muted-foreground">
+            Enter envia · Shift+Enter quebra linha
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MessageBubble({ message }: { message: Msg }) {
+  const isUser = message.role === "user";
+  const kindLabel =
+    message.kind === "morning"
+      ? "Amanhecer"
+      : message.kind === "evening"
+        ? "Anoitecer"
+        : message.kind === "return"
+          ? "Retorno"
+          : message.kind === "welcome"
+            ? "Primeiro encontro"
+            : null;
+
+  return (
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`max-w-[88%] px-4 py-3 sm:max-w-[80%] ${
+          isUser ? "bg-hero text-hero-foreground" : "bg-surface text-foreground"
+        }`}
+        style={{
+          clipPath: isUser
+            ? "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))"
+            : "polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)",
+        }}
+      >
+        {!isUser && kindLabel && (
+          <p className="mb-1.5 text-[0.6rem] uppercase tracking-[0.22em] text-hero">{kindLabel}</p>
+        )}
+        <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+      </div>
+    </div>
+  );
+}
