@@ -10,6 +10,7 @@ import {
   sendMentorMessage,
   updateMentorChallenge,
 } from "@/mentor/functions";
+import { parseMentorAiPayload } from "@/mentor/context";
 import { mentorThreadQueryOptions, type MentorThreadData } from "@/mentor/queries";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -405,6 +406,8 @@ function MessageBubble({ message }: { message: Msg }) {
             ? "Primeiro encontro"
             : null;
 
+  const content = displayMentorContent(message.content, message.role);
+
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
@@ -420,8 +423,18 @@ function MessageBubble({ message }: { message: Msg }) {
         {!isUser && kindLabel && (
           <p className="mb-1.5 text-[0.6rem] uppercase tracking-[0.22em] text-hero">{kindLabel}</p>
         )}
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed">{content}</p>
       </div>
     </div>
   );
+}
+
+/** Evita mostrar JSON cru / lixo de truncamento em mensagens já salvas. */
+function displayMentorContent(content: string, role: string) {
+  if (role !== "assistant") return content;
+  const trimmed = content.trim();
+  if (trimmed.startsWith("{") && trimmed.includes('"message"')) {
+    return parseMentorAiPayload(trimmed).message;
+  }
+  return trimmed.replace(/(?:<\/){2,}/g, "").replace(/<\/+$/g, "").trim() || content;
 }

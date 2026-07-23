@@ -18,6 +18,7 @@ type OpenRouterOptions = {
 type OpenRouterResult = {
   content: string;
   model: string;
+  finishReason: string | null;
 };
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -36,7 +37,7 @@ export async function chatCompletion(opts: OpenRouterOptions): Promise<OpenRoute
     model,
     messages: opts.messages,
     temperature: opts.temperature ?? 0.75,
-    max_tokens: opts.maxTokens ?? 900,
+    max_tokens: opts.maxTokens ?? 1200,
   };
 
   if (opts.jsonMode) {
@@ -68,13 +69,21 @@ export async function chatCompletion(opts: OpenRouterOptions): Promise<OpenRoute
 
   const data = (await res.json()) as {
     model?: string;
-    choices?: Array<{ message?: { content?: string | null } }>;
+    choices?: Array<{
+      message?: { content?: string | null };
+      finish_reason?: string | null;
+    }>;
   };
 
-  const content = data.choices?.[0]?.message?.content?.trim();
+  const choice = data.choices?.[0];
+  const content = choice?.message?.content?.trim();
   if (!content) {
     throw new Error("O Mentor ficou em silêncio. Tente novamente.");
   }
 
-  return { content, model: data.model ?? model };
+  return {
+    content,
+    model: data.model ?? model,
+    finishReason: choice?.finish_reason ?? null,
+  };
 }

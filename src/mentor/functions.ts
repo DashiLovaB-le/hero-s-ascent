@@ -339,12 +339,40 @@ async function callMentor(
     { role: "user" as const, content: opts.userText },
   ];
 
-  const { content, model } = await chatCompletion({
+  let { content, model, finishReason } = await chatCompletion({
     messages,
     jsonMode: true,
     temperature: 0.8,
-    maxTokens: 900,
+    maxTokens: 1200,
   });
+
+  // Truncamento (max tokens) ou JSON claramente incompleto → uma nova tentativa mais curta
+  const looksTruncated =
+    finishReason === "length" ||
+    (content.trim().startsWith("{") &&
+      (!content.includes('"message"') ||
+        /(?:<\/){3,}/.test(content) ||
+        (content.match(/"/g) ?? []).length % 2 === 1));
+
+  if (looksTruncated) {
+    console.warn("[mentor] resposta truncada/corrompida — retry");
+    const retry = await chatCompletion({
+      messages: [
+        ...messages,
+        {
+          role: "user",
+          content:
+            "Sua resposta anterior veio incompleta. Reenvie o JSON completo e curto: message (máx 4 frases), question null ou prompt curto, challenge null.",
+        },
+      ],
+      jsonMode: true,
+      temperature: 0.5,
+      maxTokens: 900,
+    });
+    content = retry.content;
+    model = retry.model;
+    finishReason = retry.finishReason;
+  }
 
   const payload = parseMentorAiPayload(content);
 

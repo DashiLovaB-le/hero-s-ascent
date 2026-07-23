@@ -268,7 +268,10 @@ FORMATO DE RESPOSTA (obrigatório — JSON válido, sem markdown fora do JSON)
   }
 }
 
-A mensagem deve soar humana e literária — nunca robótica.`;
+- A mensagem deve soar humana e literária — nunca robótica.
+- Nunca use tags HTML/XML. Nunca invente sequências como "</".
+- O JSON deve caber por completo: message curto (até 4 frases). Se for fazer pergunta, prompt de uma linha.
+`;
 
 export type MentorAiQuestion = {
   prompt: string;
@@ -292,31 +295,104 @@ export type MentorAiPayload = {
   } | null;
 };
 
-export function parseMentorAiPayload(raw: string): MentorAiPayload {
-  let parsed: unknown;
+/** Remove lixo típico de JSON truncado (ex.: `</</</`). */
+function scrubMentorText(text: string): string {
+  return text
+    .replace(/(?:<\s*\/\s*){2,}/g, "")
+    .replace(/(?:<\/){2,}/g, "")
+    .replace(/<\/+$/g, "")
+    .replace(/\s{3,}/g, " ")
+    .trim();
+}
+
+function unescapeJsonString(s: string): string {
   try {
-    parsed = JSON.parse(raw);
+    return JSON.parse(`"${s}"`) as string;
   } catch {
-    const start = raw.indexOf("{");
-    const end = raw.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      parsed = JSON.parse(raw.slice(start, end + 1));
-    } else {
-      return {
-        message: raw.trim(),
-        memory: null,
-        memory_importance: 3,
-        question: null,
-        objective: null,
-        challenge: null,
-      };
-    }
+    return s
+      .replace(/\\n/g, "\n")
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, "\\");
+  }
+}
+
+/** Extrai um campo string mesmo de JSON incompleto / truncado. */
+function extractJsonStringField(raw: string, field: string): string | null {
+  const re = new RegExp(`"${field}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"?`);
+  const m = raw.match(re);
+  if (!m?.[1]) return null;
+  const value = scrubMentorText(unescapeJsonString(m[1]));
+  return value.length > 0 ? value : null;
+}
+
+function tryParseJsonObject(raw: string): Record<string, unknown> | null {
+  const trimmed = raw.trim();
+  const attempts: string[] = [trimmed];
+
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    attempts.push(trimmed.slice(start, end + 1));
   }
 
-  const obj = parsed as Record<string, unknown>;
-  const message = typeof obj.message === "string" ? obj.message.trim() : raw.trim();
+  // Fecha aspas/chaves abertas o suficiente para recuperar "message"
+  if (start >= 0 && (end < start || !trimmed.endsWith("}"))) {
+    let repaired = trimmed.slice(start);
+    const quoteCount = (repaired.match(/"/g) ?? []).length;
+    if (quoteCount % 2 === 1) repaired += '"';
+    const open = (repaired.match(/{/g) ?? []).length;
+    const close = (repaired.match(/}/g) ?? []).length;
+    if (open > close) repaired += "}".repeat(open - close);
+    attempts.push(repaired);
+  }
+
+  for (const attempt of attempts) {
+    try {
+      const parsed = JSON.parse(attempt) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      /* next */
+    }
+  }
+  return null;
+}
+
+export function parseMentorAiPayload(raw: string): MentorAiPayload {
+  const fallbackMessage =
+    extractJsonStringField(raw, "message") ??
+    (raw.trim().startsWith("{") ? "A jornada continua." : scrubMentorText(raw));
+
+  const obj = tryParseJsonObject(raw);
+
+  if (!obj) {
+    return {
+      message: fallbackMessage || "A jornada continua.",
+      memory: null,
+      memory_importance: 3,
+      question: null,
+      objective: null,
+      challenge: null,
+    };
+  }
+
+  const messageRaw =
+    typeof obj.message === "string" && obj.message.trim()
+      ? scrubMentorText(obj.message)
+      : fallbackMessage;
+  const message = messageRaw || "A jornada continua.";
+
+  // Se ainda parece JSON cru, não exponha no chat
+  const safeMessage =
+    message.startsWith("{") && message.includes('"message"')
+      ? extractJsonStringField(message, "message") ?? "A jornada continua."
+      : message;
+
   const memory =
-    typeof obj.memory === "string" && obj.memory.trim().length > 0 ? obj.memory.trim() : null;
+    typeof obj.memory === "string" && obj.memory.trim().length > 0
+      ? scrubMentorText(obj.memory).slice(0, 400)
+      : null;
   const memory_importance = Math.min(
     5,
     Math.max(1, Number(obj.memory_importance) || (memory ? 4 : 3)),
@@ -325,15 +401,26 @@ export function parseMentorAiPayload(raw: string): MentorAiPayload {
   let question: MentorAiQuestion | null = null;
   if (obj.question && typeof obj.question === "object") {
     const q = obj.question as Record<string, unknown>;
-    if (typeof q.prompt === "string" && q.prompt.trim()) {
+    const promptFromObj =
+      typeof q.prompt === "string" ? scrubMentorText(q.prompt) : null;
+    const prompt = promptFromObj || extractJsonStringField(raw, "prompt");
+    // Descarta pergunta claramente truncada / corrompida
+    if (
+      prompt &&
+      prompt.length >= 8 &&
+      /[?.!…]$/.test(prompt) &&
+      !/(?:<\/){2,}/.test(prompt) &&
+      !prompt.endsWith("</")
+    ) {
       const options = Array.isArray(q.options)
         ? q.options
             .filter((o): o is string => typeof o === "string" && o.trim().length > 0)
-            .map((o) => o.trim().slice(0, 80))
+            .map((o) => scrubMentorText(o).slice(0, 80))
+            .filter(Boolean)
             .slice(0, 4)
         : null;
       question = {
-        prompt: q.prompt.trim().slice(0, 280),
+        prompt: prompt.slice(0, 280),
         options: options && options.length >= 2 ? options : null,
       };
     }
@@ -344,8 +431,8 @@ export function parseMentorAiPayload(raw: string): MentorAiPayload {
     const o = obj.objective as Record<string, unknown>;
     if (typeof o.titulo === "string" && o.titulo.trim()) {
       objective = {
-        titulo: o.titulo.trim().slice(0, 120),
-        motivo: typeof o.motivo === "string" ? o.motivo.trim().slice(0, 280) : null,
+        titulo: scrubMentorText(o.titulo).slice(0, 120),
+        motivo: typeof o.motivo === "string" ? scrubMentorText(o.motivo).slice(0, 280) : null,
       };
     }
   }
@@ -362,12 +449,14 @@ export function parseMentorAiPayload(raw: string): MentorAiPayload {
           ? c.habit_id
           : null;
       challenge = {
-        titulo: c.titulo.trim().slice(0, 80),
-        descricao: c.descricao.trim().slice(0, 400),
+        titulo: scrubMentorText(c.titulo).slice(0, 80),
+        descricao: scrubMentorText(c.descricao).slice(0, 400),
         duracao_dias: Math.min(30, Math.max(1, Number(c.duracao_dias) || 1)),
         xp_recompensa: Math.min(2000, Math.max(10, Number(c.xp_recompensa) || 100)),
         titulo_recompensa:
-          typeof c.titulo_recompensa === "string" ? c.titulo_recompensa.trim().slice(0, 60) : null,
+          typeof c.titulo_recompensa === "string"
+            ? scrubMentorText(c.titulo_recompensa).slice(0, 60)
+            : null,
         habit_id: habitId,
         completions_required: Math.min(30, Math.max(1, Number(c.completions_required) || 1)),
       };
@@ -375,7 +464,7 @@ export function parseMentorAiPayload(raw: string): MentorAiPayload {
   }
 
   return {
-    message: message || "A jornada continua.",
+    message: safeMessage,
     memory,
     memory_importance,
     question,
