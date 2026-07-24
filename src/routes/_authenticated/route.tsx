@@ -137,8 +137,10 @@ function AuthedLayout() {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-6xl px-4 py-6">
-        <Outlet />
+      <main className="app-main relative z-10 mx-auto max-w-6xl px-4 py-6">
+        <OutletErrorBoundary>
+          <Outlet />
+        </OutletErrorBoundary>
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 overflow-visible border-t border-border bg-background/90 backdrop-blur-md md:hidden">
@@ -202,12 +204,54 @@ class NotificationBellBoundary extends Component<
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[NotificationBell]", error, info.componentStack);
+  componentDidCatch(error: unknown, info: ErrorInfo) {
+    const safe =
+      error instanceof Error ? error : new Error(String(error ?? "NotificationBell failed"));
+    console.error("[NotificationBell]", safe, info.componentStack);
   }
 
   render() {
     if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+
+/** Erros no Outlet não derrubam header/nav. */
+class OutletErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; message: string }
+> {
+  state = { hasError: false, message: "" };
+
+  static getDerivedStateFromError(error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : String(error ?? "Algo deu errado ao carregar esta tela.");
+    return { hasError: true, message: message || "Algo deu errado ao carregar esta tela." };
+  }
+
+  componentDidCatch(error: unknown, info: ErrorInfo) {
+    const safe =
+      error instanceof Error ? error : new Error(String(error ?? "Outlet render failed"));
+    console.error("[AuthedOutlet]", safe, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive">
+          <p>{this.state.message}</p>
+          <button
+            type="button"
+            className="mt-4 rounded-md bg-primary px-4 py-2 text-primary-foreground"
+            onClick={() => this.setState({ hasError: false, message: "" })}
+          >
+            Tentar de novo
+          </button>
+        </div>
+      );
+    }
     return this.props.children;
   }
 }

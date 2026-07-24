@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_authenticated/journey")({
   pendingComponent: JourneyPending,
   errorComponent: ({ error }) => (
     <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive">
-      {error.message || String(error)}
+      {error instanceof Error ? error.message : String(error ?? "Falha ao carregar a jornada")}
     </div>
   ),
   notFoundComponent: () => <div>Não encontrado</div>,

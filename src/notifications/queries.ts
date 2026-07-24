@@ -4,6 +4,7 @@ import {
   listNotifications,
 } from "@/notifications/functions";
 import { JOURNEY_STALE_MS } from "@/lib/journey-queries";
+import { runQueryFn } from "@/lib/safe-query";
 
 export const notificationsQueryOptions = (
   filter: "all" | "unread" = "all",
@@ -11,13 +12,21 @@ export const notificationsQueryOptions = (
 ) =>
   queryOptions({
     queryKey: ["notifications", filter, limit] as const,
-    queryFn: () => listNotifications({ data: { filter, limit } }),
+    queryFn: () =>
+      runQueryFn(
+        () => listNotifications({ data: { filter, limit } }),
+        "Falha ao carregar notificações.",
+      ),
     staleTime: JOURNEY_STALE_MS,
   });
 
 export const unreadNotificationCountQueryOptions = () =>
   queryOptions({
     queryKey: ["notifications-unread-count"] as const,
-    queryFn: () => getUnreadNotificationCount({ data: undefined as unknown as never }),
+    queryFn: () =>
+      runQueryFn(
+        () => getUnreadNotificationCount({ data: undefined as unknown as never }),
+        "Falha ao contar notificações.",
+      ),
     staleTime: JOURNEY_STALE_MS,
   });

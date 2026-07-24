@@ -15,7 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export const Route = createFileRoute("/_authenticated/goals")({
   loader: ({ context }) => context.queryClient.ensureQueryData(goalsQueryOptions()),
-  errorComponent: ({ error }) => <div className="p-6 text-destructive">{String(error)}</div>,
+  errorComponent: ({ error }) => (
+    <div className="p-6 text-destructive">
+      {error instanceof Error ? error.message : String(error ?? "Falha ao carregar metas")}
+    </div>
+  ),
   notFoundComponent: () => <div>Não encontrado</div>,
   component: GoalsPage,
 });

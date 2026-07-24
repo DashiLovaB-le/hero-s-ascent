@@ -58,18 +58,41 @@ export const getJourney = createServerFn({ method: "POST" })
       if (res.error) throw new Error(`Falha ao carregar ${label}: ${res.error.message}`);
     }
 
-    // Bootstrap só se faltar — service role evita falha silenciosa por RLS sem INSERT
+    // Bootstrap só se faltar — tenta JWT do usuário; admin só como fallback.
     if (!profileRes.data || !attrsRes.data) {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const upsertProfile = () =>
+        supabase.from("profiles").upsert({ id: userId, nome: "Herói" }, { onConflict: "id", ignoreDuplicates: true });
+      const upsertAttrs = () =>
+        supabase.from("attributes").upsert({ user_id: userId }, { onConflict: "user_id", ignoreDuplicates: true });
 
-      const [pUp, aUp] = await Promise.all([
-        !profileRes.data
-          ? supabaseAdmin.from("profiles").upsert({ id: userId, nome: "Herói" }, { onConflict: "id", ignoreDuplicates: true })
-          : Promise.resolve({ error: null }),
-        !attrsRes.data
-          ? supabaseAdmin.from("attributes").upsert({ user_id: userId }, { onConflict: "user_id", ignoreDuplicates: true })
-          : Promise.resolve({ error: null }),
+      let [pUp, aUp] = await Promise.all([
+        !profileRes.data ? upsertProfile() : Promise.resolve({ error: null }),
+        !attrsRes.data ? upsertAttrs() : Promise.resolve({ error: null }),
       ]);
+
+      if (pUp.error || aUp.error) {
+        try {
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          [pUp, aUp] = await Promise.all([
+            !profileRes.data && pUp.error
+              ? supabaseAdmin
+                  .from("profiles")
+                  .upsert({ id: userId, nome: "Herói" }, { onConflict: "id", ignoreDuplicates: true })
+              : Promise.resolve(pUp),
+            !attrsRes.data && aUp.error
+              ? supabaseAdmin
+                  .from("attributes")
+                  .upsert({ user_id: userId }, { onConflict: "user_id", ignoreDuplicates: true })
+              : Promise.resolve(aUp),
+          ]);
+        } catch (adminErr) {
+          const detail =
+            adminErr instanceof Error
+              ? adminErr.message
+              : pUp.error?.message || aUp.error?.message || "bootstrap falhou";
+          throw new Error(`Falha ao criar perfil/atributos: ${detail}`);
+        }
+      }
 
       if (pUp.error) throw new Error(`Falha ao criar perfil: ${pUp.error.message}`);
       if (aUp.error) throw new Error(`Falha ao criar atributos: ${aUp.error.message}`);

@@ -1,13 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { randomBytes } from "node:crypto";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getTelegramBotUsername } from "@/notifications/telegram";
+import { getTelegramBotUsername } from "@/notifications/telegram-config";
 
 const LINK_TTL_MS = 10 * 60 * 1000;
 
 function newLinkCode() {
-  return randomBytes(16).toString("hex");
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /** Gera código one-time e URL t.me/Bot?start=code */

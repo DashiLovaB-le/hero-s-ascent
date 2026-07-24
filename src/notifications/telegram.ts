@@ -1,5 +1,8 @@
 import type { Json } from "@/integrations/supabase/types";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { getAppPublicUrl } from "@/notifications/telegram-config";
+
+export { getAppPublicUrl, getTelegramBotUsername } from "@/notifications/telegram-config";
 
 export const TELEGRAM_NOTIFY_TIPOS = new Set([
   "mentor_challenge",
@@ -11,18 +14,6 @@ export const TELEGRAM_NOTIFY_TIPOS = new Set([
 
 export function getTelegramBotToken(): string | undefined {
   return process.env.TELEGRAM_BOT_TOKEN?.trim() || undefined;
-}
-
-export function getTelegramBotUsername(): string {
-  return (process.env.TELEGRAM_BOT_USERNAME || "DashiVProject_bot").replace(/^@/, "");
-}
-
-export function getAppPublicUrl(): string {
-  const raw =
-    process.env.APP_PUBLIC_URL ||
-    process.env.VITE_APP_PUBLIC_URL ||
-    "https://v-projectdashi.lovable.app";
-  return raw.replace(/\/$/, "");
 }
 
 export async function sendTelegramMessage(

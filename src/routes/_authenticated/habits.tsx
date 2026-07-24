@@ -17,7 +17,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 
 export const Route = createFileRoute("/_authenticated/habits")({
   loader: ({ context }) => context.queryClient.ensureQueryData(journeyQueryOptions()),
-  errorComponent: ({ error }) => <div className="p-6 text-destructive">{String(error)}</div>,
+  errorComponent: ({ error }) => (
+    <div className="p-6 text-destructive">
+      {error instanceof Error ? error.message : String(error ?? "Falha ao carregar hábitos")}
+    </div>
+  ),
   notFoundComponent: () => <div>Não encontrado</div>,
   component: HabitsPage,
 });

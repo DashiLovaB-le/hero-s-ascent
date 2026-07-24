@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_authenticated/mentor")({
   loader: ({ context }) => context.queryClient.ensureQueryData(mentorThreadQueryOptions()),
   errorComponent: ({ error }) => (
     <div className="cp-panel border border-transparent bg-destructive/10 p-6 text-sm text-destructive">
-      {error.message || String(error)}
+      {error instanceof Error ? error.message : String(error ?? "Falha ao abrir o Charlie")}
     </div>
   ),
   component: MentorPage,

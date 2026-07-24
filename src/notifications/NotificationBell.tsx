@@ -61,7 +61,13 @@ export function NotificationBell() {
   });
 
   const markRead = useMutation({
-    mutationFn: (id: string) => markReadFn({ data: { id } }),
+    mutationFn: async (id: string) => {
+      try {
+        return await markReadFn({ data: { id } });
+      } catch (e) {
+        throw e instanceof Error ? e : new Error(String(e ?? "Falha ao marcar notificação"));
+      }
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["notifications"] });
       void qc.invalidateQueries({ queryKey: ["notifications-unread-count"] });
@@ -69,7 +75,13 @@ export function NotificationBell() {
   });
 
   const markAll = useMutation({
-    mutationFn: () => markAllFn({ data: undefined as unknown as never }),
+    mutationFn: async () => {
+      try {
+        return await markAllFn({ data: undefined as unknown as never });
+      } catch (e) {
+        throw e instanceof Error ? e : new Error(String(e ?? "Falha ao marcar notificações"));
+      }
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["notifications"] });
       void qc.invalidateQueries({ queryKey: ["notifications-unread-count"] });
