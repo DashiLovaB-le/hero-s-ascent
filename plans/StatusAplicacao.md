@@ -433,7 +433,8 @@ Inventário de ícones/emojis: ver `RelacaoDeIcones.md` na raiz.
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` / `SUPABASE_URL` | Sim | URL do projeto |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_PUBLISHABLE_KEY` | Sim | Chave anon/publishable |
-| `SUPABASE_SERVICE_ROLE_KEY` | Sim (server) | Upserts de bootstrap |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sim (server) | Upserts de bootstrap + inserts de notificação |
+| `CRON_SECRET` | Sim (jobs Fase 2) | Protege Edge Function / `runNotificationJobs` |
 | `OPENROUTER_API_KEY` | Sim (para Charlie) | Chat do mentor |
 | `OPENROUTER_MODEL` | Não | Override do modelo |
 | `VITE_SUPABASE_PROJECT_ID` | Opcional | Documentação / checks |
@@ -472,7 +473,7 @@ Landing (/)
 - Dashboard da jornada
 - Charlie (chat, presença, memórias, desafios ativos/concluídos)
 - Perfil editável + histórico de desafios concluídos
-- Notificações in-app (sino, lista, marcar lida; gatilhos Charlie) — requer migration `20260724114700_notifications.sql`
+- Notificações in-app (sino, filtros, marcar lida; gatilhos Charlie + jobs de reminder/streak/expiração) — migrations `20260724114700` + `20260724195000`
 - Schema SQL completo e idempotente
 - Visual cyberpunk consistente (clip-path, paleta, BGs)
 
@@ -486,8 +487,8 @@ Landing (/)
 | Geração de hábitos por IA a partir de metas | Não existe |
 | Upload de avatar | Coluna `avatar_url`; sem UI |
 | Tela de histórico de atividade | Só writes |
-| Admin / Stripe / push / MFA | Não construídos |
-| Notificações push / e-mail (Fases 2–3) | Só in-app (Fase 1); ver §16 |
+| Admin / Stripe / MFA | Não construídos |
+| Notificações push / e-mail (Fase 3) | Só in-app (Fases 1–2); ver §16 |
 | `levels` / `chapters` no DB | Seedados, mas UI usa constantes TS |
 | Soft onboarding | Dá para abrir `/habits` sem terminar onboarding |
 
@@ -510,24 +511,28 @@ Landing (/)
 
 ---
 
-## 16. Notificações in-app (Fase 1)
+## 16. Notificações in-app (Fases 1–2)
 
-Centro de avisos **dentro do app** (sem push/e-mail). Plano completo: `PlanejamentoNotificacoes.md`.
+Centro de avisos **dentro do app** (sem push/e-mail). Plano: `PlanejamentoNotificacoes.md`.
 
 | Peça | Onde |
 | --- | --- |
-| Schema + RLS | `supabase/migrations/20260724114700_notifications.sql` |
-| Server functions | `src/notifications/functions.ts` |
+| Schema + RLS (Fase 1) | `supabase/migrations/20260724114700_notifications.sql` |
+| Tipos + anti-spam (Fase 2) | `supabase/migrations/20260724195000_notifications_fase2.sql` |
+| Create / tipos | `src/notifications/create.ts` |
+| Server functions | `src/notifications/functions.ts` (`runNotificationJobs` + CRUD) |
+| Jobs / gatilhos | `src/notifications/jobs.ts` |
+| Edge Function | `supabase/functions/notification-jobs/` |
 | React Query | `src/notifications/queries.ts` |
-| UI (sino + sheet) | `src/notifications/NotificationBell.tsx` no header de `/_authenticated` |
+| UI (sino + filtros) | `src/notifications/NotificationBell.tsx` |
 
-**Tipos iniciais:** `mentor_challenge`, `mentor_challenge_done`, `habit_complete`, `system`.
+**Tipos:** `mentor_challenge`, `mentor_challenge_done`, `mentor_challenge_expired`, `habit_reminder`, `streak_risk`, `habit_complete`, `system` (+ reservados `mentor_presence`, `achievement`).
 
-**Gatilhos atuais:** Charlie cria desafio → notificação; concluir desafio → notificação (+XP). INSERT via `supabaseAdmin` (service role); o usuário só SELECT/UPDATE (`lido_em`).
+**Gatilhos:** Charlie cria/conclui/expira desafio; cron diário (20:00 UTC) envia `habit_reminder` / `streak_risk` (máx. 1/dia; pula se todos hábitos feitos; quiet hours UTC 23–7).
 
-**Query keys:** `["notifications"]`, `["notifications-unread-count"]` (`staleTime` ~30s).
+**Cron:** secret `CRON_SECRET`; Edge `POST` com header `x-cron-secret`, ou server fn `runNotificationJobs`.
 
-Fases 2–3 (cron, streak risk, Web Push) ainda não implementadas.
+Fase 3 (settings + push/e-mail) ainda não implementada.
 
 ---
 
@@ -536,8 +541,11 @@ Fases 2–3 (cron, streak risk, Web Push) ainda não implementadas.
 1. `npm install`
 2. Configurar `.env` (Supabase + OpenRouter)
 3. Rodar a migration completa no SQL Editor do Supabase (ou CLI), preferindo `20260717004140_complete_schema.sql`
-4. Aplicar também `20260724114700_notifications.sql` (Fase 1 de notificações)
-5. `npm run dev`
+4. Aplicar também:
+   - `20260724114700_notifications.sql` (Fase 1)
+   - `20260724195000_notifications_fase2.sql` (Fase 2 — tipos + anti-spam)
+5. (Opcional) Deploy do cron: `npx supabase functions deploy notification-jobs` + secret `CRON_SECRET` + schedule `0 20 * * *` UTC
+6. `npm run dev`
 
 Detalhes e troubleshooting de auth/projeto: `README.md`.
 

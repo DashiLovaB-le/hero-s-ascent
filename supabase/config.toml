@@ -1,1 +1,4 @@
 project_id = "gmzddccyikpxbiozsiue"
+
+[functions.notification-jobs]
+verify_jwt = false

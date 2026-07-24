@@ -86,6 +86,7 @@ SUPABASE_PROJECT_ID=seu_project_id
 SUPABASE_URL=https://seu_project_id.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sua_publishable_key
 SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
+CRON_SECRET=um_segredo_longo_aleatorio
 
 VITE_SUPABASE_PROJECT_ID=seu_project_id
 VITE_SUPABASE_URL=https://seu_project_id.supabase.co
@@ -93,7 +94,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sua_publishable_key
 ```
 
 > `VITE_*` e `SUPABASE_*` (URL / publishable) precisam ser **iguais**.  
-> `SERVICE_ROLE_KEY` só no servidor — nunca no client.  
+> `SERVICE_ROLE_KEY` e `CRON_SECRET` só no servidor — nunca no client.  
 > Após trocar de projeto: faça **redeploy**, limpe a sessão do browser e entre de novo.
 
 ### 3. Banco de dados
@@ -104,18 +105,27 @@ O schema completo (jornada + mentor + RLS + trigger de signup) está em:
 supabase/migrations/20260717004140_complete_schema.sql
 ```
 
-As demais migrations da pasta incluem no-ops históricos (`SELECT 1`) e a Fase 1 de notificações:
+As demais migrations da pasta incluem no-ops históricos (`SELECT 1`) e notificações:
 
 ```text
 supabase/migrations/20260724114700_notifications.sql
+supabase/migrations/20260724195000_notifications_fase2.sql
 ```
 
-No SQL Editor do projeto Supabase, execute o schema completo e, em seguida, a migration de notificações (se o banco já existir só com o schema antigo).
+No SQL Editor do projeto Supabase, execute o schema completo e, em seguida, as migrations de notificações (Fase 1 + Fase 2).
 
 Opcional via CLI (com o projeto linkado):
 
 ```bash
 npx supabase db push
+```
+
+Cron de produto (Fase 2):
+
+```bash
+npx supabase functions deploy notification-jobs
+# Secret CRON_SECRET no projeto + schedule 0 20 * * * (20:00 UTC)
+# Header da chamada: x-cron-secret: <CRON_SECRET>
 ```
 
 ### 4. Auth Google (opcional)

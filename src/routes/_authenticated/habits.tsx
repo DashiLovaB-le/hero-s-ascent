@@ -126,6 +126,8 @@ function HabitsPage() {
               : old.attributes,
         };
       });
+      void qc.invalidateQueries({ queryKey: ["notifications"] });
+      void qc.invalidateQueries({ queryKey: ["notifications-unread-count"] });
     },
     onError: (e, _id, ctx) => {
       if (ctx?.prev) qc.setQueryData(["journey"], ctx.prev);

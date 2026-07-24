@@ -23,6 +23,8 @@ import {
   unreadNotificationCountQueryOptions,
 } from "@/notifications/queries";
 
+type ListFilter = "all" | "unread";
+
 function hrefFromMetadata(metadata: NotificationRow["metadata"]): string | null {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
   const href = (metadata as Record<string, unknown>).href;
@@ -42,6 +44,7 @@ function formatRelative(iso: string) {
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState<ListFilter>("all");
   const router = useRouter();
   const qc = useQueryClient();
   const markReadFn = useServerFn(markNotificationRead);
@@ -52,7 +55,7 @@ export function NotificationBell() {
     throwOnError: false,
   });
   const { data: items = [], isLoading, isError } = useQuery({
-    ...notificationsQueryOptions("all", 30),
+    ...notificationsQueryOptions(filter, 30),
     enabled: open,
     throwOnError: false,
   });
@@ -111,7 +114,7 @@ export function NotificationBell() {
         side="right"
         className="cp-panel flex w-full flex-col border border-transparent bg-card/95 p-0 sm:max-w-md"
       >
-        <SheetHeader className="space-y-1 border-b border-border px-5 py-4 text-left">
+        <SheetHeader className="space-y-3 border-b border-border px-5 py-4 text-left">
           <div className="flex items-center justify-between gap-2 pr-8">
             <SheetTitle className="font-display text-base">Notificações</SheetTitle>
             {unread > 0 ? (
@@ -129,6 +132,18 @@ export function NotificationBell() {
           <SheetDescription className="text-xs">
             Avisos da jornada e do Charlie.
           </SheetDescription>
+          <div className="flex gap-2" role="tablist" aria-label="Filtro de notificações">
+            <FilterChip
+              active={filter === "all"}
+              label="Todas"
+              onClick={() => setFilter("all")}
+            />
+            <FilterChip
+              active={filter === "unread"}
+              label="Não lidas"
+              onClick={() => setFilter("unread")}
+            />
+          </div>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-3 py-3">
@@ -181,5 +196,32 @@ export function NotificationBell() {
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function FilterChip({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        "px-3 py-1 text-xs transition-colors",
+        active
+          ? "bg-hero/20 text-hero"
+          : "bg-surface/80 text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
+    </button>
   );
 }

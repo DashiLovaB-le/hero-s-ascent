@@ -50,29 +50,33 @@ Objetivo: centro de notificações no app, sem push.
 
 Objetivo: notificações que puxam o loop (streak, hábitos, Charlie), sem spam.
 
-- [ ] Definir catálogo final de tipos
-  - [ ] `habit_reminder` — missão do dia incompleta até horário X
-  - [ ] `streak_risk` — sem conclusão hoje e tem streak > 0
-  - [ ] `mentor_challenge` — (já na fase 1) criar / expirar
-  - [ ] `mentor_presence` — opcional (amanhecer/anoitecer); preferir só mensagem no `/mentor` se for barulhento
-  - [ ] `achievement` — quando existir engine de unlock
-- [ ] Regras anti-spam
-  - [ ] Máx. 1 notificação/dia por (`user_id`, `tipo`) nos reminders
-  - [ ] Não notificar se usuário já completou todos os hábitos do dia
-  - [ ] Quiet hours opcional (ex.: não mandar entre 23h–7h)
-- [ ] Jobs / Cron
-  - [ ] Edge Function ou `pg_cron` diário (ex.: 20h horário do usuário ou UTC fixo documentado)
-  - [ ] Job de expiração de desafios (`ativo` → `expirado` + notificação)
-- [ ] Deep links em `metadata`
-  - [ ] `{ "href": "/mentor" }` / `{ "href": "/habits" }` / `{ "challenge_id": "..." }`
-  - [ ] Navegação ao tocar na notificação
-- [ ] UI
-  - [ ] Filtros: Todas / Não lidas
-  - [ ] Empty state (“Nada por aqui, herói”)
+- [x] Definir catálogo final de tipos
+  - [x] `habit_reminder` — missão do dia incompleta até horário X
+  - [x] `streak_risk` — sem conclusão hoje e tem streak > 0
+  - [x] `mentor_challenge` — (já na fase 1) criar / expirar (`mentor_challenge_expired`)
+  - [x] `mentor_presence` — reservado no CHECK; não emitido (presença fica no `/mentor`)
+  - [x] `achievement` — reservado no CHECK; aguarda engine de unlock
+- [x] Regras anti-spam
+  - [x] Máx. 1 notificação/dia por (`user_id`, `tipo`) nos reminders (índice único + `createNotificationOncePerDay`)
+  - [x] Não notificar se usuário já completou todos os hábitos do dia
+  - [x] Quiet hours (≈ 23:00–06:59 Brasília / 02:00–09:59 UTC); job documentado às **22:00 Brasília** (`0 1 * * *` UTC)
+- [x] Jobs / Cron
+  - [x] Edge Function `notification-jobs` + server fn `runNotificationJobs` (`CRON_SECRET`)
+  - [x] Job de expiração de desafios (`ativo` → `expirado` + notificação) — global no cron e lazy no mentor
+- [x] Deep links em `metadata`
+  - [x] `{ "href": "/mentor" }` / `{ "href": "/habits" }` / `{ "challenge_id": "..." }`
+  - [x] Navegação ao tocar na notificação
+- [x] UI
+  - [x] Filtros: Todas / Não lidas
+  - [x] Empty state (“Nada por aqui, herói”)
 - [ ] Telemetria leve (opcional)
   - [ ] Logar abertura do painel / clique (para saber se a fase 3 vale a pena)
 
 **Critério de pronto (Fase 2):** reminders diários e risco de streak funcionando; desafios expirados avisam; sem flood de toasts duplicados.
+
+> Migrations: `20260724114700_notifications.sql` + `20260724195000_notifications_fase2.sql`.  
+> Deploy edge: `npx supabase functions deploy notification-jobs` + secret `CRON_SECRET` + cron `0 20 * * *`.  
+> Alternativa app: chamar `runNotificationJobs` com `{ secret, force? }`.
 
 ---
 
@@ -115,7 +119,7 @@ Não fazer nestas fases:
 ## Ordem de execução (checklist mestre)
 
 1. [x] **Fase 1** — schema + RLS + listar/marcar + sino + wire Charlie
-2. [ ] **Fase 2** — tipos de produto + cron + deep links + anti-spam
+2. [x] **Fase 2** — tipos de produto + cron + deep links + anti-spam
 3. [ ] Validar uso (usuário abre o sino? age nos reminders?)
 4. [ ] **Fase 3** — settings + push e/ou e-mail
 

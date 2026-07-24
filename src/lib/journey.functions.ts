@@ -125,7 +125,11 @@ export const completeHabit = createServerFn({ method: "POST" })
         .eq("habit_id", data.habitId)
         .eq("dia", hoje)
         .maybeSingle(),
-      supabase.from("profiles").select("xp_total, streak_atual, streak_maximo, ultimo_dia_completo").eq("id", userId).maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual")
+        .eq("id", userId)
+        .maybeSingle(),
       supabase.from("attributes").select(ATTR_COLS).eq("user_id", userId).maybeSingle(),
     ]);
 
@@ -169,6 +173,12 @@ export const completeHabit = createServerFn({ method: "POST" })
       attrPatch[attrKey] = novoAttrValor;
     }
 
+    const beforeProgress = {
+      xp_total: prof.xp_total,
+      streak_maximo: prof.streak_maximo,
+      capitulo_atual: prof.capitulo_atual ?? 1,
+    };
+
     await Promise.all([
       supabase
         .from("profiles")
@@ -190,6 +200,18 @@ export const completeHabit = createServerFn({ method: "POST" })
         metadata: { habit_id: habit.id, atributo: attrKey },
       }),
     ]);
+
+    // Notifica fundos liberados por XP / streak neste check-in
+    try {
+      const { notifyNewlyUnlockedWallpapers } = await import("@/lib/wallpaper-notify");
+      await notifyNewlyUnlockedWallpapers(userId, beforeProgress, {
+        xp_total: novoXpTotal,
+        streak_maximo: streakMax,
+        capitulo_atual: beforeProgress.capitulo_atual,
+      });
+    } catch (e) {
+      console.error("[wallpaper] notify after habit", e);
+    }
 
     return {
       xpGanho: xp,

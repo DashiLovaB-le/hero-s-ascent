@@ -80,18 +80,23 @@ function AuthedLayout() {
   }
 
   return (
-    <div className="relative min-h-screen pb-28 md:pb-0">
-      {wallpaper.src ? (
+    <div className="relative isolate min-h-screen pb-28 md:pb-0">
+      {/* z-0 no isolate = acima do body, abaixo do conteúdo */}
+      <div className="pointer-events-none fixed inset-0 z-0" aria-hidden>
+        {wallpaper.src ? (
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-[background-image] duration-500"
+            style={{ backgroundImage: `url("${wallpaper.src}")` }}
+          />
+        ) : (
+          <div className="absolute inset-0 bg-background" />
+        )}
         <div
-          className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: `url('${wallpaper.src}')` }}
-          aria-hidden
+          className={`absolute inset-0 transition-colors duration-500 ${
+            wallpaper.src ? "bg-background/50" : "bg-transparent"
+          }`}
         />
-      ) : null}
-      <div
-        className={`pointer-events-none fixed inset-0 -z-10 ${wallpaper.src ? "bg-background/80" : "bg-background"}`}
-        aria-hidden
-      />
+      </div>
 
       <header className="sticky top-0 z-40 border-b border-border bg-background/70 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
@@ -129,7 +134,7 @@ function AuthedLayout() {
         </div>
       </header>
 
-      <main className="relative z-0 mx-auto max-w-6xl px-4 py-6">
+      <main className="relative z-10 mx-auto max-w-6xl px-4 py-6">
         <Outlet />
       </main>
 

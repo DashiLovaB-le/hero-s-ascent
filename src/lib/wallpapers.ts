@@ -197,4 +197,32 @@ export function unlockHint(def: WallpaperDef): string {
   }
 }
 
+/** Fundos que passaram de bloqueados → liberados entre dois estados de progresso. */
+export function getNewlyUnlockedWallpapers(
+  before: WallpaperProgress,
+  after: WallpaperProgress,
+): WallpaperDef[] {
+  return WALLPAPERS.filter(
+    (w) =>
+      w.unlock.kind !== "always" &&
+      !isWallpaperUnlocked(w, before) &&
+      isWallpaperUnlocked(w, after),
+  );
+}
+
+export function lockedWallpaperMessage(def: WallpaperDef): string {
+  switch (def.unlock.kind) {
+    case "level":
+      return `Ainda não. Alcance o nível ${def.unlock.min} para liberar “${def.titulo}”.`;
+    case "streak_max":
+      return `Ainda não. Construa um streak máximo de ${def.unlock.min} dias para liberar “${def.titulo}”.`;
+    case "chapter":
+      return `Ainda não. Chegue ao capítulo ${def.unlock.min} para liberar “${def.titulo}”.`;
+    case "xp":
+      return `Ainda não. Acumule ${def.unlock.min.toLocaleString("pt-BR")} XP para liberar “${def.titulo}”.`;
+    default:
+      return `“${def.titulo}” ainda está bloqueado. Continue a jornada.`;
+  }
+}
+
 export const WALLPAPER_IDS = WALLPAPERS.map((w) => w.id);

@@ -32,14 +32,8 @@ function daysBetween(isoA: string, isoB: string) {
 }
 
 async function expireOverdueChallenges(supabase: Client, userId: string) {
-  const now = new Date().toISOString();
-  await supabase
-    .from("mentor_challenges")
-    .update({ status: "expirado" })
-    .eq("user_id", userId)
-    .eq("status", "ativo")
-    .not("ends_at", "is", null)
-    .lt("ends_at", now);
+  const { expireUserOverdueChallengesAndNotify } = await import("@/notifications/jobs");
+  await expireUserOverdueChallengesAndNotify(supabase, userId);
 }
 
 async function pruneMemories(supabase: Client, userId: string) {

@@ -1,14 +1,26 @@
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, Lock, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { updateProfile } from "@/lib/journey.functions";
 import {
   WALLPAPERS,
   wallpaperSrc,
   isWallpaperUnlocked,
   unlockHint,
+  lockedWallpaperMessage,
+  type WallpaperDef,
   type WallpaperProgress,
 } from "@/lib/wallpapers";
 import { writeStoredWallpaperId } from "@/lib/wallpaper-storage";
@@ -23,6 +35,7 @@ type Props = {
 export function WallpaperSettings({ selectedId, progress, onSelect }: Props) {
   const updateFn = useServerFn(updateProfile);
   const qc = useQueryClient();
+  const [locked, setLocked] = useState<WallpaperDef | null>(null);
 
   const m = useMutation({
     mutationFn: async (wallpaper_id: string) => {
@@ -43,6 +56,15 @@ export function WallpaperSettings({ selectedId, progress, onSelect }: Props) {
     },
     onError: (e) => toast.error(e.message),
   });
+
+  function onTileClick(w: WallpaperDef, unlocked: boolean) {
+    if (!unlocked) {
+      setLocked(w);
+      return;
+    }
+    if (m.isPending || selectedId === w.id) return;
+    m.mutate(w.id);
+  }
 
   return (
     <div className="space-y-4">
@@ -65,16 +87,16 @@ export function WallpaperSettings({ selectedId, progress, onSelect }: Props) {
             <button
               key={w.id}
               type="button"
-              disabled={!unlocked || m.isPending || active}
-              onClick={() => unlocked && m.mutate(w.id)}
+              disabled={m.isPending && unlocked}
+              onClick={() => onTileClick(w, unlocked)}
               className={[
                 "group relative aspect-[4/3] overflow-hidden border text-left transition",
                 active
                   ? "border-hero shadow-hero"
                   : unlocked
                     ? "border-border hover:border-hero/50"
-                    : "border-border/40 opacity-70",
-                unlocked && !active ? "cursor-pointer" : "cursor-default",
+                    : "border-border/40 opacity-70 hover:border-border",
+                unlocked && !active ? "cursor-pointer" : unlocked ? "cursor-default" : "cursor-pointer",
               ].join(" ")}
               aria-label={unlocked ? `Usar fundo ${w.titulo}` : `${w.titulo} bloqueado`}
             >
@@ -122,6 +144,32 @@ export function WallpaperSettings({ selectedId, progress, onSelect }: Props) {
           );
         })}
       </div>
+
+      <Dialog open={locked != null} onOpenChange={(open) => !open && setLocked(null)}>
+        <DialogContent className="cp-brackets max-h-[50dvh] max-w-[min(22rem,calc(100vw-2rem))] gap-0 overflow-y-auto border-transparent bg-card p-5 sm:max-w-sm">
+          <DialogHeader className="space-y-2 text-left">
+            <div className="flex items-center gap-2 text-hero">
+              <Lock className="h-4 w-4 shrink-0" />
+              <span className="font-display text-[0.65rem] tracking-[0.22em] uppercase">
+                Bloqueado
+              </span>
+            </div>
+            <DialogTitle className="font-display text-lg leading-snug">
+              {locked ? locked.titulo : "Fundo bloqueado"}
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+              {locked
+                ? lockedWallpaperMessage(locked)
+                : "Você ainda não desbloqueou este fundo."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-5 sm:justify-stretch">
+            <Button type="button" className="w-full" onClick={() => setLocked(null)}>
+              Entendi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -90,6 +90,8 @@ function JourneyPage() {
     onSuccess: (res) => {
       toast.success(`+${res.xpGanho} XP · Streak ${res.streak}🔥`);
       queryClient.setQueryData<JourneyData>(["journey"], (old) => patchComplete(old, res));
+      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      void queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
     },
     onError: (err, _id, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(["journey"], ctx.prev);

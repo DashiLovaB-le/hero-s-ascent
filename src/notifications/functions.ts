@@ -1,41 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { Json } from "@/integrations/supabase/types";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { createNotification, NOTIFICATION_TIPOS, type NotificationTipo } from "@/notifications/create";
+import { runProductNotificationJobs } from "@/notifications/jobs";
 
-export const NOTIFICATION_TIPOS = [
-  "mentor_challenge",
-  "mentor_challenge_done",
-  "habit_complete",
-  "system",
-] as const;
-
-export type NotificationTipo = (typeof NOTIFICATION_TIPOS)[number];
+export { createNotification, NOTIFICATION_TIPOS, type NotificationTipo };
 
 const NOTIF_COLS = "id, user_id, tipo, titulo, corpo, metadata, lido_em, created_at";
-
-/** Cria notificação (service role — bypass RLS de INSERT). */
-export async function createNotification(input: {
-  userId: string;
-  tipo: NotificationTipo;
-  titulo: string;
-  corpo?: string;
-  metadata?: Record<string, Json | undefined>;
-}) {
-  const { error } = await supabaseAdmin.from("notifications").insert({
-    user_id: input.userId,
-    tipo: input.tipo,
-    titulo: input.titulo,
-    corpo: input.corpo ?? "",
-    metadata: (input.metadata ?? {}) as Json,
-  });
-  if (error) {
-    console.error("[notifications] create", error.message);
-    return { ok: false as const, error: error.message };
-  }
-  return { ok: true as const };
-}
 
 export const listNotifications = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -102,6 +73,27 @@ export const markAllNotificationsRead = createServerFn({ method: "POST" })
       .is("lido_em", null);
     if (error) throw new Error(error.message);
     return { ok: true as const };
+  });
+
+/**
+ * Job diário (Fase 2). Protegido por CRON_SECRET (não usa sessão de usuário).
+ * Ex.: POST com `{ "data": { "secret": "...", "force": false } }`
+ */
+export const runNotificationJobs = createServerFn({ method: "POST" })
+  .validator((input: unknown) =>
+    z
+      .object({
+        secret: z.string().min(1),
+        force: z.boolean().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const expected = process.env.CRON_SECRET;
+    if (!expected || data.secret !== expected) {
+      throw new Error("Unauthorized");
+    }
+    return runProductNotificationJobs({ force: data.force });
   });
 
 export type NotificationRow = Awaited<ReturnType<typeof listNotifications>>[number];
