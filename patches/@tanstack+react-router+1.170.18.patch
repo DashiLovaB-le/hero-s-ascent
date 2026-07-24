@@ -1,0 +1,94 @@
+diff --git a/node_modules/@tanstack/react-router/dist/cjs/CatchBoundary.cjs b/node_modules/@tanstack/react-router/dist/cjs/CatchBoundary.cjs
+index 8ad0d9b..5bb51cf 100644
+--- a/node_modules/@tanstack/react-router/dist/cjs/CatchBoundary.cjs
++++ b/node_modules/@tanstack/react-router/dist/cjs/CatchBoundary.cjs
+@@ -32,13 +32,16 @@ var CatchBoundaryImpl = class extends react.Component {
+ 		return { resetKey };
+ 	}
+ 	static getDerivedStateFromError(error) {
+-		return { error };
++		return { error: error || new Error(`Unhandled falsy error: ${String(error)}`) };
+ 	}
+ 	reset() {
+ 		this.setState({ error: null });
+ 	}
+ 	componentDidCatch(error, errorInfo) {
+-		if (this.props.onCatch) this.props.onCatch(error, errorInfo);
++		if (error == null && this.state.error) {
++			this.state.error.stack = errorInfo.componentStack ?? this.state.error.stack;
++		}
++		if (this.props.onCatch) this.props.onCatch(this.state.error ?? error, errorInfo);
+ 	}
+ 	render() {
+ 		return this.props.children({
+diff --git a/node_modules/@tanstack/react-router/dist/cjs/Match.cjs b/node_modules/@tanstack/react-router/dist/cjs/Match.cjs
+index d634752..eb54125 100644
+--- a/node_modules/@tanstack/react-router/dist/cjs/Match.cjs
++++ b/node_modules/@tanstack/react-router/dist/cjs/Match.cjs
+@@ -127,7 +127,9 @@ function OnRendered() {
+ var MatchInner = react.memo(function MatchInnerImpl({ matchId }) {
+ 	const router = require_useRouter.useRouter();
+ 	const getMatchPromise = (match, key) => {
+-		return router.getMatch(match.id)?._nonReactive[key] ?? match._nonReactive[key];
++		// Fallback evita `throw undefined` quando o match é tear-down mid-transition
++		// (pending/redirect race no React 19). Ver TanStack/router#7457 / PR#7741.
++		return router.getMatch(match.id)?._nonReactive[key] ?? match._nonReactive[key] ?? new Promise(() => {});
+ 	};
+ 	if (_tanstack_router_core_isServer.isServer ?? router.isServer) {
+ 		const match = router.stores.matchStores.get(matchId)?.get();
+@@ -242,7 +244,7 @@ var MatchInner = react.memo(function MatchInnerImpl({ matchId }) {
+ 			reset: void 0,
+ 			info: { componentStack: "" }
+ 		});
+-		throw match.error;
++		throw match.error ?? new Error("Unknown match error!");
+ 	}
+ 	return out;
+ });
+diff --git a/node_modules/@tanstack/react-router/dist/esm/CatchBoundary.js b/node_modules/@tanstack/react-router/dist/esm/CatchBoundary.js
+index 1f47185..73d043e 100644
+--- a/node_modules/@tanstack/react-router/dist/esm/CatchBoundary.js
++++ b/node_modules/@tanstack/react-router/dist/esm/CatchBoundary.js
+@@ -30,13 +30,16 @@ var CatchBoundaryImpl = class extends React$1.Component {
+ 		return { resetKey };
+ 	}
+ 	static getDerivedStateFromError(error) {
+-		return { error };
++		return { error: error || new Error(`Unhandled falsy error: ${String(error)}`) };
+ 	}
+ 	reset() {
+ 		this.setState({ error: null });
+ 	}
+ 	componentDidCatch(error, errorInfo) {
+-		if (this.props.onCatch) this.props.onCatch(error, errorInfo);
++		if (error == null && this.state.error) {
++			this.state.error.stack = errorInfo.componentStack ?? this.state.error.stack;
++		}
++		if (this.props.onCatch) this.props.onCatch(this.state.error ?? error, errorInfo);
+ 	}
+ 	render() {
+ 		return this.props.children({
+diff --git a/node_modules/@tanstack/react-router/dist/esm/Match.js b/node_modules/@tanstack/react-router/dist/esm/Match.js
+index 8da8d0f..e57acbc 100644
+--- a/node_modules/@tanstack/react-router/dist/esm/Match.js
++++ b/node_modules/@tanstack/react-router/dist/esm/Match.js
+@@ -125,7 +125,9 @@ function OnRendered() {
+ var MatchInner = React$1.memo(function MatchInnerImpl({ matchId }) {
+ 	const router = useRouter();
+ 	const getMatchPromise = (match, key) => {
+-		return router.getMatch(match.id)?._nonReactive[key] ?? match._nonReactive[key];
++		// Fallback evita `throw undefined` quando o match é tear-down mid-transition
++		// (pending/redirect race no React 19). Ver TanStack/router#7457 / PR#7741.
++		return router.getMatch(match.id)?._nonReactive[key] ?? match._nonReactive[key] ?? new Promise(() => {});
+ 	};
+ 	if (isServer ?? router.isServer) {
+ 		const match = router.stores.matchStores.get(matchId)?.get();
+@@ -240,7 +242,7 @@ var MatchInner = React$1.memo(function MatchInnerImpl({ matchId }) {
+ 			reset: void 0,
+ 			info: { componentStack: "" }
+ 		});
+-		throw match.error;
++		throw match.error ?? new Error("Unknown match error!");
+ 	}
+ 	return out;
+ });

@@ -28,7 +28,8 @@ export const getRouter = () => {
     scrollRestoration: true,
     defaultPreload: "intent",
     defaultPreloadStaleTime: JOURNEY_STALE_MS,
-    defaultPendingMs: 200,
+    // Evita commit prematuro de matches pending (race com beforeLoad async → Uncaught undefined).
+    defaultPendingMs: 1_000,
     defaultPendingMinMs: 0,
     // View Transitions API — sem remount via key={pathname}
     defaultViewTransition: {
