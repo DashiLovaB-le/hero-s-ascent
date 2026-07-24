@@ -3,6 +3,13 @@ import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import { JOURNEY_STALE_MS } from "@/lib/journey-queries";
 
+function shouldReduceMotion() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -23,6 +30,10 @@ export const getRouter = () => {
     defaultPreloadStaleTime: JOURNEY_STALE_MS,
     defaultPendingMs: 200,
     defaultPendingMinMs: 0,
+    // View Transitions API — sem remount via key={pathname}
+    defaultViewTransition: {
+      types: () => (shouldReduceMotion() ? false : ["page-fade"]),
+    },
   });
 
   return router;

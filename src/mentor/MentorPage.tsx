@@ -71,6 +71,10 @@ export function MentorPage() {
         if (res.pendingQuestion) setPendingQuestion(res.pendingQuestion);
         if (res.objective) setObjective(res.objective);
         void qc.invalidateQueries({ queryKey: ["mentor-thread"] });
+        if (res.challenge) {
+          void qc.invalidateQueries({ queryKey: ["notifications"] });
+          void qc.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+        }
       }
     } catch (e) {
       console.error(e);
@@ -121,6 +125,10 @@ export function MentorPage() {
       else setPendingQuestion(null);
       if (res.objective) setObjective(res.objective);
       void qc.invalidateQueries({ queryKey: ["mentor-thread"] });
+      if (res.challenge) {
+        void qc.invalidateQueries({ queryKey: ["notifications"] });
+        void qc.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+      }
     },
     onError: (e, content, ctx) => {
       if (ctx?.optimisticId) {
@@ -146,6 +154,8 @@ export function MentorPage() {
         toast.success(`Desafio concluído · +${res.xpGanho} XP`);
         void qc.invalidateQueries({ queryKey: ["journey"] });
         void qc.invalidateQueries({ queryKey: ["mentor-challenges-completed"] });
+        void qc.invalidateQueries({ queryKey: ["notifications"] });
+        void qc.invalidateQueries({ queryKey: ["notifications-unread-count"] });
       } else {
         toast.message("Desafio encerrado.");
       }

@@ -104,9 +104,13 @@ O schema completo (jornada + mentor + RLS + trigger de signup) está em:
 supabase/migrations/20260717004140_complete_schema.sql
 ```
 
-No SQL Editor do projeto Supabase, execute esse arquivo (é suficiente para um banco novo).
+As demais migrations da pasta incluem no-ops históricos (`SELECT 1`) e a Fase 1 de notificações:
 
-As demais migrations da pasta são no-ops históricos (`SELECT 1`).
+```text
+supabase/migrations/20260724114700_notifications.sql
+```
+
+No SQL Editor do projeto Supabase, execute o schema completo e, em seguida, a migration de notificações (se o banco já existir só com o schema antigo).
 
 Opcional via CLI (com o projeto linkado):
 

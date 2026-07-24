@@ -388,6 +388,39 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          tipo: string
+          titulo: string
+          corpo: string
+          metadata: Json
+          lido_em: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          tipo: string
+          titulo: string
+          corpo?: string
+          metadata?: Json
+          lido_em?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          tipo?: string
+          titulo?: string
+          corpo?: string
+          metadata?: Json
+          lido_em?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -402,6 +435,7 @@ export type Database = {
           streak_maximo: number
           ultimo_dia_completo: string | null
           updated_at: string
+          wallpaper_id?: string | null
           xp_total: number
         }
         Insert: {
@@ -417,6 +451,7 @@ export type Database = {
           streak_maximo?: number
           ultimo_dia_completo?: string | null
           updated_at?: string
+          wallpaper_id?: string | null
           xp_total?: number
         }
         Update: {
@@ -432,6 +467,7 @@ export type Database = {
           streak_maximo?: number
           ultimo_dia_completo?: string | null
           updated_at?: string
+          wallpaper_id?: string | null
           xp_total?: number
         }
         Relationships: []

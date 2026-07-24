@@ -1,18 +1,22 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, Target, Flame, LogOut, User } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { CharlieNavButton } from "@/mentor/CharlieNavButton";
+import { NotificationBell } from "@/notifications/NotificationBell";
 import { getJwtProjectRef, isJwtExpired } from "@/integrations/supabase/auth-session";
 import { clearAllSupabaseAuthStorage, getSupabasePublicEnv } from "@/integrations/supabase/env";
+import {
+  WALLPAPER_CHANGE_EVENT,
+  readStoredWallpaperId,
+  resolveWallpaperBackground,
+} from "@/lib/wallpaper-storage";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    // getSession é local (rápido). getUser() no Auth server em TODA navegação
-    // causava delay/microtravamento entre páginas. Validação remota fica no
-    // middleware das server functions + checagens locais de projeto/expiração.
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -54,6 +58,19 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthedLayout() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [wallpaperId, setWallpaperId] = useState(() => readStoredWallpaperId());
+
+  useEffect(() => {
+    function onChange(e: Event) {
+      const detail = (e as CustomEvent<string>).detail;
+      if (typeof detail === "string") setWallpaperId(detail);
+      else setWallpaperId(readStoredWallpaperId());
+    }
+    window.addEventListener(WALLPAPER_CHANGE_EVENT, onChange);
+    return () => window.removeEventListener(WALLPAPER_CHANGE_EVENT, onChange);
+  }, []);
+
+  const wallpaper = resolveWallpaperBackground(wallpaperId);
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -63,7 +80,19 @@ function AuthedLayout() {
   }
 
   return (
-    <div className="min-h-screen pb-28 md:pb-0">
+    <div className="relative min-h-screen pb-28 md:pb-0">
+      {wallpaper.src ? (
+        <div
+          className="pointer-events-none fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url('${wallpaper.src}')` }}
+          aria-hidden
+        />
+      ) : null}
+      <div
+        className={`pointer-events-none fixed inset-0 -z-10 ${wallpaper.src ? "bg-background/80" : "bg-background"}`}
+        aria-hidden
+      />
+
       <header className="sticky top-0 z-40 border-b border-border bg-background/70 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link to="/journey" preload="intent" className="flex items-center gap-2">
@@ -91,13 +120,16 @@ function AuthedLayout() {
             <NavItem to="/goals" icon={<Target className="h-4 w-4" />} label="Metas" />
             <NavItem to="/profile" icon={<User className="h-4 w-4" />} label="Perfil" />
           </nav>
-          <Button variant="ghost" size="sm" onClick={signOut} aria-label="Sair">
-            <LogOut className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-0.5">
+            <NotificationBell />
+            <Button variant="ghost" size="sm" onClick={signOut} aria-label="Sair">
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <main className="relative z-0 mx-auto max-w-6xl px-4 py-6">
         <Outlet />
       </main>
 

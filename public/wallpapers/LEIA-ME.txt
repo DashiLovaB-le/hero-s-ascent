@@ -1,0 +1,24 @@
+Coloque aqui as imagens de fundo de tela do V-Project.
+
+Nomes esperados (use .jpg — ou altere o campo `file` em src/lib/wallpapers.ts):
+
+  01-chamado.jpg
+  02-aprendiz.jpg
+  03-iniciado.jpg
+  04-aspirante.jpg
+  05-guerreiro.jpg
+  06-sentinela.jpg
+  07-cavaleiro.jpg
+  08-estrategista.jpg
+  09-mestre.jpg
+  10-sabio.jpg
+  11-rei.jpg
+  12-lenda.jpg
+  13-fogo-7.jpg
+  14-fogo.jpg
+  15-provas.jpg
+  16-abismo.jpg
+
+Regras de desbloqueio: src/lib/wallpapers.ts
+Preferência salva em profiles.wallpaper_id
+Recomendado: 1920x1080 ou superior, tema escuro/cyberpunk.

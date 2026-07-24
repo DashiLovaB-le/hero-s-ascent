@@ -2,44 +2,94 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Check, Swords } from "lucide-react";
+import {
+  Check,
+  Swords,
+  Trophy,
+  Target,
+  Flame,
+  CalendarDays,
+  Pencil,
+} from "lucide-react";
+import {
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+} from "recharts";
 import { toast } from "sonner";
 
 import { updateProfile } from "@/lib/journey.functions";
-import { journeyQueryOptions, type JourneyData } from "@/lib/journey-queries";
-import { completedChallengesQueryOptions } from "@/mentor/queries";
-import { calcularNivel, ATRIBUTO_LABELS } from "@/lib/journey";
+import {
+  profilePanoramaQueryOptions,
+  type JourneyData,
+  type ProfilePanoramaData,
+} from "@/lib/journey-queries";
+import { calcularNivel, ATRIBUTO_LABELS, CATEGORIAS } from "@/lib/journey";
+import { readStoredWallpaperId } from "@/lib/wallpaper-storage";
+import { WallpaperSettings } from "@/components/WallpaperSettings";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+
+const CHAPTER_NAMES = [
+  "O Chamado",
+  "A Travessia",
+  "As Provas",
+  "O Abismo",
+  "A Recompensa",
+  "O Retorno",
+  "A Lenda",
+];
+
+const WEEKDAY_SHORT = ["D", "S", "T", "Q", "Q", "S", "S"];
 
 export const Route = createFileRoute("/_authenticated/profile")({
+  ssr: false,
   loader: async ({ context }) => {
-    await Promise.all([
-      context.queryClient.ensureQueryData(journeyQueryOptions()),
-      context.queryClient.ensureQueryData(completedChallengesQueryOptions()),
-    ]);
+    try {
+      await context.queryClient.ensureQueryData(profilePanoramaQueryOptions());
+    } catch (e) {
+      throw e instanceof Error ? e : new Error(String(e ?? "Falha ao carregar o perfil"));
+    }
   },
-  errorComponent: ({ error }) => <div className="p-6 text-destructive">{String(error)}</div>,
+  pendingComponent: () => (
+    <div className="space-y-6 animate-pulse">
+      <div className="h-40 bg-surface" />
+      <div className="h-64 bg-surface" />
+      <div className="h-40 bg-surface" />
+    </div>
+  ),
+  errorComponent: ({ error }) => (
+    <div className="cp-panel border border-transparent bg-destructive/10 p-6 text-sm text-destructive">
+      {error instanceof Error ? error.message : String(error ?? "Erro ao abrir o perfil")}
+    </div>
+  ),
   notFoundComponent: () => <div>Não encontrado</div>,
   component: ProfilePage,
 });
 
 function ProfilePage() {
-  const { data } = useSuspenseQuery(journeyQueryOptions());
-  const { data: completedChallenges } = useSuspenseQuery(completedChallengesQueryOptions());
+  const { data } = useSuspenseQuery(profilePanoramaQueryOptions());
   const updateFn = useServerFn(updateProfile);
   const qc = useQueryClient();
 
-  const [nome, setNome] = useState(data.profile?.nome ?? "");
-  const [bio, setBio] = useState(data.profile?.bio ?? "");
+  const [nome, setNome] = useState(data.profile.nome ?? "");
+  const [bio, setBio] = useState(data.profile.bio ?? "");
+  const [wallpaperId, setWallpaperId] = useState(() => readStoredWallpaperId());
 
   const m = useMutation({
     mutationFn: () => updateFn({ data: { nome, bio } }),
     onSuccess: () => {
       toast.success("Perfil atualizado");
+      qc.setQueryData<ProfilePanoramaData>(["profile-panorama"], (old) =>
+        old ? { ...old, profile: { ...old.profile, nome, bio } } : old,
+      );
       qc.setQueryData<JourneyData>(["journey"], (old) =>
         old?.profile ? { ...old, profile: { ...old.profile, nome, bio } } : old,
       );
@@ -47,35 +97,295 @@ function ProfilePage() {
     onError: (e) => toast.error(e.message),
   });
 
-  if (!data.profile || !data.attributes) {
-    return (
-      <div className="cp-panel border border-transparent bg-destructive/10 p-6 text-sm text-destructive">
-        Não foi possível carregar seu perfil. Tente atualizar a página.
-      </div>
-    );
-  }
   const level = calcularNivel(data.profile.xp_total);
+  const chapterName = CHAPTER_NAMES[data.profile.capitulo_atual - 1] ?? "O Chamado";
+
+  const attrEntries = Object.entries(ATRIBUTO_LABELS).map(([key, label]) => ({
+    key,
+    label,
+    value: Number((data.attributes as Record<string, unknown>)[key] ?? 1),
+  }));
+  const sortedAttrs = [...attrEntries].sort((a, b) => b.value - a.value);
+  const strongest = sortedAttrs[0];
+  const weakest = sortedAttrs[sortedAttrs.length - 1];
+  const radarMax = Math.max(5, ...attrEntries.map((a) => a.value));
+
+  const radarData = attrEntries.map((a) => ({
+    atributo: a.label,
+    valor: a.value,
+    fullMark: radarMax,
+  }));
+
+  const maxDayCount = Math.max(1, ...data.rhythm.days.map((d) => d.count));
 
   return (
     <div className="space-y-6">
+      {/* 1. Identidade */}
+      <Card className="cp-brackets overflow-hidden border-transparent bg-hero-glow p-6 shadow-elevated">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="grid h-20 w-20 place-items-center rounded-full bg-hero text-hero-foreground shadow-hero">
+              <span className="font-display text-3xl font-bold">{level.atual.nivel}</span>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.25em] text-hero">{level.atual.titulo}</p>
+              <h1 className="font-display text-2xl font-bold">{data.profile.nome}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Capítulo {data.profile.capitulo_atual} — {chapterName}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 border border-strength/30 bg-strength/10 px-3 py-1.5 text-strength">
+            <Flame className="h-4 w-4" />
+            <span className="text-sm font-semibold">{data.profile.streak_atual}</span>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-3 gap-3 text-center">
+          <StatCell
+            label="XP"
+            value={data.profile.xp_total.toLocaleString("pt-BR")}
+          />
+          <StatCell label="Dias na jornada" value={String(data.daysOnJourney)} />
+          <StatCell label="Streak máx." value={String(data.profile.streak_maximo)} />
+        </div>
+
+        <div className="mt-6">
+          <div className="mb-2 flex items-baseline justify-between text-sm">
+            <span className="text-muted-foreground">
+              {data.profile.xp_total.toLocaleString("pt-BR")} XP
+            </span>
+            {level.proximo ? (
+              <span className="text-xs text-muted-foreground">
+                {level.xp_para_proximo.toLocaleString("pt-BR")} para {level.proximo.titulo}
+              </span>
+            ) : (
+              <span className="text-xs text-hero">Nível máximo</span>
+            )}
+          </div>
+          <Progress value={level.progresso * 100} className="h-2" />
+        </div>
+
+        {data.profile.bio ? (
+          <p className="mt-5 border-l-2 border-hero pl-4 text-sm italic text-muted-foreground">
+            {data.profile.bio}
+          </p>
+        ) : null}
+      </Card>
+
+      {/* 2. Radar de atributos */}
       <Card className="border-transparent p-6">
-        <div className="flex items-center gap-4">
-          <div className="grid h-20 w-20 place-items-center rounded-full bg-hero text-hero-foreground shadow-hero">
-            <span className="font-display text-3xl font-bold">{level.atual.nivel}</span>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-hero">{level.atual.titulo}</p>
-            <h1 className="font-display text-2xl font-bold">{data.profile.nome}</h1>
-            <p className="text-sm text-muted-foreground">
-              {data.profile.xp_total.toLocaleString("pt-BR")} XP · Streak {data.profile.streak_atual} · Máx{" "}
-              {data.profile.streak_maximo}
-            </p>
-          </div>
+        <h2 className="font-display text-lg font-semibold">Atributos</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Mais forte: <span className="text-hero">{strongest?.label}</span>
+          {" · "}
+          Em evolução: <span className="text-foreground">{weakest?.label}</span>
+        </p>
+
+        <div className="mx-auto mt-2 h-[280px] w-full min-w-0 max-w-md">
+          <ResponsiveContainer width="100%" height={280} minWidth={0}>
+            <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="72%">
+              <PolarGrid stroke="color-mix(in srgb, #FFE7D0 18%, transparent)" />
+              <PolarAngleAxis
+                dataKey="atributo"
+                tick={{ fill: "#FFE7D099", fontSize: 10 }}
+              />
+              <PolarRadiusAxis
+                angle={90}
+                domain={[0, radarMax]}
+                tick={false}
+                axisLine={false}
+              />
+              <Radar
+                name="Atributos"
+                dataKey="valor"
+                stroke="#FC6E20"
+                fill="#FC6E20"
+                fillOpacity={0.35}
+                strokeWidth={2}
+                isAnimationActive={false}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {attrEntries.map((a) => (
+            <div key={a.key} className="bg-surface px-3 py-2 text-center">
+              <p className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">
+                {a.label}
+              </p>
+              <p className="font-display text-xl font-bold text-hero">{a.value}</p>
+            </div>
+          ))}
         </div>
       </Card>
 
+      {/* 3. Ritmo */}
       <Card className="border-transparent p-6">
-        <h2 className="mb-4 font-display font-semibold">Editar perfil</h2>
+        <div className="mb-1 flex items-center gap-2">
+          <CalendarDays className="h-4 w-4 text-hero" />
+          <h2 className="font-display text-lg font-semibold">Ritmo · 21 dias</h2>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Mapa de dias ativos e consistência nos hábitos.
+        </p>
+
+        <div className="mt-5 grid grid-cols-3 gap-3 text-center">
+          <StatCell label="Taxa" value={`${data.rhythm.completionRate}%`} />
+          <StatCell label="Dias ativos" value={`${data.rhythm.activeDays}/${data.rhythm.periodDays}`} />
+          <StatCell label="Melhor sequência" value={String(data.rhythm.bestStreakInPeriod)} />
+        </div>
+
+        <div className="mt-5">
+          <div className="mb-2 flex justify-between px-0.5 text-[0.65rem] text-muted-foreground">
+            {WEEKDAY_SHORT.map((w, i) => (
+              <span key={`${w}-${i}`} className="w-[calc((100%-20px)/7)] text-center">
+                {w}
+              </span>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1.5">
+            {data.rhythm.days.map((d) => {
+              const intensity = d.count === 0 ? 0 : Math.max(0.25, d.count / maxDayCount);
+              return (
+                <div
+                  key={d.dia}
+                  title={`${d.label}: ${d.count} hábito${d.count === 1 ? "" : "s"}`}
+                  className="aspect-square border border-border/40"
+                  style={{
+                    background:
+                      d.count === 0
+                        ? "color-mix(in srgb, #323232 80%, transparent)"
+                        : `color-mix(in srgb, #FC6E20 ${Math.round(intensity * 100)}%, #323232)`,
+                  }}
+                />
+              );
+            })}
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {data.rhythm.totalCompletions} conclusões · {data.rhythm.habitCount}{" "}
+            {data.rhythm.habitCount === 1 ? "hábito ativo" : "hábitos ativos"}
+          </p>
+        </div>
+      </Card>
+
+      {/* 4. Troféus */}
+      <Card className="border-transparent p-6">
+        <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-semibold">
+          <Trophy className="h-4 w-4 text-hero" /> Troféus da jornada
+        </h2>
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Target className="h-3.5 w-3.5" /> Metas ativas
+            </h3>
+            <Link to="/goals" className="text-xs text-hero hover:underline">
+              Gerenciar
+            </Link>
+          </div>
+          {data.goals.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma meta ativa.</p>
+          ) : (
+            <ul className="space-y-2">
+              {data.goals.map((g) => (
+                <li
+                  key={g.id}
+                  className="flex items-center justify-between gap-3 bg-surface px-3 py-2"
+                >
+                  <span className="truncate text-sm">{g.titulo}</span>
+                  <span className="shrink-0 text-[0.65rem] uppercase tracking-wider text-hero">
+                    {CATEGORIAS.find((c) => c.id === g.categoria)?.nome ?? g.categoria}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="mt-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Swords className="h-3.5 w-3.5" /> Desafios do Charlie
+            </h3>
+            <Link to="/mentor" className="text-xs text-hero hover:underline">
+              Abrir Charlie
+            </Link>
+          </div>
+          {data.completedChallenges.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum desafio concluído ainda.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {data.completedChallenges.map((c) => (
+                <li
+                  key={c.id}
+                  className="cp-panel flex items-center gap-3 border border-transparent bg-surface/80 px-4 py-3"
+                >
+                  <Check className="h-4 w-4 shrink-0 text-hero" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{c.titulo}</p>
+                    <p className="text-xs text-muted-foreground">
+                      +{c.xp_recompensa} XP
+                      {c.completed_at
+                        ? ` · ${new Date(c.completed_at).toLocaleDateString("pt-BR")}`
+                        : ""}
+                      {c.titulo_recompensa ? ` · ${c.titulo_recompensa}` : ""}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="mt-6 space-y-3">
+          <h3 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Trophy className="h-3.5 w-3.5" /> Conquistas
+          </h3>
+          {data.achievements.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Continue a jornada para desbloquear conquistas.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {data.achievements.map((a) => {
+                const ach = (
+                  a as {
+                    achievements: { titulo: string; descricao: string } | null;
+                  }
+                ).achievements;
+                return (
+                  <li key={a.achievement_id} className="border border-border bg-surface px-3 py-2">
+                    <p className="text-sm font-medium">{ach?.titulo}</p>
+                    <p className="text-xs text-muted-foreground">{ach?.descricao}</p>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      </Card>
+
+      <Card className="border-transparent p-6">
+        <WallpaperSettings
+          selectedId={wallpaperId}
+          onSelect={setWallpaperId}
+          progress={{
+            xp_total: data.profile.xp_total,
+            streak_maximo: data.profile.streak_maximo,
+            capitulo_atual: data.profile.capitulo_atual,
+          }}
+        />
+      </Card>
+
+      {/* Editar perfil — no final */}
+      <Card className="border-transparent p-6">
+        <h2 className="mb-4 flex items-center gap-2 font-display font-semibold">
+          <Pencil className="h-4 w-4 text-hero" /> Editar perfil
+        </h2>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -96,77 +406,15 @@ function ProfilePage() {
           </Button>
         </form>
       </Card>
+    </div>
+  );
+}
 
-      <Card className="border-transparent p-6">
-        <h2 className="mb-4 font-display font-semibold">Atributos</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {Object.entries(ATRIBUTO_LABELS).map(([key, label]) => {
-            const val = (data.attributes as Record<string, number | string>)[key] as number;
-            return (
-              <div key={key} className="rounded-lg border border-border bg-surface p-3 text-center">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
-                <p className="mt-1 font-display text-2xl font-bold text-hero">{val}</p>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      <Card className="border-transparent p-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 font-display font-semibold">
-            <Swords className="h-4 w-4 text-hero" />
-            Desafios do Charlie
-          </h2>
-          <Link to="/mentor" className="text-xs uppercase tracking-[0.18em] text-hero hover:underline">
-            Abrir Charlie
-          </Link>
-        </div>
-
-        {completedChallenges.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            Nenhum desafio concluído ainda. Fale com Charlie para receber missões.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {completedChallenges.map((c) => (
-              <li
-                key={c.id}
-                className="cp-panel flex items-center gap-3 border border-transparent bg-surface/80 px-4 py-3"
-              >
-                <Check className="h-4 w-4 shrink-0 text-hero" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{c.titulo}</p>
-                  <p className="text-xs text-muted-foreground">
-                    +{c.xp_recompensa} XP
-                    {c.completed_at
-                      ? ` · ${new Date(c.completed_at).toLocaleDateString("pt-BR")}`
-                      : ""}
-                    {c.titulo_recompensa ? ` · ${c.titulo_recompensa}` : ""}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      {data.achievements.length > 0 && (
-        <Card className="border-transparent p-6">
-          <h2 className="mb-4 font-display font-semibold">Conquistas</h2>
-          <ul className="space-y-2">
-            {data.achievements.map((a) => {
-              const ach = (a as { achievements: { titulo: string; descricao: string } }).achievements;
-              return (
-                <li key={a.achievement_id} className="rounded-lg border border-border p-3">
-                  <p className="text-sm font-medium">{ach?.titulo}</p>
-                  <p className="text-xs text-muted-foreground">{ach?.descricao}</p>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-      )}
+function StatCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-surface/80 px-2 py-3">
+      <p className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-1 font-display text-lg font-bold text-hero sm:text-xl">{value}</p>
     </div>
   );
 }

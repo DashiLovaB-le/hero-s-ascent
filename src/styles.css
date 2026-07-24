@@ -326,27 +326,51 @@
     drop-shadow(0 0 14px color-mix(in srgb, var(--hero) 45%, transparent));
 }
 
-/* Transição entre páginas autenticadas — slide-up + fade + flash laranja */
-@keyframes page-enter {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
+/* Transição entre páginas — View Transitions API (só o conteúdo, sem remount) */
+.app-main {
+  view-transition-name: app-main;
+}
+
+@keyframes vt-page-fade-out {
   to {
-    opacity: 1;
-    transform: translateY(0);
+    opacity: 0;
   }
 }
 
-@keyframes page-enter-glow {
-  0% {
-    box-shadow: 0 -1px 0 0 color-mix(in srgb, #FC6E20 0%, transparent);
+@keyframes vt-page-fade-in {
+  from {
+    opacity: 0;
   }
-  35% {
-    box-shadow: 0 -1px 0 0 color-mix(in srgb, #FC6E20 55%, transparent);
+}
+
+/* Raiz sem animação — evita “piscar” header/nav junto com o conteúdo */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-group(app-main) {
+  animation-duration: 150ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition-old(app-main) {
+  animation: 140ms cubic-bezier(0.22, 1, 0.36, 1) both vt-page-fade-out;
+}
+
+::view-transition-new(app-main) {
+  animation: 160ms cubic-bezier(0.22, 1, 0.36, 1) both vt-page-fade-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-main {
+    view-transition-name: none;
   }
-  100% {
-    box-shadow: 0 -1px 0 0 color-mix(in srgb, #FC6E20 0%, transparent);
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }
 
@@ -371,18 +395,6 @@
   border-radius: 9999px;
   background-color: var(--hero);
   animation: mentor-typing-dot 1.05s ease-in-out infinite;
-}
-
-@utility page-enter {
-  animation:
-    page-enter 200ms cubic-bezier(0.22, 1, 0.36, 1) both,
-    page-enter-glow 180ms ease-out both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .page-enter {
-    animation: none;
-  }
 }
 
 /* ── Auth door open (login success) ─────────────────────────────────────── */

@@ -1,6 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  DEFAULT_WALLPAPER_ID,
+  getWallpaperById,
+  isWallpaperUnlocked,
+} from "@/lib/wallpapers";
 
 const ATTR_KEYS = [
   "forca",
@@ -379,11 +384,38 @@ export const updateProfile = createServerFn({ method: "POST" })
       .object({
         nome: z.string().trim().min(2).max(60).optional(),
         bio: z.string().trim().max(280).optional(),
+        wallpaper_id: z.string().trim().min(1).max(40).optional(),
       })
       .parse(i),
   )
   .handler(async ({ context, data }) => {
-    const { error } = await context.supabase.from("profiles").update(data).eq("id", context.userId);
+    const { supabase, userId } = context;
+
+    if (data.wallpaper_id != null) {
+      const def = getWallpaperById(data.wallpaper_id);
+      if (def.id !== data.wallpaper_id && data.wallpaper_id !== DEFAULT_WALLPAPER_ID) {
+        throw new Error("Fundo de tela inválido.");
+      }
+
+      const { data: profile, error: pErr } = await supabase
+        .from("profiles")
+        .select("xp_total, streak_maximo, capitulo_atual")
+        .eq("id", userId)
+        .maybeSingle();
+      if (pErr || !profile) throw new Error(pErr?.message ?? "Perfil não encontrado.");
+
+      if (
+        !isWallpaperUnlocked(def, {
+          xp_total: profile.xp_total,
+          streak_maximo: profile.streak_maximo,
+          capitulo_atual: profile.capitulo_atual,
+        })
+      ) {
+        throw new Error("Este fundo ainda está bloqueado. Continue sua jornada.");
+      }
+    }
+
+    const { error } = await supabase.from("profiles").update(data).eq("id", userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

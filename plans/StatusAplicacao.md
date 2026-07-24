@@ -62,6 +62,7 @@ src/
       profile.tsx
       onboarding.tsx
   mentor/                    # Módulo Charlie (UI + server + OpenRouter)
+  notifications/             # In-app: server fns + sino + queries
   lib/
     journey.ts               # Níveis, XP, categorias (lógica pura)
     journey.functions.ts     # Server functions da jornada
@@ -471,6 +472,7 @@ Landing (/)
 - Dashboard da jornada
 - Charlie (chat, presença, memórias, desafios ativos/concluídos)
 - Perfil editável + histórico de desafios concluídos
+- Notificações in-app (sino, lista, marcar lida; gatilhos Charlie) — requer migration `20260724114700_notifications.sql`
 - Schema SQL completo e idempotente
 - Visual cyberpunk consistente (clip-path, paleta, BGs)
 
@@ -485,6 +487,7 @@ Landing (/)
 | Upload de avatar | Coluna `avatar_url`; sem UI |
 | Tela de histórico de atividade | Só writes |
 | Admin / Stripe / push / MFA | Não construídos |
+| Notificações push / e-mail (Fases 2–3) | Só in-app (Fase 1); ver §16 |
 | `levels` / `chapters` no DB | Seedados, mas UI usa constantes TS |
 | Soft onboarding | Dá para abrir `/habits` sem terminar onboarding |
 
@@ -497,6 +500,7 @@ Landing (/)
 | Níveis / categorias / frases | `src/lib/journey.ts` |
 | Mutações da jornada | `src/lib/journey.functions.ts` |
 | Charlie | `src/mentor/*` |
+| Notificações in-app | `src/notifications/*` |
 | Auth UI | `src/routes/auth.tsx` |
 | Gate autenticado | `src/routes/_authenticated/route.tsx` |
 | Schema / RLS | `supabase/migrations/20260717004140_complete_schema.sql` |
@@ -506,12 +510,34 @@ Landing (/)
 
 ---
 
-## 16. Como subir / aplicar banco (resumo)
+## 16. Notificações in-app (Fase 1)
+
+Centro de avisos **dentro do app** (sem push/e-mail). Plano completo: `PlanejamentoNotificacoes.md`.
+
+| Peça | Onde |
+| --- | --- |
+| Schema + RLS | `supabase/migrations/20260724114700_notifications.sql` |
+| Server functions | `src/notifications/functions.ts` |
+| React Query | `src/notifications/queries.ts` |
+| UI (sino + sheet) | `src/notifications/NotificationBell.tsx` no header de `/_authenticated` |
+
+**Tipos iniciais:** `mentor_challenge`, `mentor_challenge_done`, `habit_complete`, `system`.
+
+**Gatilhos atuais:** Charlie cria desafio → notificação; concluir desafio → notificação (+XP). INSERT via `supabaseAdmin` (service role); o usuário só SELECT/UPDATE (`lido_em`).
+
+**Query keys:** `["notifications"]`, `["notifications-unread-count"]` (`staleTime` ~30s).
+
+Fases 2–3 (cron, streak risk, Web Push) ainda não implementadas.
+
+---
+
+## 17. Como subir / aplicar banco (resumo)
 
 1. `npm install`
 2. Configurar `.env` (Supabase + OpenRouter)
 3. Rodar a migration completa no SQL Editor do Supabase (ou CLI), preferindo `20260717004140_complete_schema.sql`
-4. `npm run dev`
+4. Aplicar também `20260724114700_notifications.sql` (Fase 1 de notificações)
+5. `npm run dev`
 
 Detalhes e troubleshooting de auth/projeto: `README.md`.
 

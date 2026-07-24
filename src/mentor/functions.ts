@@ -429,6 +429,17 @@ async function callMentor(
       const [enriched] = await enrichChallenges(supabase, userId, [chal]);
       challengeRow = enriched;
       metadata.challenge_id = chal.id;
+      const { createNotification } = await import("@/notifications/functions");
+      await createNotification({
+        userId,
+        tipo: "mentor_challenge",
+        titulo: "Novo desafio do Charlie",
+        corpo: chal.titulo,
+        metadata: {
+          challenge_id: chal.id,
+          href: "/mentor",
+        },
+      });
     }
   }
 
@@ -793,6 +804,19 @@ export const updateMentorChallenge = createServerFn({ method: "POST" })
       descricao: `Desafio do Mentor concluído: ${chal.titulo}`,
       xp_delta: chal.xp_recompensa,
       metadata: { challenge_id: chal.id },
+    });
+
+    const { createNotification } = await import("@/notifications/functions");
+    await createNotification({
+      userId,
+      tipo: "mentor_challenge_done",
+      titulo: "Desafio concluído",
+      corpo: `${chal.titulo} · +${chal.xp_recompensa} XP`,
+      metadata: {
+        challenge_id: chal.id,
+        xp: chal.xp_recompensa,
+        href: "/profile",
+      },
     });
 
     const [enriched] = await enrichChallenges(supabase, userId, [updated]);
