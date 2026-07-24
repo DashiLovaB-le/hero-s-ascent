@@ -3,6 +3,7 @@
 -- -----------------------------------------------------------------------------
 -- Este arquivo sozinho provisiona TODO o banco da aplicação:
 --   enums · tabelas · índices · seeds · RLS · policies · grants · funções · triggers
+--   + notificações in-app · Telegram · wallpaper · (cron opcional via vault)
 --
 -- Seguro para reexecução (CREATE IF NOT EXISTS / DROP POLICY IF EXISTS / ON CONFLICT).
 -- Compatível com projeto Supabase/Lovable onde public.profiles já possa existir.
@@ -88,6 +89,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   capitulo_atual INTEGER NOT NULL DEFAULT 1,
   frase_motivacional TEXT NOT NULL DEFAULT 'A jornada de mil léguas começa com um passo.',
   onboarding_completo BOOLEAN NOT NULL DEFAULT false,
+  wallpaper_id TEXT NOT NULL DEFAULT 'none',
+  telegram_chat_id TEXT,
+  telegram_opt_in BOOLEAN NOT NULL DEFAULT false,
+  telegram_linked_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -103,6 +108,10 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS capitulo_atual INTEGER NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS frase_motivacional TEXT NOT NULL DEFAULT 'A jornada de mil léguas começa com um passo.',
   ADD COLUMN IF NOT EXISTS onboarding_completo BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS wallpaper_id TEXT NOT NULL DEFAULT 'none',
+  ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT,
+  ADD COLUMN IF NOT EXISTS telegram_opt_in BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS telegram_linked_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
@@ -632,6 +641,198 @@ CREATE TRIGGER trg_mentor_objectives_updated
   BEFORE UPDATE ON public.mentor_objectives
   FOR EACH ROW
   EXECUTE FUNCTION public.set_updated_at();
+
+-- -----------------------------------------------------------------------------
+-- NOTIFICATIONS (in-app — Fases 1–2)
+-- INSERT via service_role; usuário só SELECT/UPDATE (marcar lida)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  tipo TEXT NOT NULL,
+  titulo TEXT NOT NULL,
+  corpo TEXT NOT NULL DEFAULT '',
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  lido_em TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.notifications
+  DROP CONSTRAINT IF EXISTS notifications_tipo_check;
+
+ALTER TABLE public.notifications
+  ADD CONSTRAINT notifications_tipo_check CHECK (
+    tipo IN (
+      'mentor_challenge',
+      'mentor_challenge_done',
+      'mentor_challenge_expired',
+      'habit_complete',
+      'habit_reminder',
+      'streak_risk',
+      'mentor_presence',
+      'achievement',
+      'system'
+    )
+  );
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created
+  ON public.notifications (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread
+  ON public.notifications (user_id, lido_em)
+  WHERE lido_em IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_tipo_day
+  ON public.notifications (
+    user_id,
+    tipo,
+    ((timezone('utc', created_at))::date)
+  )
+  WHERE tipo IN ('habit_reminder', 'streak_risk');
+
+GRANT SELECT, UPDATE ON public.notifications TO authenticated;
+GRANT ALL ON public.notifications TO service_role;
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Ver próprias notificações" ON public.notifications;
+DROP POLICY IF EXISTS "Atualizar próprias notificações" ON public.notifications;
+
+CREATE POLICY "Ver próprias notificações"
+  ON public.notifications FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Atualizar próprias notificações"
+  ON public.notifications FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- -----------------------------------------------------------------------------
+-- TELEGRAM — vínculo / opt-in / códigos one-time
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.telegram_link_codes (
+  code TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_telegram_link_codes_user
+  ON public.telegram_link_codes (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_telegram_link_codes_expires
+  ON public.telegram_link_codes (expires_at)
+  WHERE used_at IS NULL;
+
+GRANT ALL ON public.telegram_link_codes TO service_role;
+GRANT SELECT, INSERT ON public.telegram_link_codes TO authenticated;
+
+ALTER TABLE public.telegram_link_codes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Inserir próprios link codes" ON public.telegram_link_codes;
+DROP POLICY IF EXISTS "Ver próprios link codes" ON public.telegram_link_codes;
+
+CREATE POLICY "Inserir próprios link codes"
+  ON public.telegram_link_codes FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Ver próprios link codes"
+  ON public.telegram_link_codes FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+
+CREATE OR REPLACE FUNCTION public.guard_telegram_profile_cols()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF coalesce(auth.role(), '') = 'service_role' THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.telegram_chat_id IS DISTINCT FROM OLD.telegram_chat_id THEN
+    IF NEW.telegram_chat_id IS NOT NULL THEN
+      NEW.telegram_chat_id := OLD.telegram_chat_id;
+      NEW.telegram_linked_at := OLD.telegram_linked_at;
+    ELSE
+      NEW.telegram_opt_in := false;
+      NEW.telegram_linked_at := NULL;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_guard_telegram_profile_cols ON public.profiles;
+CREATE TRIGGER trg_guard_telegram_profile_cols
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.guard_telegram_profile_cols();
+
+-- -----------------------------------------------------------------------------
+-- CRON notification-jobs (opcional; exige pg_cron + pg_net + secret no Vault)
+-- Agenda: 22:00 América/São_Paulo = 01:00 UTC (`0 1 * * *`)
+-- Secret Vault: notification_jobs_cron_secret (criar antes se ainda não existir)
+-- -----------------------------------------------------------------------------
+DO $$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_net não disponível: %', SQLERRM;
+END $$;
+
+DO $$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron não disponível: %', SQLERRM;
+END $$;
+
+DO $$
+DECLARE
+  jid bigint;
+  has_secret boolean;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM vault.decrypted_secrets WHERE name = 'notification_jobs_cron_secret'
+  ) INTO has_secret;
+
+  IF NOT has_secret THEN
+    RAISE NOTICE 'Vault secret notification_jobs_cron_secret ausente — pulando cron.schedule';
+    RETURN;
+  END IF;
+
+  SELECT jobid INTO jid FROM cron.job WHERE jobname = 'notification-jobs-daily';
+  IF jid IS NOT NULL THEN
+    PERFORM cron.unschedule(jid);
+  END IF;
+
+  PERFORM cron.schedule(
+    'notification-jobs-daily',
+    '0 1 * * *',
+    $cron$
+    SELECT net.http_post(
+      url := 'https://gmzddccyikpxbiozsiue.supabase.co/functions/v1/notification-jobs',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-cron-secret', (
+          SELECT decrypted_secret
+          FROM vault.decrypted_secrets
+          WHERE name = 'notification_jobs_cron_secret'
+          LIMIT 1
+        )
+      ),
+      body := '{}'::jsonb,
+      timeout_milliseconds := 60000
+    );
+    $cron$
+  );
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Cron notification-jobs não agendado: %', SQLERRM;
+END $$;
 
 -- -----------------------------------------------------------------------------
 -- TRIGGER: signup → profile + attributes + role

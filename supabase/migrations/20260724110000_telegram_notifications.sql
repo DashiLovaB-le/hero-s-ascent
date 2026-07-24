@@ -24,12 +24,22 @@ CREATE INDEX IF NOT EXISTS idx_telegram_link_codes_expires
 
 GRANT SELECT, UPDATE ON public.profiles TO authenticated;
 GRANT ALL ON public.telegram_link_codes TO service_role;
--- authenticated não precisa INSERT direto em link_codes (só via server fn / admin)
+GRANT SELECT, INSERT ON public.telegram_link_codes TO authenticated;
+-- authenticated: INSERT/SELECT próprios via RLS; UPDATE (used_at) só service_role (webhook)
 
 ALTER TABLE public.telegram_link_codes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Sem acesso direto link codes" ON public.telegram_link_codes;
--- Sem policies para authenticated = bloqueado via RLS (só service_role)
+DROP POLICY IF EXISTS "Inserir próprios link codes" ON public.telegram_link_codes;
+DROP POLICY IF EXISTS "Ver próprios link codes" ON public.telegram_link_codes;
+
+CREATE POLICY "Inserir próprios link codes"
+  ON public.telegram_link_codes FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Ver próprios link codes"
+  ON public.telegram_link_codes FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
 
 -- Usuário autenticado não pode inventar telegram_chat_id (só limpar / opt-in)
 CREATE OR REPLACE FUNCTION public.guard_telegram_profile_cols()

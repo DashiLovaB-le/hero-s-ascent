@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getTelegramBotUsername } from "@/notifications/telegram";
 
 const LINK_TTL_MS = 10 * 60 * 1000;
@@ -18,7 +17,9 @@ export const createTelegramLinkCode = createServerFn({ method: "POST" })
     const code = newLinkCode();
     const expiresAt = new Date(Date.now() + LINK_TTL_MS).toISOString();
 
-    const { error } = await supabaseAdmin.from("telegram_link_codes").insert({
+    // Usa o client do usuário (JWT) — evita SERVICE_ROLE no host Lovable
+    // ("Invalid API key"). RLS: INSERT só com auth.uid() = user_id.
+    const { error } = await context.supabase.from("telegram_link_codes").insert({
       code,
       user_id: context.userId,
       expires_at: expiresAt,
