@@ -8,6 +8,6 @@ export function getAppPublicUrl(): string {
   const raw =
     process.env.APP_PUBLIC_URL ||
     process.env.VITE_APP_PUBLIC_URL ||
-    "https://v-projectdashi.lovable.app";
+    "https://v-project-rho.vercel.app";
   return raw.replace(/\/$/, "");
 }
