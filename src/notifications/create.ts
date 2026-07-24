@@ -1,5 +1,6 @@
 import type { Json } from "@/integrations/supabase/types";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { maybeSendTelegramNotification } from "@/notifications/telegram";
 
 export const NOTIFICATION_TIPOS = [
   "mentor_challenge",
@@ -34,5 +35,14 @@ export async function createNotification(input: {
     console.error("[notifications] create", error.message);
     return { ok: false as const, error: error.message };
   }
+
+  await maybeSendTelegramNotification({
+    userId: input.userId,
+    tipo: input.tipo,
+    titulo: input.titulo,
+    corpo: input.corpo,
+    metadata: input.metadata,
+  });
+
   return { ok: true as const };
 }

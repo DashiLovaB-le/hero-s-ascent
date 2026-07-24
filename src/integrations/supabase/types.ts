@@ -437,6 +437,9 @@ export type Database = {
           updated_at: string
           wallpaper_id?: string | null
           xp_total: number
+          telegram_chat_id: string | null
+          telegram_opt_in: boolean
+          telegram_linked_at: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -453,6 +456,9 @@ export type Database = {
           updated_at?: string
           wallpaper_id?: string | null
           xp_total?: number
+          telegram_chat_id?: string | null
+          telegram_opt_in?: boolean
+          telegram_linked_at?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -469,6 +475,33 @@ export type Database = {
           updated_at?: string
           wallpaper_id?: string | null
           xp_total?: number
+          telegram_chat_id?: string | null
+          telegram_opt_in?: boolean
+          telegram_linked_at?: string | null
+        }
+        Relationships: []
+      }
+      telegram_link_codes: {
+        Row: {
+          code: string
+          user_id: string
+          expires_at: string
+          used_at: string | null
+          created_at: string
+        }
+        Insert: {
+          code: string
+          user_id: string
+          expires_at: string
+          used_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          code?: string
+          user_id?: string
+          expires_at?: string
+          used_at?: string | null
+          created_at?: string
         }
         Relationships: []
       }

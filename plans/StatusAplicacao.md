@@ -528,11 +528,13 @@ Centro de avisos **dentro do app** (sem push/e-mail). Plano: `PlanejamentoNotifi
 
 **Tipos:** `mentor_challenge`, `mentor_challenge_done`, `mentor_challenge_expired`, `habit_reminder`, `streak_risk`, `habit_complete`, `system` (+ reservados `mentor_presence`, `achievement`).
 
-**Gatilhos:** Charlie cria/conclui/expira desafio; cron diário (20:00 UTC) envia `habit_reminder` / `streak_risk` (máx. 1/dia; pula se todos hábitos feitos; quiet hours UTC 23–7).
+**Gatilhos:** Charlie cria/conclui/expira desafio; cron diário (22:00 Brasília) envia `habit_reminder` / `streak_risk` (máx. 1/dia; pula se todos hábitos feitos; quiet hours ≈ 23–7 BRT).
+
+**Telegram:** `@DashiVProject_bot` — vínculo no Profile; envio espelha tipos de produto se `telegram_opt_in`. Migration `20260724110000_telegram_notifications.sql`; webhook `telegram-webhook`.
 
 **Cron:** secret `CRON_SECRET`; Edge `POST` com header `x-cron-secret`, ou server fn `runNotificationJobs`.
 
-Fase 3 (settings + push/e-mail) ainda não implementada.
+Fase 3 (settings avançados + push/e-mail/WhatsApp) ainda não implementada.
 
 ---
 

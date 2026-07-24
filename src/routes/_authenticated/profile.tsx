@@ -30,6 +30,7 @@ import {
 import { calcularNivel, ATRIBUTO_LABELS, CATEGORIAS } from "@/lib/journey";
 import { readStoredWallpaperId } from "@/lib/wallpaper-storage";
 import { WallpaperSettings } from "@/components/WallpaperSettings";
+import { TelegramSettingsCard } from "@/notifications/TelegramSettingsCard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -367,6 +368,10 @@ function ProfilePage() {
             </ul>
           )}
         </section>
+      </Card>
+
+      <Card className="border-transparent p-6">
+        <TelegramSettingsCard />
       </Card>
 
       <Card className="border-transparent p-6">

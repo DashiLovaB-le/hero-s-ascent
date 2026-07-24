@@ -133,7 +133,16 @@ async function expireChallenges(
       corpo: c.titulo,
       metadata: { challenge_id: c.id, href: "/mentor" },
     });
-    if (!iErr) n += 1;
+    if (!iErr) {
+      n += 1;
+      await maybeTelegram(admin, {
+        userId: c.user_id,
+        tipo: "mentor_challenge_expired",
+        titulo: "Desafio expirado",
+        corpo: c.titulo,
+        href: "/mentor",
+      });
+    }
   }
   return n;
 }
@@ -166,7 +175,11 @@ async function oncePerDay(
     corpo,
     metadata,
   });
-  return !error;
+  if (error) return false;
+
+  const href = typeof metadata.href === "string" ? metadata.href : "/habits";
+  await maybeTelegram(admin, { userId, tipo, titulo, corpo, href });
+  return true;
 }
 
 async function sendReminders(admin: ReturnType<typeof createClient>, hoje: string) {
@@ -243,4 +256,50 @@ async function sendReminders(admin: ReturnType<typeof createClient>, hoje: strin
   }
 
   return { habitReminders, streakRisks };
+}
+
+async function maybeTelegram(
+  admin: ReturnType<typeof createClient>,
+  input: {
+    userId: string;
+    tipo: string;
+    titulo: string;
+    corpo?: string;
+    href?: string;
+  },
+) {
+  try {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("telegram_chat_id, telegram_opt_in")
+      .eq("id", input.userId)
+      .maybeSingle();
+
+    if (!profile?.telegram_opt_in || !profile.telegram_chat_id) return;
+
+    const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    if (!token) return;
+
+    const app =
+      (Deno.env.get("APP_PUBLIC_URL") || "https://v-projectdashi.lovable.app").replace(
+        /\/$/,
+        "",
+      );
+    const path = input.href?.startsWith("/") ? input.href : "/habits";
+    const lines = ["⚔ V-Project", input.titulo];
+    if (input.corpo?.trim()) lines.push(input.corpo.trim());
+    lines.push("", `${app}${path}`);
+
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: profile.telegram_chat_id,
+        text: lines.join("\n"),
+        disable_web_page_preview: true,
+      }),
+    });
+  } catch (e) {
+    console.error("[notification-jobs] telegram", e);
+  }
 }
