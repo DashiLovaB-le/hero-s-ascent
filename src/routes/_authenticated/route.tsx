@@ -5,6 +5,7 @@ import { LayoutDashboard, Target, Flame, LogOut, User } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { CharlieNavButton } from "@/mentor/CharlieNavButton";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import { NotificationBell } from "@/notifications/NotificationBell";
 import { getJwtProjectRef, isJwtExpired } from "@/integrations/supabase/auth-session";
 import { clearAllSupabaseAuthStorage, getSupabasePublicEnv } from "@/integrations/supabase/env";
@@ -126,7 +127,9 @@ function AuthedLayout() {
             <NavItem to="/profile" icon={<User className="h-4 w-4" />} label="Perfil" />
           </nav>
           <div className="flex items-center gap-0.5">
-            <NotificationBell />
+            <NotificationBellBoundary>
+              <NotificationBell />
+            </NotificationBellBoundary>
             <Button variant="ghost" size="sm" onClick={signOut} aria-label="Sair">
               <LogOut className="h-4 w-4" />
             </Button>
@@ -186,4 +189,25 @@ function BottomItem({ to, icon, label }: { to: string; icon: React.ReactNode; la
       <span>{label}</span>
     </Link>
   );
+}
+
+/** Impede que falha no sino derrube o layout autenticado inteiro. */
+class NotificationBellBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[NotificationBell]", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
 }

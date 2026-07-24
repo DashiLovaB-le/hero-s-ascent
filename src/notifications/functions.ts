@@ -1,13 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { createNotification, NOTIFICATION_TIPOS, type NotificationTipo } from "@/notifications/create";
-import { runProductNotificationJobs } from "@/notifications/jobs";
-
-export { createNotification, NOTIFICATION_TIPOS, type NotificationTipo };
+import type { Json } from "@/integrations/supabase/types";
 
 const NOTIF_COLS = "id, user_id, tipo, titulo, corpo, metadata, lido_em, created_at";
 
+export type NotificationRow = {
+  id: string;
+  user_id: string;
+  tipo: string;
+  titulo: string;
+  corpo: string;
+  metadata: Json;
+  lido_em: string | null;
+  created_at: string;
+};
+
+/** Client-safe: só listagem / marcar lida (sem service role / jobs). */
 export const listNotifications = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) =>
@@ -32,7 +41,7 @@ export const listNotifications = createServerFn({ method: "POST" })
 
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
-    return rows ?? [];
+    return (rows ?? []) as NotificationRow[];
   });
 
 export const getUnreadNotificationCount = createServerFn({ method: "POST" })
@@ -60,7 +69,7 @@ export const markNotificationRead = createServerFn({ method: "POST" })
       .select(NOTIF_COLS)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return row;
+    return row as NotificationRow | null;
   });
 
 export const markAllNotificationsRead = createServerFn({ method: "POST" })
@@ -74,26 +83,3 @@ export const markAllNotificationsRead = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
-
-/**
- * Job diário (Fase 2). Protegido por CRON_SECRET (não usa sessão de usuário).
- * Ex.: POST com `{ "data": { "secret": "...", "force": false } }`
- */
-export const runNotificationJobs = createServerFn({ method: "POST" })
-  .validator((input: unknown) =>
-    z
-      .object({
-        secret: z.string().min(1),
-        force: z.boolean().optional(),
-      })
-      .parse(input),
-  )
-  .handler(async ({ data }) => {
-    const expected = process.env.CRON_SECRET;
-    if (!expected || data.secret !== expected) {
-      throw new Error("Unauthorized");
-    }
-    return runProductNotificationJobs({ force: data.force });
-  });
-
-export type NotificationRow = Awaited<ReturnType<typeof listNotifications>>[number];

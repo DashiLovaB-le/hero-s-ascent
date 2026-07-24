@@ -423,7 +423,7 @@ async function callMentor(
       const [enriched] = await enrichChallenges(supabase, userId, [chal]);
       challengeRow = enriched;
       metadata.challenge_id = chal.id;
-      const { createNotification } = await import("@/notifications/functions");
+      const { createNotification } = await import("@/notifications/create");
       await createNotification({
         userId,
         tipo: "mentor_challenge",
@@ -800,7 +800,7 @@ export const updateMentorChallenge = createServerFn({ method: "POST" })
       metadata: { challenge_id: chal.id },
     });
 
-    const { createNotification } = await import("@/notifications/functions");
+    const { createNotification } = await import("@/notifications/create");
     await createNotification({
       userId,
       tipo: "mentor_challenge_done",
