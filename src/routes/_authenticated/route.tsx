@@ -14,6 +14,7 @@ import {
   readStoredWallpaperId,
   resolveWallpaperBackground,
 } from "@/lib/wallpaper-storage";
+import { MENTOR_FOCUS_EVENT, readMentorFocusMode } from "@/mentor/focus-mode";
 import { isOnboardingAllowedPath } from "@/lib/chapters";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -78,6 +79,16 @@ function AuthedLayout() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [wallpaperId, setWallpaperId] = useState(() => readStoredWallpaperId());
+  const [mentorFocus, setMentorFocus] = useState(() => readMentorFocusMode());
+
+  useEffect(() => {
+    function onFocus(e: Event) {
+      const detail = (e as CustomEvent<boolean>).detail;
+      setMentorFocus(typeof detail === "boolean" ? detail : readMentorFocusMode());
+    }
+    window.addEventListener(MENTOR_FOCUS_EVENT, onFocus);
+    return () => window.removeEventListener(MENTOR_FOCUS_EVENT, onFocus);
+  }, []);
 
   useEffect(() => {
     function onChange(e: Event) {
@@ -99,7 +110,9 @@ function AuthedLayout() {
   }
 
   return (
-    <div className="relative isolate min-h-screen pb-28 md:pb-0">
+    <div
+      className={`relative isolate min-h-screen ${mentorFocus ? "pb-0" : "pb-28 md:pb-0"}`}
+    >
       {/* z-0 no isolate = acima do body, abaixo do conteúdo */}
       <div className="pointer-events-none fixed inset-0 z-0" aria-hidden>
         {wallpaper.src ? (
@@ -117,59 +130,67 @@ function AuthedLayout() {
         />
       </div>
 
-      <header className="sticky top-0 z-40 border-b border-border bg-background/70 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link to="/journey" preload="intent" className="flex items-center gap-2">
-            <img
-              src="/logo.png"
-              alt="V-Project"
-              className="h-8 w-8 rounded-md object-cover shadow-hero"
-            />
-            <span className="font-display text-base font-bold">V-Project</span>
-          </Link>
-          <nav className="hidden items-center gap-1 md:flex">
-            <NavItem to="/journey" icon={<LayoutDashboard className="h-4 w-4" />} label="Jornada" />
-            <NavItem to="/habits" icon={<Flame className="h-4 w-4" />} label="Hábitos" />
-            <NavItem
-              to="/mentor"
-              icon={
-                <img
-                  src="/charlie.png"
-                  alt=""
-                  className="h-5 w-5 rounded-full object-cover object-top ring-1 ring-hero/50"
-                />
-              }
-              label="Charlie"
-            />
-            <NavItem to="/goals" icon={<Target className="h-4 w-4" />} label="Metas" />
-            <NavItem to="/profile" icon={<User className="h-4 w-4" />} label="Perfil" />
-          </nav>
-          <div className="flex items-center gap-0.5">
-            <NotificationBellBoundary>
-              <NotificationBell />
-            </NotificationBellBoundary>
-            <Button variant="ghost" size="sm" onClick={signOut} aria-label="Sair">
-              <LogOut className="h-4 w-4" />
-            </Button>
+      {!mentorFocus && (
+        <header className="sticky top-0 z-40 border-b border-border bg-background/70 backdrop-blur-md">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+            <Link to="/journey" preload="intent" className="flex items-center gap-2">
+              <img
+                src="/logo.png"
+                alt="V-Project"
+                className="h-8 w-8 rounded-md object-cover shadow-hero"
+              />
+              <span className="font-display text-base font-bold">V-Project</span>
+            </Link>
+            <nav className="hidden items-center gap-1 md:flex">
+              <NavItem to="/journey" icon={<LayoutDashboard className="h-4 w-4" />} label="Jornada" />
+              <NavItem to="/habits" icon={<Flame className="h-4 w-4" />} label="Hábitos" />
+              <NavItem
+                to="/mentor"
+                icon={
+                  <img
+                    src="/charlie.png"
+                    alt=""
+                    className="h-5 w-5 rounded-full object-cover object-top ring-1 ring-hero/50"
+                  />
+                }
+                label="Charlie"
+              />
+              <NavItem to="/goals" icon={<Target className="h-4 w-4" />} label="Metas" />
+              <NavItem to="/profile" icon={<User className="h-4 w-4" />} label="Perfil" />
+            </nav>
+            <div className="flex items-center gap-0.5">
+              <NotificationBellBoundary>
+                <NotificationBell />
+              </NotificationBellBoundary>
+              <Button variant="ghost" size="sm" onClick={signOut} aria-label="Sair">
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
-      <main className="app-main relative z-10 mx-auto max-w-6xl px-4 py-6">
+      <main
+        className={`app-main relative z-10 mx-auto max-w-6xl ${
+          mentorFocus ? "px-0 py-0" : "px-4 py-6"
+        }`}
+      >
         <OutletErrorBoundary>
           <Outlet />
         </OutletErrorBoundary>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 overflow-visible border-t border-border bg-background/90 backdrop-blur-md md:hidden">
-        <div className="relative mx-auto grid h-[64px] max-w-[370px] grid-cols-5 items-end">
-          <BottomItem to="/journey" icon={<LayoutDashboard className="size-6" strokeWidth={2} />} label="Jornada" />
-          <BottomItem to="/habits" icon={<Flame className="size-6" strokeWidth={2} />} label="Hábitos" />
-          <CharlieNavButton />
-          <BottomItem to="/goals" icon={<Target className="size-6" strokeWidth={2} />} label="Metas" />
-          <BottomItem to="/profile" icon={<User className="size-6" strokeWidth={2} />} label="Perfil" />
-        </div>
-      </nav>
+      {!mentorFocus && (
+        <nav className="fixed bottom-0 left-0 right-0 z-40 overflow-visible border-t border-border bg-background/90 backdrop-blur-md md:hidden">
+          <div className="relative mx-auto grid h-[64px] max-w-[370px] grid-cols-5 items-end">
+            <BottomItem to="/journey" icon={<LayoutDashboard className="size-6" strokeWidth={2} />} label="Jornada" />
+            <BottomItem to="/habits" icon={<Flame className="size-6" strokeWidth={2} />} label="Hábitos" />
+            <CharlieNavButton />
+            <BottomItem to="/goals" icon={<Target className="size-6" strokeWidth={2} />} label="Metas" />
+            <BottomItem to="/profile" icon={<User className="size-6" strokeWidth={2} />} label="Perfil" />
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

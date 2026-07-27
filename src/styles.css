@@ -397,6 +397,22 @@
   animation: mentor-typing-dot 1.05s ease-in-out infinite;
 }
 
+@keyframes mentor-focus-icon-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+@utility mentor-focus-icon {
+  animation: mentor-focus-icon-pulse 1.8s ease-in-out infinite;
+}
+
 /* ── Auth door open (login success) ─────────────────────────────────────── */
 .auth-door {
   --auth-door-accent: #fc6e20;

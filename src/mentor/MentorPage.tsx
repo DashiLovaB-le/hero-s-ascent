@@ -2,7 +2,14 @@ import { Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { Send, Sparkles, Swords, Check, X, Target } from "lucide-react";
+import {
+  Send,
+  Sparkles,
+  Swords,
+  Check,
+  X,
+  Target,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -12,9 +19,11 @@ import {
 } from "@/mentor/functions";
 import { parseMentorAiPayload } from "@/mentor/context";
 import { mentorThreadQueryOptions, type MentorThreadData } from "@/mentor/queries";
+import { readMentorFocusMode, writeMentorFocusMode } from "@/mentor/focus-mode";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 type Msg = MentorThreadData["messages"][number];
 type Challenge = MentorThreadData["challenges"][number];
@@ -36,8 +45,50 @@ export function MentorPage() {
   const [objective, setObjective] = useState<Objective>(data.objective);
   const [pendingQuestion, setPendingQuestion] = useState<PendingQuestion>(data.pendingQuestion);
   const [presencePending, setPresencePending] = useState(false);
+  const [focusMode, setFocusMode] = useState(() => readMentorFocusMode());
   const bottomRef = useRef<HTMLDivElement>(null);
   const presenceStarted = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      writeMentorFocusMode(false);
+    };
+  }, []);
+
+  function scrollToLatest(behavior: ScrollBehavior = "auto") {
+    const el = bottomRef.current;
+    if (!el) return;
+    const viewport = el.closest("[data-radix-scroll-area-viewport]") as HTMLElement | null;
+    if (viewport) {
+      if (behavior === "smooth") {
+        viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
+      } else {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
+      return;
+    }
+    el.scrollIntoView({ behavior, block: "end" });
+  }
+
+  function toggleFocusMode() {
+    setFocusMode((prev) => {
+      const next = !prev;
+      writeMentorFocusMode(next);
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    if (!focusMode) return;
+    const frame = window.requestAnimationFrame(() => scrollToLatest("auto"));
+    const t1 = window.setTimeout(() => scrollToLatest("auto"), 50);
+    const t2 = window.setTimeout(() => scrollToLatest("auto"), 200);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [focusMode]);
 
   useEffect(() => {
     setMessages((prev) => {
@@ -167,7 +218,7 @@ export function MentorPage() {
   const charlieTyping = sendM.isPending || presencePending;
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollToLatest("smooth");
   }, [messages.length, charlieTyping, pendingQuestion]);
 
   if (!data.onboardingCompleto) {
@@ -194,191 +245,237 @@ export function MentorPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4">
-      <header className="flex items-end gap-4">
-        <div className="relative shrink-0">
-          <img
-            src="/charlie.png"
-            alt="Charlie"
-            className="h-16 w-16 object-cover object-top shadow-hero sm:h-20 sm:w-20"
-            style={{
-              clipPath:
-                "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)",
-            }}
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs uppercase tracking-[0.28em] text-hero">Presença viva</p>
-          <h1 className="font-display text-2xl font-bold tracking-wide sm:text-3xl">Charlie</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ele conhece sua jornada, {data.heroName}. Fale com verdade.
-          </p>
-          {data.mlRiskLine && (
-            <p className="mt-2 text-xs text-hero/90">{data.mlRiskLine}</p>
-          )}
-        </div>
-      </header>
-
-      {objective && (
-        <div className="flex items-start gap-3 border-l-2 border-hero/70 bg-surface/60 px-4 py-3">
-          <Target className="mt-0.5 h-4 w-4 shrink-0 text-hero" />
-          <div className="min-w-0">
-            <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">
-              Objetivo do mentor
-            </p>
-            <p className="mt-0.5 text-sm font-medium leading-snug">{objective.titulo}</p>
-            {objective.motivo && (
-              <p className="mt-1 text-xs text-muted-foreground">{objective.motivo}</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeChallenges.length > 0 && (
-        <section className="space-y-3">
-          <p className="text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">
-            Desafios ativos
-          </p>
-          {activeChallenges.map((c) => {
-            const linked = Boolean(c.habit_id);
-            const done = c.completions_done ?? 0;
-            const needed = c.completions_required ?? 1;
-            const ready = !linked || done >= needed;
-            const endsLabel = c.ends_at
-              ? ` · até ${new Date(c.ends_at).toLocaleDateString("pt-BR", {
-                  day: "2-digit",
-                  month: "short",
-                })}`
-              : "";
-
-            return (
-              <div key={c.id} className="cp-panel border border-transparent bg-card/90 p-4">
-                <div className="flex items-start gap-3">
-                  <div className="grid h-9 w-9 place-items-center bg-surface-elevated text-hero">
-                    <Swords className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">Desafio</p>
-                    <h2 className="font-display text-lg leading-tight">{c.titulo}</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">{c.descricao}</p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {c.duracao_dias} dia{c.duracao_dias > 1 ? "s" : ""} · {c.xp_recompensa} XP
-                      {c.titulo_recompensa ? ` · ${c.titulo_recompensa}` : ""}
-                      {endsLabel}
-                    </p>
-                    {linked && (
-                      <p className="mt-2 text-xs text-hero/90">
-                        Hábito: {c.habit_titulo ?? "vinculado"} · {done}/{needed} conclusões
-                        {!ready ? " — complete o hábito para liberar" : " — pronto para concluir"}
-                      </p>
-                    )}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        className="shadow-hero"
-                        disabled={challengeM.isPending || !ready}
-                        onClick={() => challengeM.mutate({ id: c.id, action: "complete" })}
-                      >
-                        <Check className="h-4 w-4" /> Concluir
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={challengeM.isPending}
-                        onClick={() => challengeM.mutate({ id: c.id, action: "decline" })}
-                      >
-                        <X className="h-4 w-4" /> Deixar para depois
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </section>
-      )}
-
-      <div className="cp-modal cp-brackets flex h-[min(62dvh,640px)] flex-col overflow-hidden border border-transparent bg-card/95">
-        <ScrollArea className="h-full flex-1 px-4 py-5 sm:px-5">
-          <div className="space-y-4">
-            {messages.length === 0 && !charlieTyping && (
-              <div className="flex flex-col items-center gap-3 py-16 text-center">
-                <Sparkles className="h-6 w-6 text-hero" />
-                <p className="max-w-xs text-sm text-muted-foreground">
-                  Charlie está chegando. Aguarde a primeira palavra — ou escreva o que trouxe você
-                  até aqui.
-                </p>
-              </div>
-            )}
-
-            {messages.map((m) => (
-              <MessageBubble key={m.id} message={m} />
-            ))}
-
-            {charlieTyping && <TypingIndicator />}
-            <div ref={bottomRef} />
-          </div>
-        </ScrollArea>
-
-        <div className="border-t border-border/60 bg-background/40 p-3 sm:p-4">
-          {pendingQuestion && !sendM.isPending && (
-            <div className="mb-3 space-y-2 border-l-2 border-hero/50 pl-3">
-              <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">
-                Charlie pergunta
+    <div className={cn("mx-auto flex max-w-3xl flex-col", focusMode ? "gap-0" : "gap-4")}>
+      {!focusMode && (
+        <>
+          <header className="flex items-end gap-4">
+            <div className="relative shrink-0">
+              <img
+                src="/charlie.png"
+                alt="Charlie"
+                className="h-16 w-16 object-cover object-top shadow-hero sm:h-20 sm:w-20"
+                style={{
+                  clipPath:
+                    "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)",
+                }}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs uppercase tracking-[0.28em] text-hero">Presença viva</p>
+              <h1 className="font-display text-2xl font-bold tracking-wide sm:text-3xl">Charlie</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Ele conhece sua jornada, {data.heroName}. Fale com verdade.
               </p>
-              <p className="text-sm leading-snug">{pendingQuestion.prompt}</p>
-              {pendingQuestion.options && pendingQuestion.options.length >= 2 && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {pendingQuestion.options.map((opt) => (
-                    <Button
-                      key={opt}
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={sendM.isPending}
-                      onClick={() => submit(opt)}
-                    >
-                      {opt}
-                    </Button>
-                  ))}
-                </div>
+              {data.mlRiskLine && (
+                <p className="mt-2 text-xs text-hero/90">{data.mlRiskLine}</p>
               )}
+            </div>
+          </header>
+
+          {objective && (
+            <div className="flex items-start gap-3 border-l-2 border-hero/70 bg-surface/60 px-4 py-3">
+              <Target className="mt-0.5 h-4 w-4 shrink-0 text-hero" />
+              <div className="min-w-0">
+                <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">
+                  Objetivo do mentor
+                </p>
+                <p className="mt-0.5 text-sm font-medium leading-snug break-words">
+                  {objective.titulo}
+                </p>
+                {objective.motivo && (
+                  <p className="mt-1 text-xs text-muted-foreground break-words">{objective.motivo}</p>
+                )}
+              </div>
             </div>
           )}
 
-          <div className="flex items-end gap-2">
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={
-                pendingQuestion
-                  ? "Responda à pergunta de Charlie…"
-                  : "Fale com Charlie…"
-              }
-              rows={2}
-              disabled={sendM.isPending}
-              className="min-h-[2.75rem] resize-none bg-surface"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
-            />
+          {activeChallenges.length > 0 && (
+            <section className="space-y-3">
+              <p className="text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">
+                Desafios ativos
+              </p>
+              {activeChallenges.map((c) => {
+                const linked = Boolean(c.habit_id);
+                const done = c.completions_done ?? 0;
+                const needed = c.completions_required ?? 1;
+                const ready = !linked || done >= needed;
+                const endsLabel = c.ends_at
+                  ? ` · até ${new Date(c.ends_at).toLocaleDateString("pt-BR", {
+                      day: "2-digit",
+                      month: "short",
+                    })}`
+                  : "";
+
+                return (
+                  <div key={c.id} className="cp-panel border border-transparent bg-card/90 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="grid h-9 w-9 place-items-center bg-surface-elevated text-hero">
+                        <Swords className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">Desafio</p>
+                        <h2 className="font-display text-lg leading-tight break-words">{c.titulo}</h2>
+                        <p className="mt-1 text-sm text-muted-foreground break-words">{c.descricao}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {c.duracao_dias} dia{c.duracao_dias > 1 ? "s" : ""} · {c.xp_recompensa} XP
+                          {c.titulo_recompensa ? ` · ${c.titulo_recompensa}` : ""}
+                          {endsLabel}
+                        </p>
+                        {linked && (
+                          <p className="mt-2 text-xs text-hero/90">
+                            Hábito: {c.habit_titulo ?? "vinculado"} · {done}/{needed} conclusões
+                            {!ready ? " — complete o hábito para liberar" : " — pronto para concluir"}
+                          </p>
+                        )}
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            className="shadow-hero"
+                            disabled={challengeM.isPending || !ready}
+                            onClick={() => challengeM.mutate({ id: c.id, action: "complete" })}
+                          >
+                            <Check className="h-4 w-4" /> Concluir
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={challengeM.isPending}
+                            onClick={() => challengeM.mutate({ id: c.id, action: "decline" })}
+                          >
+                            <X className="h-4 w-4" /> Deixar para depois
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
+          )}
+        </>
+      )}
+
+      <div
+        className={cn(
+          focusMode &&
+            "fixed inset-0 z-50 flex items-center justify-center bg-background/55 p-3 backdrop-blur-[2px] sm:p-5",
+        )}
+      >
+        <div
+          className={cn(
+            "cp-modal cp-brackets flex min-w-0 flex-col overflow-hidden border border-transparent bg-card/95",
+            focusMode
+              ? "h-[min(92dvh,860px)] w-full max-w-3xl"
+              : "h-[min(62dvh,640px)] w-full",
+          )}
+        >
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/50 px-3 py-1.5 sm:px-4">
+            <p className="truncate text-[0.65rem] uppercase tracking-[0.2em] text-muted-foreground">
+              {focusMode ? "Modo foco" : "Conversa"}
+            </p>
             <Button
               type="button"
-              size="icon"
-              className="h-11 w-11 shrink-0 shadow-hero"
-              disabled={sendM.isPending || !draft.trim()}
-              onClick={() => submit()}
-              aria-label="Enviar"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={toggleFocusMode}
+              aria-pressed={focusMode}
+              aria-label={focusMode ? "Mostrar menu e navbar" : "Esconder menu e navbar"}
+              title={focusMode ? "Mostrar menu" : "Ampliar área do chat"}
             >
-              <Send className="h-4 w-4" />
+              <img
+                src="/icons/full-screen-chat.png"
+                alt=""
+                className="mentor-focus-icon h-3.5 w-3.5 object-contain"
+                aria-hidden
+              />
+              <span className="hidden sm:inline">
+                {focusMode ? "Mostrar menu" : "Ampliar chat"}
+              </span>
             </Button>
           </div>
-          <p className="mt-2 text-[0.65rem] tracking-wide text-muted-foreground">
-            Enter envia · Shift+Enter quebra linha
-          </p>
+
+          <ScrollArea className="min-h-0 min-w-0 flex-1">
+            <div className="space-y-4 px-4 py-5 sm:px-5">
+              {messages.length === 0 && !charlieTyping && (
+                <div className="flex flex-col items-center gap-3 py-16 text-center">
+                  <Sparkles className="h-6 w-6 text-hero" />
+                  <p className="max-w-xs text-sm text-muted-foreground">
+                    Charlie está chegando. Aguarde a primeira palavra — ou escreva o que trouxe você
+                    até aqui.
+                  </p>
+                </div>
+              )}
+
+              {messages.map((m) => (
+                <MessageBubble key={m.id} message={m} />
+              ))}
+
+              {charlieTyping && <TypingIndicator />}
+              <div ref={bottomRef} />
+            </div>
+          </ScrollArea>
+
+          <div className="shrink-0 border-t border-border/60 bg-background/40 p-3 sm:p-4">
+            {pendingQuestion && !sendM.isPending && (
+              <div className="mb-3 min-w-0 space-y-2 border-l-2 border-hero/50 pl-3">
+                <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">
+                  Charlie pergunta
+                </p>
+                <p className="text-sm leading-snug break-words">{pendingQuestion.prompt}</p>
+                {pendingQuestion.options && pendingQuestion.options.length >= 2 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {pendingQuestion.options.map((opt) => (
+                      <Button
+                        key={opt}
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={sendM.isPending}
+                        onClick={() => submit(opt)}
+                      >
+                        {opt}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex min-w-0 items-end gap-2">
+              <Textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder={
+                  pendingQuestion
+                    ? "Responda à pergunta de Charlie…"
+                    : "Fale com Charlie…"
+                }
+                rows={2}
+                disabled={sendM.isPending}
+                className="min-h-[2.75rem] min-w-0 flex-1 resize-none bg-surface"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    submit();
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                size="icon"
+                className="h-11 w-11 shrink-0 shadow-hero"
+                disabled={sendM.isPending || !draft.trim()}
+                onClick={() => submit()}
+                aria-label="Enviar"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="mt-2 text-[0.65rem] tracking-wide text-muted-foreground">
+              Enter envia · Shift+Enter quebra linha
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -422,11 +519,12 @@ function MessageBubble({ message }: { message: Msg }) {
   const content = displayMentorContent(message.content, message.role);
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex min-w-0 ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[88%] px-4 py-3 sm:max-w-[80%] ${
-          isUser ? "bg-hero text-hero-foreground" : "bg-surface text-foreground"
-        }`}
+        className={cn(
+          "min-w-0 max-w-[min(88%,24rem)] px-4 py-3 sm:max-w-[min(80%,28rem)]",
+          isUser ? "bg-hero pr-5 text-hero-foreground" : "bg-surface pl-5 text-foreground",
+        )}
         style={{
           clipPath: isUser
             ? "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))"
@@ -436,7 +534,9 @@ function MessageBubble({ message }: { message: Msg }) {
         {!isUser && kindLabel && (
           <p className="mb-1.5 text-[0.6rem] uppercase tracking-[0.22em] text-hero">{kindLabel}</p>
         )}
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">{content}</p>
+        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
+          {content}
+        </p>
       </div>
     </div>
   );
