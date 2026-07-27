@@ -71,7 +71,7 @@ Cron 22:00 BRT (já existe)
 - [x] Migration colunas + `telegram_link_codes` + RLS
 - [x] Server fns: `createTelegramLinkCode`, `unlinkTelegram`, `setTelegramOptIn`
 - [x] UI em `/profile`: status, botão “Conectar Telegram”, toggle opt-in, “Desconectar”
-- [ ] Atualizar `StatusAplicacao.md`
+- [ ] Atualizar `plans/ResumoAplicacao.md`
 
 ### T2 — Webhook do bot
 - [x] Edge Function `telegram-webhook` (`verify_jwt = false` + secret header)

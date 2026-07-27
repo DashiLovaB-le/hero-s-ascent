@@ -388,6 +388,65 @@ export type Database = {
         }
         Relationships: []
       }
+      missions: {
+        Row: {
+          id: string
+          user_id: string
+          kind: Database["public"]["Enums"]["mission_kind"]
+          capitulo: number
+          titulo: string
+          descricao: string
+          xp_recompensa: number
+          status: string
+          progresso_atual: number
+          progresso_alvo: number
+          habit_id: string | null
+          track: string
+          created_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          kind?: Database["public"]["Enums"]["mission_kind"]
+          capitulo?: number
+          titulo: string
+          descricao?: string
+          xp_recompensa?: number
+          status?: string
+          progresso_atual?: number
+          progresso_alvo?: number
+          habit_id?: string | null
+          track?: string
+          created_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          kind?: Database["public"]["Enums"]["mission_kind"]
+          capitulo?: number
+          titulo?: string
+          descricao?: string
+          xp_recompensa?: number
+          status?: string
+          progresso_atual?: number
+          progresso_alvo?: number
+          habit_id?: string | null
+          track?: string
+          created_at?: string
+          completed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missions_habit_id_fkey"
+            columns: ["habit_id"]
+            isOneToOne: false
+            referencedRelation: "habits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           id: string
@@ -440,6 +499,10 @@ export type Database = {
           telegram_chat_id: string | null
           telegram_opt_in: boolean
           telegram_linked_at: string | null
+          location_label: string | null
+          location_lat: number | null
+          location_lon: number | null
+          location_timezone: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -459,6 +522,10 @@ export type Database = {
           telegram_chat_id?: string | null
           telegram_opt_in?: boolean
           telegram_linked_at?: string | null
+          location_label?: string | null
+          location_lat?: number | null
+          location_lon?: number | null
+          location_timezone?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -478,6 +545,316 @@ export type Database = {
           telegram_chat_id?: string | null
           telegram_opt_in?: boolean
           telegram_linked_at?: string | null
+          location_label?: string | null
+          location_lat?: number | null
+          location_lon?: number | null
+          location_timezone?: string | null
+        }
+        Relationships: []
+      }
+      user_features: {
+        Row: {
+          user_id: string
+          computed_at: string
+          features_version: string
+          dias_ativos_7: number
+          dias_ativos_21: number
+          dias_sem_habito: number
+          media_habitos_dia_7: number
+          media_habitos_dia_21: number
+          taxa_conclusao_7: number
+          taxa_conclusao_21: number
+          weekday_rates: Json
+          streak_atual: number
+          streak_maximo: number
+          xp_total: number
+          nivel: number
+          desafios_ativos: number
+          desafios_concluidos_21: number
+          desafios_expirados_21: number
+          ultimo_dia_completo: string | null
+          dias_desde_ultima_atividade: number | null
+          media_xp_dia_21: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          computed_at?: string
+          features_version?: string
+          dias_ativos_7?: number
+          dias_ativos_21?: number
+          dias_sem_habito?: number
+          media_habitos_dia_7?: number
+          media_habitos_dia_21?: number
+          taxa_conclusao_7?: number
+          taxa_conclusao_21?: number
+          weekday_rates?: Json
+          streak_atual?: number
+          streak_maximo?: number
+          xp_total?: number
+          nivel?: number
+          desafios_ativos?: number
+          desafios_concluidos_21?: number
+          desafios_expirados_21?: number
+          ultimo_dia_completo?: string | null
+          dias_desde_ultima_atividade?: number | null
+          media_xp_dia_21?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          computed_at?: string
+          features_version?: string
+          dias_ativos_7?: number
+          dias_ativos_21?: number
+          dias_sem_habito?: number
+          media_habitos_dia_7?: number
+          media_habitos_dia_21?: number
+          taxa_conclusao_7?: number
+          taxa_conclusao_21?: number
+          weekday_rates?: Json
+          streak_atual?: number
+          streak_maximo?: number
+          xp_total?: number
+          nivel?: number
+          desafios_ativos?: number
+          desafios_concluidos_21?: number
+          desafios_expirados_21?: number
+          ultimo_dia_completo?: string | null
+          dias_desde_ultima_atividade?: number | null
+          media_xp_dia_21?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_ml_scores: {
+        Row: {
+          user_id: string
+          computed_at: string
+          model_version: string
+          risco_streak: number
+          risco_abandono: number
+          projecao_dias_proximo_nivel: number | null
+          weekday_weakest: number | null
+          explicacao: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          computed_at?: string
+          model_version?: string
+          risco_streak?: number
+          risco_abandono?: number
+          projecao_dias_proximo_nivel?: number | null
+          weekday_weakest?: number | null
+          explicacao?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          computed_at?: string
+          model_version?: string
+          risco_streak?: number
+          risco_abandono?: number
+          projecao_dias_proximo_nivel?: number | null
+          weekday_weakest?: number | null
+          explicacao?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_ml_scores_shadow: {
+        Row: {
+          user_id: string
+          model_version: string
+          computed_at: string
+          risco_streak: number
+          risco_abandono: number
+          explicacao: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          model_version?: string
+          computed_at?: string
+          risco_streak?: number
+          risco_abandono?: number
+          explicacao?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          model_version?: string
+          computed_at?: string
+          risco_streak?: number
+          risco_abandono?: number
+          explicacao?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ml_model_runs: {
+        Row: {
+          id: string
+          model_version: string
+          trained_at: string
+          auc_streak: number | null
+          auc_abandono: number | null
+          n_train: number
+          n_test: number
+          metrics: Json
+          artifact_path: string | null
+          promoted: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          model_version?: string
+          trained_at?: string
+          auc_streak?: number | null
+          auc_abandono?: number | null
+          n_train?: number
+          n_test?: number
+          metrics?: Json
+          artifact_path?: string | null
+          promoted?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          model_version?: string
+          trained_at?: string
+          auc_streak?: number | null
+          auc_abandono?: number | null
+          n_train?: number
+          n_test?: number
+          metrics?: Json
+          artifact_path?: string | null
+          promoted?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      user_checkins: {
+        Row: {
+          id: string
+          user_id: string
+          dia: string
+          sono_horas: number | null
+          sono_qualidade: number | null
+          energia: number | null
+          humor: number | null
+          nota: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          dia: string
+          sono_horas?: number | null
+          sono_qualidade?: number | null
+          energia?: number | null
+          humor?: number | null
+          nota?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          dia?: string
+          sono_horas?: number | null
+          sono_qualidade?: number | null
+          energia?: number | null
+          humor?: number | null
+          nota?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      agent_initiatives: {
+        Row: {
+          id: string
+          user_id: string
+          kind: string
+          titulo: string
+          corpo: string
+          status: string
+          href: string
+          metadata: Json
+          created_at: string
+          expires_at: string | null
+          resolved_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          kind: string
+          titulo: string
+          corpo?: string
+          status?: string
+          href?: string
+          metadata?: Json
+          created_at?: string
+          expires_at?: string | null
+          resolved_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          kind?: string
+          titulo?: string
+          corpo?: string
+          status?: string
+          href?: string
+          metadata?: Json
+          created_at?: string
+          expires_at?: string | null
+          resolved_at?: string | null
+        }
+        Relationships: []
+      }
+      user_cf_recommendations: {
+        Row: {
+          user_id: string
+          computed_at: string
+          model_version: string
+          peer_count: number
+          suggestions: Json
+          explicacao: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          computed_at?: string
+          model_version?: string
+          peer_count?: number
+          suggestions?: Json
+          explicacao?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          computed_at?: string
+          model_version?: string
+          peer_count?: number
+          suggestions?: Json
+          explicacao?: Json
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }

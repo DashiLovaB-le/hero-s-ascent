@@ -1,6 +1,7 @@
 import { calcularNivel, ATRIBUTO_LABELS, LEVELS } from "@/lib/journey";
+import { formatMlSignalsForMentor, type MlScoresV1 } from "@/lib/ml/features";
 
-export type MentorPresenceKind = "welcome" | "morning" | "evening" | "return" | null;
+export type MentorPresenceKind = "welcome" | "morning" | "evening" | "return" | "insight" | null;
 
 type AttrRow = {
   forca: number;
@@ -19,6 +20,11 @@ type CompletionRow = { habit_id: string; dia: string };
 type MemoryRow = { content: string; importance: number };
 type ChallengeRow = { titulo: string; status: string; descricao: string };
 type ObjectiveRow = { titulo: string; motivo: string | null } | null;
+
+export type MentorWeatherContext = {
+  label: string;
+  summaryLine: string;
+} | null;
 
 export type EvolutionStage = "iniciante" | "intermediario" | "avancado";
 
@@ -41,6 +47,10 @@ export type MentorContextInput = {
   objective: ObjectiveRow;
   pendingQuestionToday: boolean;
   allowQuestion: boolean;
+  weather: MentorWeatherContext;
+  mlScores?: MlScoresV1 | null;
+  challengePolicyHint?: string | null;
+  checkinsSummary?: string | null;
 };
 
 const WEEKDAY = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
@@ -168,10 +178,20 @@ export function buildMentorContextBlock(input: MentorContextInput): string {
         ? input.activeChallenges.map((c) => `${c.titulo}: ${c.descricao}`).join(" | ")
         : "nenhum"
     }`,
+    input.weather
+      ? input.weather.summaryLine
+      : "Clima: região não cadastrada (herói pode definir a cidade no Perfil). Não invente o tempo.",
+    formatMlSignalsForMentor(input.mlScores),
+    input.challengePolicyHint ? input.challengePolicyHint : null,
+    input.checkinsSummary
+      ? input.checkinsSummary
+      : "CHECK-INS: ausentes. Não invente sono, energia ou humor.",
     input.daysSinceLastVisit != null
       ? `Dias desde a última visita estimada: ${input.daysSinceLastVisit}`
       : "Visita recente ou primeira sessão",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function detectPresenceKind(opts: {
@@ -238,9 +258,25 @@ MEMÓRIAS
 - Só grave memory quando o herói revelar motivação, medo, propósito ou uma decisão importante.
 - "memory_importance" de 1 a 5 (5 = marco vital). Respostas a perguntas profundas = 4 ou 5.
 
+CLIMA
+- Se houver linha de clima no contexto, use com parcimônia (no máximo um detalhe) em amanhecer, anoitecer ou desafios de corpo/outdoor.
+- Adapte sugestões ao tempo real (chuva → indoor; calor extremo → hidratação/sombra). Nunca invente clima se o contexto disser ausente.
+
+SINAIS ML
+- Há um bloco "SINAIS ML" com scores calculados (risco_streak, risco_abandono, weekday fraco, projeção de nível).
+- Use com parcimônia — cite no máximo um sinal por resposta, só quando ajudar o herói a agir.
+- Se risco_streak ou risco_abandono estiver alto (≥55%) ou houver "AÇÃO: priorize presença proativa", antecipe o padrão (ex.: "sextas caem") sem esperar o herói dizer que está desanimado.
+- Nunca invente sono, estresse, personalidade tipológica ou dados que não estejam no contexto.
+- Não fale de "algoritmo", "modelo" ou "machine learning" — fale como mentor que observa padrões.
+
+CHECK-INS
+- Se houver bloco CHECK-INS com sono/energia/humor, use no máximo um detalhe quando for relevante (amanhecer, corpo, recuperação).
+- Se CHECK-INS disser ausentes, não invente.
+
 DESAFIOS
 - Só proponha desafio quando fizer sentido narrativo (padrão, estagnação, ou pedido implícito).
 - No máximo um desafio por resposta. Não force.
+- Obedeça a linha "POLÍTICA ADAPTATIVA" no contexto (tetos de duração/XP e se pode propor agora).
 - Se vincular a um hábito, use habit_id EXATO da lista e completions_required (quantas vezes concluir no período).
 - titulo_recompensa é simbólico (título honorífico), nunca invente mecânica inexistente.
 
@@ -485,10 +521,12 @@ export function presenceUserPrompt(
     case "welcome":
       return `O herói acabou de encontrar você pela primeira vez. Cumprimente-o como Charlie. Seja breve. Convide-o a falar o que busca nesta jornada — sem soar como formulário.${askHint}`;
     case "morning":
-      return `É manhã. Entregue uma presença curta de amanhecer, baseada no contexto de hoje e no OBJETIVO DO MENTOR. Sem checklist. Uma direção.${askHint}`;
+      return `É manhã. Entregue uma presença curta de amanhecer, baseada no contexto de hoje, no OBJETIVO DO MENTOR e no clima (se houver). Sem checklist. Uma direção.${askHint}`;
     case "evening":
-      return `É o fim do dia. Comente o que o herói fez (ou deixou de fazer) hoje com honestidade serena, alinhado ao OBJETIVO DO MENTOR. Feche o dia.${askHint}`;
+      return `É o fim do dia. Comente o que o herói fez (ou deixou de fazer) hoje com honestidade serena, alinhado ao OBJETIVO DO MENTOR. Pode mencionar o clima só se reforçar o fechamento. Feche o dia.${askHint}`;
     case "return":
       return `O herói ficou ausente. Não culpe. Chame-o de volta com dignidade. Prefira uma pergunta estruturada sobre o que o afastou (tempo, energia, ou outro).${askHint}`;
+    case "insight":
+      return `Os SINAIS ML no contexto indicam risco elevado de quebrar ritmo. Antecipe o padrão (weekday fraco / streak) com presença proativa e uma direção concreta. Sem alarmismo. Não mencione algoritmos.${askHint}`;
   }
 }

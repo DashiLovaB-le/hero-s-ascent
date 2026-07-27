@@ -13,6 +13,14 @@ import {
   presenceUserPrompt,
   type MentorPresenceKind,
 } from "@/mentor/context";
+import { fetchWeatherForCoords, formatWeatherForMentor } from "@/lib/weather";
+import { mlScoresFromRow, recomputeUserMl } from "@/lib/ml/recompute";
+import {
+  applyChallengeGuardrails,
+  decideChallengePolicy,
+  scoresFromMlRow,
+} from "@/lib/ml/adaptive";
+import { loadCheckinsForMentor } from "@/lib/checkins.functions";
 
 type Client = SupabaseClient<Database>;
 
@@ -178,15 +186,26 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
 
   await expireOverdueChallenges(supabase, userId);
 
-  const [profileRes, attrsRes, habitsRes, goalsRes, todayRes, compsRes, memRes, chalRes, lastMsgRes, objRes] =
+  let profileRes = await supabase
+    .from("profiles")
+    .select(
+      "id, nome, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, created_at, location_label, location_lat, location_lon, location_timezone",
+    )
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileRes.error && /location_/i.test(profileRes.error.message)) {
+    profileRes = await supabase
+      .from("profiles")
+      .select(
+        "id, nome, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, created_at",
+      )
+      .eq("id", userId)
+      .maybeSingle();
+  }
+
+  const [attrsRes, habitsRes, goalsRes, todayRes, compsRes, memRes, chalRes, lastMsgRes, objRes, mlRes] =
     await Promise.all([
-      supabase
-        .from("profiles")
-        .select(
-          "id, nome, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, created_at",
-        )
-        .eq("id", userId)
-        .maybeSingle(),
       supabase
         .from("attributes")
         .select(
@@ -231,6 +250,7 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
         .eq("user_id", userId)
         .eq("ativo", true)
         .maybeSingle(),
+      supabase.from("user_ml_scores").select("*").eq("user_id", userId).maybeSingle(),
     ]);
 
   for (const [label, res] of [
@@ -250,6 +270,11 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
   // mentor_objectives may not exist until migration — treat as optional
   if (objRes.error && !objRes.error.message.includes("does not exist")) {
     console.error("[mentor] objectives", objRes.error.message);
+  }
+
+  // user_ml_scores optional until migration
+  if (mlRes.error && !/does not exist|user_ml_scores/i.test(mlRes.error.message)) {
+    console.error("[mentor] ml scores", mlRes.error.message);
   }
 
   if (!profileRes.data || !attrsRes.data) {
@@ -276,6 +301,53 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
   const askedToday = await hadStructuredQuestionToday(supabase, userId);
   const allowQuestion = !pending && !askedToday;
 
+  let weather = null as Awaited<ReturnType<typeof fetchWeatherForCoords>>;
+  const profileLoc = profileRes.data as typeof profileRes.data & {
+    location_label?: string | null;
+    location_lat?: number | null;
+    location_lon?: number | null;
+    location_timezone?: string | null;
+  };
+  const lat = profileLoc.location_lat;
+  const lon = profileLoc.location_lon;
+  if (
+    typeof lat === "number" &&
+    typeof lon === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lon)
+  ) {
+    weather = await fetchWeatherForCoords({
+      lat,
+      lon,
+      label: profileLoc.location_label?.trim() || "sua região",
+      timezone: profileLoc.location_timezone,
+    });
+  }
+
+  let mlScores = mlRes.error ? null : mlScoresFromRow(mlRes.data);
+  if (!mlScores) {
+    try {
+      const computed = await recomputeUserMl(supabase, userId, hoje);
+      mlScores = computed.scores;
+    } catch (e) {
+      console.warn("[mentor] ml recompute on snapshot", e);
+    }
+  }
+
+  const checkins = await loadCheckinsForMentor(supabase, userId, 5);
+  let checkinsSummary: string | null = null;
+  if (checkins.length) {
+    const lines = checkins.slice(0, 3).map((c) => {
+      const parts = [`dia ${c.dia}`];
+      if (c.sono_horas != null) parts.push(`sono ${c.sono_horas}h`);
+      if (c.sono_qualidade != null) parts.push(`qualidade ${c.sono_qualidade}/5`);
+      if (c.energia != null) parts.push(`energia ${c.energia}/5`);
+      if (c.humor != null) parts.push(`humor ${c.humor}/5`);
+      return parts.join(", ");
+    });
+    checkinsSummary = `CHECK-INS (mais recentes): ${lines.join(" | ")}`;
+  }
+
   return {
     profile: profileRes.data,
     attributes: attrsRes.data,
@@ -289,6 +361,9 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
     objective,
     pendingQuestion: pending,
     allowQuestion,
+    weather,
+    mlScores,
+    checkinsSummary,
   };
 }
 
@@ -302,6 +377,32 @@ async function callMentor(
   },
 ) {
   const snap = await loadJourneySnapshot(supabase, userId);
+  const weatherLine = formatWeatherForMentor(snap.weather);
+
+  const since48h = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  const { count: created48h } = await supabase
+    .from("mentor_challenges")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", since48h);
+
+  const adaptiveScores = scoresFromMlRow(
+    snap.mlScores
+      ? {
+          risco_streak: snap.mlScores.risco_streak,
+          risco_abandono: snap.mlScores.risco_abandono,
+          weekday_weakest: snap.mlScores.weekday_weakest,
+          explicacao: snap.mlScores.explicacao,
+        }
+      : null,
+  );
+
+  const challengePolicy = decideChallengePolicy({
+    scores: adaptiveScores,
+    activeChallengeCount: snap.activeChallenges.length,
+    challengesCreatedLast48h: created48h ?? 0,
+  });
+
   const contextBlock = buildMentorContextBlock({
     nome: snap.profile.nome,
     xp_total: snap.profile.xp_total,
@@ -321,6 +422,12 @@ async function callMentor(
     objective: snap.objective,
     pendingQuestionToday: Boolean(snap.pendingQuestion),
     allowQuestion: snap.allowQuestion,
+    weather: snap.weather
+      ? { label: snap.weather.label, summaryLine: weatherLine }
+      : null,
+    mlScores: snap.mlScores,
+    challengePolicyHint: challengePolicy.promptHint,
+    checkinsSummary: snap.checkinsSummary,
   });
 
   const messages = [
@@ -392,48 +499,68 @@ async function callMentor(
   }
 
   let challengeRow = null;
-  if (payload.challenge && snap.activeChallenges.length < 2) {
-    const habitOk =
-      payload.challenge.habit_id &&
-      snap.habits.some((h) => h.id === payload.challenge!.habit_id)
-        ? payload.challenge.habit_id
-        : null;
-
-    const ends = new Date();
-    ends.setDate(ends.getDate() + payload.challenge.duracao_dias);
-    const { data: chal, error: chalErr } = await supabase
-      .from("mentor_challenges")
-      .insert({
-        user_id: userId,
+  if (payload.challenge) {
+    const guarded = applyChallengeGuardrails(
+      {
         titulo: payload.challenge.titulo,
         descricao: payload.challenge.descricao,
         duracao_dias: payload.challenge.duracao_dias,
         xp_recompensa: payload.challenge.xp_recompensa,
-        titulo_recompensa: payload.challenge.titulo_recompensa ?? null,
-        status: "ativo",
-        ends_at: ends.toISOString(),
-        habit_id: habitOk,
-        completions_required: payload.challenge.completions_required ?? 1,
-      })
-      .select(CHALLENGE_COLS)
-      .single();
-    if (chalErr) {
-      console.error("[mentor] challenge insert", chalErr.message);
-    } else if (chal) {
-      const [enriched] = await enrichChallenges(supabase, userId, [chal]);
-      challengeRow = enriched;
-      metadata.challenge_id = chal.id;
-      const { createNotification } = await import("@/notifications/create");
-      await createNotification({
-        userId,
-        tipo: "mentor_challenge",
-        titulo: "Novo desafio do Charlie",
-        corpo: chal.titulo,
-        metadata: {
-          challenge_id: chal.id,
-          href: "/mentor",
-        },
-      });
+        titulo_recompensa: payload.challenge.titulo_recompensa,
+        habit_id: payload.challenge.habit_id,
+        completions_required: payload.challenge.completions_required,
+      },
+      challengePolicy,
+    );
+
+    if (guarded && snap.activeChallenges.length < challengePolicy.maxActive) {
+      const habitOk =
+        guarded.habit_id && snap.habits.some((h) => h.id === guarded.habit_id)
+          ? guarded.habit_id
+          : null;
+
+      const ends = new Date();
+      ends.setDate(ends.getDate() + guarded.duracao_dias);
+      const { data: chal, error: chalErr } = await supabase
+        .from("mentor_challenges")
+        .insert({
+          user_id: userId,
+          titulo: guarded.titulo,
+          descricao: guarded.descricao,
+          duracao_dias: guarded.duracao_dias,
+          xp_recompensa: guarded.xp_recompensa,
+          titulo_recompensa: guarded.titulo_recompensa ?? null,
+          status: "ativo",
+          ends_at: ends.toISOString(),
+          habit_id: habitOk,
+          completions_required: guarded.completions_required ?? 1,
+        })
+        .select(CHALLENGE_COLS)
+        .single();
+      if (chalErr) {
+        console.error("[mentor] challenge insert", chalErr.message);
+      } else if (chal) {
+        const [enriched] = await enrichChallenges(supabase, userId, [chal]);
+        challengeRow = enriched;
+        metadata.challenge_id = chal.id;
+        metadata.adaptive_challenge = true;
+        metadata.adaptive_reasons = challengePolicy.reasons;
+        const { createNotification } = await import("@/notifications/create");
+        await createNotification({
+          userId,
+          tipo: "mentor_challenge",
+          titulo: "Novo desafio do Charlie",
+          corpo: chal.titulo,
+          metadata: {
+            challenge_id: chal.id,
+            href: "/mentor",
+            ml_guided: true,
+          },
+        });
+      }
+    } else if (payload.challenge && !guarded) {
+      metadata.challenge_blocked = true;
+      metadata.adaptive_reasons = challengePolicy.reasons;
     }
   }
 
@@ -493,7 +620,7 @@ export const getMentorThread = createServerFn({ method: "POST" })
 
     await expireOverdueChallenges(supabase, userId);
 
-    const [msgsRes, chalRes, profileRes, objRes] = await Promise.all([
+    const [msgsRes, chalRes, profileRes, objRes, mlRes] = await Promise.all([
       supabase
         .from("mentor_messages")
         .select(MSG_COLS)
@@ -518,6 +645,11 @@ export const getMentorThread = createServerFn({ method: "POST" })
         .eq("user_id", userId)
         .eq("ativo", true)
         .maybeSingle(),
+      supabase
+        .from("user_ml_scores")
+        .select("risco_streak, risco_abandono, weekday_weakest, explicacao")
+        .eq("user_id", userId)
+        .maybeSingle(),
     ]);
 
     if (msgsRes.error) throw new Error(msgsRes.error.message);
@@ -540,6 +672,18 @@ export const getMentorThread = createServerFn({ method: "POST" })
     const pendingQuestion = await findPendingQuestionFromDb(supabase, userId);
     const challengesEnriched = await enrichChallenges(supabase, userId, chalRes.data ?? []);
 
+    const ml = mlRes.error ? null : mlScoresFromRow(mlRes.data as never);
+    let mlRiskLine: string | null = null;
+    if (ml && (ml.risco_streak >= 0.55 || ml.risco_abandono >= 0.55)) {
+      const pct = Math.round(Math.max(ml.risco_streak, ml.risco_abandono) * 100);
+      const which =
+        ml.risco_streak >= ml.risco_abandono ? "perder streak" : "queda de ritmo";
+      const weak = ml.explicacao.weekday_weakest_label;
+      mlRiskLine = `Risco de ${which}: alto (${pct}%)${weak ? ` · padrão fraco: ${weak}` : ""}`;
+    } else if (ml && ml.risco_streak >= 0.35) {
+      mlRiskLine = `Risco de perder streak: moderado (${Math.round(ml.risco_streak * 100)}%)`;
+    }
+
     return {
       messages: msgsRes.data ?? [],
       challenges: challengesEnriched,
@@ -547,6 +691,7 @@ export const getMentorThread = createServerFn({ method: "POST" })
       onboardingCompleto: profileRes.data?.onboarding_completo ?? false,
       objective,
       pendingQuestion,
+      mlRiskLine,
     };
   });
 
@@ -575,7 +720,7 @@ export const ensureMentorPresence = createServerFn({ method: "POST" })
       daysSinceLastVisit = daysBetween(lastAssistant.created_at.slice(0, 10), hojeISO());
     }
 
-    const kind = detectPresenceKind({
+    let kind = detectPresenceKind({
       messageCount: messages.length,
       lastAssistantKind: lastAssistant?.kind ?? null,
       lastAssistantAt: lastAssistant?.created_at ?? null,
@@ -585,6 +730,22 @@ export const ensureMentorPresence = createServerFn({ method: "POST" })
       hadEveningToday: todayMsgs.some((m) => m.role === "assistant" && m.kind === "evening"),
       hadAssistantToday: todayMsgs.some((m) => m.role === "assistant"),
     });
+
+    // ML: presença proativa quando risco alto e ainda não houve assistente hoje
+    if (!kind && !todayMsgs.some((m) => m.role === "assistant")) {
+      const { data: mlRow } = await supabase
+        .from("user_ml_scores")
+        .select("risco_streak, risco_abandono")
+        .eq("user_id", userId)
+        .maybeSingle();
+      const risco = Math.max(
+        Number(mlRow?.risco_streak) || 0,
+        Number(mlRow?.risco_abandono) || 0,
+      );
+      if (risco >= 0.55) {
+        kind = "insight";
+      }
+    }
 
     if (!kind) {
       return { created: false as const, message: null, challenge: null, pendingQuestion: null };
@@ -780,12 +941,18 @@ export const updateMentorChallenge = createServerFn({ method: "POST" })
 
     const { data: profile, error: pErr } = await supabase
       .from("profiles")
-      .select("xp_total")
+      .select("xp_total, streak_atual, streak_maximo, capitulo_atual")
       .eq("id", userId)
       .single();
     if (pErr) throw new Error(pErr.message);
 
-    const novoXp = (profile.xp_total ?? 0) + chal.xp_recompensa;
+    const before = {
+      xp_total: profile.xp_total ?? 0,
+      streak_atual: profile.streak_atual ?? 0,
+      streak_maximo: profile.streak_maximo ?? 0,
+      capitulo_atual: profile.capitulo_atual ?? 1,
+    };
+    const novoXp = before.xp_total + chal.xp_recompensa;
     const { error: xpErr } = await supabase
       .from("profiles")
       .update({ xp_total: novoXp })
@@ -813,13 +980,25 @@ export const updateMentorChallenge = createServerFn({ method: "POST" })
       },
     });
 
+    const { evaluateProgress } = await import("@/lib/progress-engine");
+    const progress = await evaluateProgress(supabase, userId, before, {
+      ...before,
+      xp_total: novoXp,
+    });
+
     const [enriched] = await enrichChallenges(supabase, userId, [updated]);
     const followUp = await maybeChallengeFollowUp(supabase, userId, {
       titulo: chal.titulo,
       action: "complete",
     });
 
-    return { challenge: enriched, xpGanho: chal.xp_recompensa, ...followUp };
+    return {
+      challenge: enriched,
+      xpGanho: chal.xp_recompensa + progress.xpBonusTotal,
+      unlockedAchievements: progress.unlockedAchievements,
+      chapterChanged: progress.chapterChanged,
+      ...followUp,
+    };
   });
 
 async function maybeChallengeFollowUp(

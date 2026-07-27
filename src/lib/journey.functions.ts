@@ -1,11 +1,37 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { geocodeLocationQuery } from "@/lib/weather";
 import {
   DEFAULT_WALLPAPER_ID,
   getWallpaperById,
   isWallpaperUnlocked,
 } from "@/lib/wallpapers";
+import { evaluateProgress } from "@/lib/progress-engine";
+import {
+  bumpMissionsOnHabitComplete,
+  ensureChapterMissions,
+  grantMissionRewards,
+} from "@/lib/missions-core";
+
+type Client = SupabaseClient<Database>;
+
+async function requireOnboardingComplete(
+  supabase: Client,
+  userId: string,
+) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("onboarding_completo")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data?.onboarding_completo) {
+    throw new Error("Conclua o onboarding antes de continuar.");
+  }
+}
 
 const ATTR_KEYS = [
   "forca",
@@ -137,9 +163,10 @@ export const completeHabit = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
+    await requireOnboardingComplete(supabase as Client, userId);
     const hoje = hojeISO();
 
-    const [habitRes, existingRes, profRes, attrsRes] = await Promise.all([
+    const [habitRes, existingRes, profRes, attrsRes, priorCountRes] = await Promise.all([
       supabase.from("habits").select(HABIT_COLS).eq("id", data.habitId).eq("user_id", userId).maybeSingle(),
       supabase
         .from("habit_completions")
@@ -150,10 +177,14 @@ export const completeHabit = createServerFn({ method: "POST" })
         .maybeSingle(),
       supabase
         .from("profiles")
-        .select("xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual")
+        .select("xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, onboarding_completo")
         .eq("id", userId)
         .maybeSingle(),
       supabase.from("attributes").select(ATTR_COLS).eq("user_id", userId).maybeSingle(),
+      supabase
+        .from("habit_completions")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId),
     ]);
 
     const habit = habitRes.data;
@@ -198,9 +229,11 @@ export const completeHabit = createServerFn({ method: "POST" })
 
     const beforeProgress = {
       xp_total: prof.xp_total,
+      streak_atual: prof.streak_atual,
       streak_maximo: prof.streak_maximo,
       capitulo_atual: prof.capitulo_atual ?? 1,
     };
+    const firstHabitEver = (priorCountRes.count ?? 0) === 0;
 
     await Promise.all([
       supabase
@@ -224,26 +257,73 @@ export const completeHabit = createServerFn({ method: "POST" })
       }),
     ]);
 
-    // Notifica fundos liberados por XP / streak neste check-in
+    const afterHabit = {
+      xp_total: novoXpTotal,
+      streak_atual: streak,
+      streak_maximo: streakMax,
+      capitulo_atual: beforeProgress.capitulo_atual,
+    };
+
+    const progress = await evaluateProgress(
+      supabase as Client,
+      userId,
+      beforeProgress,
+      afterHabit,
+      { firstHabitEver },
+    );
+
+    let finalXp = progress.xp_total;
+    let finalCapitulo = progress.capitulo_atual;
+    let unlocked = progress.unlockedAchievements;
+    let chapterChanged = progress.chapterChanged;
+    let missionXp = 0;
+
     try {
-      const { notifyNewlyUnlockedWallpapers } = await import("@/lib/wallpaper-notify");
-      await notifyNewlyUnlockedWallpapers(userId, beforeProgress, {
-        xp_total: novoXpTotal,
-        streak_maximo: streakMax,
-        capitulo_atual: beforeProgress.capitulo_atual,
-      });
+      const grants = await bumpMissionsOnHabitComplete(
+        supabase as Client,
+        userId,
+        data.habitId,
+      );
+      if (grants.length) {
+        const missionBefore = {
+          xp_total: finalXp,
+          streak_atual: streak,
+          streak_maximo: streakMax,
+          capitulo_atual: finalCapitulo,
+        };
+        const missionResult = await grantMissionRewards(
+          supabase as Client,
+          userId,
+          grants,
+          missionBefore,
+        );
+        finalXp = missionResult.xp_total;
+        finalCapitulo = missionResult.capitulo_atual;
+        missionXp = missionResult.missionXp;
+        unlocked = [...unlocked, ...missionResult.unlockedAchievements];
+        chapterChanged = missionResult.chapterChanged ?? chapterChanged;
+      }
     } catch (e) {
-      console.error("[wallpaper] notify after habit", e);
+      console.error("[missions] bump after habit", e);
     }
 
+    // ML Fase 1: recompute leve (não bloqueia a resposta do hábito)
+    void import("@/lib/ml/recompute")
+      .then(({ recomputeUserMl }) => recomputeUserMl(supabase as Client, userId, hoje))
+      .catch((e) => console.error("[ml] recompute after habit", e));
+
     return {
-      xpGanho: xp,
+      xpGanho: xp + progress.xpBonusTotal + missionXp,
       streak,
       streakMaximo: streakMax,
-      novoXpTotal,
+      novoXpTotal: finalXp,
+      capitulo_atual: finalCapitulo,
       atributo: attrKey,
       novoAttrValor,
       habitId: data.habitId,
+      unlockedAchievements: unlocked,
+      chapterChanged,
+      missionXp,
     };
   });
 
@@ -274,6 +354,7 @@ export const createHabit = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
+    await requireOnboardingComplete(supabase as Client, userId);
     const { data: row, error } = await supabase
       .from("habits")
       .insert({ user_id: userId, ...data })
@@ -312,6 +393,7 @@ export const updateHabit = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
+    await requireOnboardingComplete(supabase as Client, userId);
     const { id, ...fields } = data;
     const { data: row, error } = await supabase
       .from("habits")
@@ -330,6 +412,7 @@ export const deleteHabit = createServerFn({ method: "POST" })
   .validator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
+    await requireOnboardingComplete(supabase as Client, userId);
     const { error } = await supabase.from("habits").delete().eq("id", data.id).eq("user_id", userId);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -339,6 +422,7 @@ export const deleteHabit = createServerFn({ method: "POST" })
 export const listGoals = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await requireOnboardingComplete(context.supabase as Client, context.userId);
     const { data } = await context.supabase
       .from("goals")
       .select("id, categoria, titulo, descricao, ativo, created_at")
@@ -366,6 +450,7 @@ export const createGoal = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ context, data }) => {
+    await requireOnboardingComplete(context.supabase as Client, context.userId);
     const { data: row, error } = await context.supabase
       .from("goals")
       .insert({ ...data, user_id: context.userId })
@@ -379,6 +464,7 @@ export const deleteGoal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
   .handler(async ({ context, data }) => {
+    await requireOnboardingComplete(context.supabase as Client, context.userId);
     const { error } = await context.supabase
       .from("goals")
       .delete()
@@ -418,7 +504,59 @@ export const setGoals = createServerFn({ method: "POST" })
       await supabase.from("goals").insert(data.goals.map((g) => ({ ...g, user_id: userId })));
     }
     await supabase.from("profiles").update({ onboarding_completo: true }).eq("id", userId);
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("capitulo_atual")
+      .eq("id", userId)
+      .maybeSingle();
+    try {
+      await ensureChapterMissions(
+        supabase as Client,
+        userId,
+        profile?.capitulo_atual ?? 1,
+      );
+    } catch (e) {
+      console.error("[missions] seed onboarding", e);
+    }
+
     return { ok: true };
+  });
+
+// ---------- ACTIVITY HISTORY ----------
+export const listActivityHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((i: unknown) =>
+    z
+      .object({
+        limit: z.number().int().min(1).max(100).optional().default(15),
+        cursor: z.string().optional(),
+      })
+      .parse(i ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    const pageSize = data.limit;
+    let q = supabase
+      .from("activity_history")
+      .select("id, tipo, descricao, xp_delta, metadata, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(pageSize + 1);
+
+    if (data.cursor) {
+      q = q.lt("created_at", data.cursor);
+    }
+
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+
+    const raw = rows ?? [];
+    const hasMore = raw.length > pageSize;
+    const items = hasMore ? raw.slice(0, pageSize) : raw;
+    const nextCursor = hasMore ? items[items.length - 1]?.created_at : undefined;
+
+    return { items, hasMore, nextCursor: nextCursor ?? null };
   });
 
 // ---------- UPDATE PROFILE ----------
@@ -430,6 +568,8 @@ export const updateProfile = createServerFn({ method: "POST" })
         nome: z.string().trim().min(2).max(60).optional(),
         bio: z.string().trim().max(280).optional(),
         wallpaper_id: z.string().trim().min(1).max(40).optional(),
+        /** Cidade/região: string geocodifica; "" limpa a localização. */
+        location_query: z.string().max(120).optional(),
       })
       .parse(i),
   )
@@ -460,7 +600,48 @@ export const updateProfile = createServerFn({ method: "POST" })
       }
     }
 
-    const { error } = await supabase.from("profiles").update(data).eq("id", userId);
-    if (error) throw new Error(error.message);
-    return { ok: true };
+    const patch: Database["public"]["Tables"]["profiles"]["Update"] = {};
+    if (data.nome != null) patch.nome = data.nome;
+    if (data.bio != null) patch.bio = data.bio;
+    if (data.wallpaper_id != null) patch.wallpaper_id = data.wallpaper_id;
+
+    if (data.location_query != null) {
+      const q = data.location_query.trim();
+      if (!q) {
+        patch.location_label = null;
+        patch.location_lat = null;
+        patch.location_lon = null;
+        patch.location_timezone = null;
+      } else {
+        const geo = await geocodeLocationQuery(q);
+        patch.location_label = geo.label;
+        patch.location_lat = geo.lat;
+        patch.location_lon = geo.lon;
+        patch.location_timezone = geo.timezone;
+      }
+    }
+
+    if (Object.keys(patch).length === 0) {
+      throw new Error("Nada para atualizar.");
+    }
+
+    const { error } = await supabase.from("profiles").update(patch).eq("id", userId);
+    if (error) {
+      if (/location_/i.test(error.message)) {
+        throw new Error(
+          "Colunas de localização ainda não existem no banco. Rode a migration 20260727140000_profile_location_weather.sql.",
+        );
+      }
+      throw new Error(error.message);
+    }
+
+    return {
+      ok: true as const,
+      location_label:
+        typeof patch.location_label === "string"
+          ? patch.location_label
+          : patch.location_label === null
+            ? null
+            : undefined,
+    };
   });

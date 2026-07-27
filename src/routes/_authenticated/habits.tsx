@@ -2,10 +2,21 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Plus, Trash2, Flame, Pencil } from "lucide-react";
+import { Plus, Trash2, Flame, Pencil, Sparkles, Check } from "lucide-react";
 import { toast } from "sonner";
 
-import { createHabit, updateHabit, deleteHabit, completeHabit } from "@/lib/journey.functions";
+import {
+  createHabit,
+  updateHabit,
+  deleteHabit,
+  completeHabit,
+  listGoals,
+} from "@/lib/journey.functions";
+import {
+  suggestHabitsFromGoals,
+  createHabitsBulk,
+  type HabitSuggestion,
+} from "@/lib/habit-suggest";
 import { journeyQueryOptions, type JourneyData } from "@/lib/journey-queries";
 import { ATRIBUTO_LABELS, CATEGORIAS } from "@/lib/journey";
 import { Card } from "@/components/ui/card";
@@ -44,8 +55,13 @@ function HabitsPage() {
   const updateFn = useServerFn(updateHabit);
   const deleteFn = useServerFn(deleteHabit);
   const completeFn = useServerFn(completeHabit);
+  const suggestFn = useServerFn(suggestHabitsFromGoals);
+  const bulkFn = useServerFn(createHabitsBulk);
+  const goalsFn = useServerFn(listGoals);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<HabitRow | null>(null);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<HabitSuggestion[]>([]);
 
   const createM = useMutation({
     mutationFn: (input: HabitFormValues) => createFn({ data: input }),
@@ -110,7 +126,14 @@ function HabitsPage() {
       return { prev };
     },
     onSuccess: (r) => {
-      toast.success(`+${r.xpGanho} XP`);
+      let msg = `+${r.xpGanho} XP`;
+      if (r.unlockedAchievements?.length) {
+        msg += ` · ${r.unlockedAchievements.map((a) => a.titulo).join(", ")}`;
+      }
+      toast.success(msg);
+      if (r.chapterChanged) {
+        toast.success(`Capítulo ${r.chapterChanged.to}: ${r.chapterChanged.nome}`);
+      }
       qc.setQueryData<JourneyData>(["journey"], (old) => {
         if (!old?.profile) return old;
         return {
@@ -123,6 +146,7 @@ function HabitsPage() {
             xp_total: r.novoXpTotal,
             streak_atual: r.streak,
             streak_maximo: r.streakMaximo,
+            capitulo_atual: r.capitulo_atual ?? old.profile.capitulo_atual,
           },
           attributes:
             old.attributes && r.atributo && r.novoAttrValor != null
@@ -132,6 +156,8 @@ function HabitsPage() {
       });
       void qc.invalidateQueries({ queryKey: ["notifications"] });
       void qc.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+      void qc.invalidateQueries({ queryKey: ["missions"] });
+      void qc.invalidateQueries({ queryKey: ["activity-history"] });
     },
     onError: (e, _id, ctx) => {
       if (ctx?.prev) qc.setQueryData(["journey"], ctx.prev);
@@ -139,32 +165,115 @@ function HabitsPage() {
     },
   });
 
+  const suggestM = useMutation({
+    mutationFn: async () => {
+      const goals = await goalsFn({ data: undefined as unknown as never });
+      return suggestFn({
+        data: {
+          goals: goals.map((g) => ({
+            categoria: g.categoria as HabitSuggestion["categoria"],
+            titulo: g.titulo,
+          })),
+        },
+      });
+    },
+    onSuccess: (res) => {
+      setSuggestions(res.habits);
+      setSuggestOpen(true);
+      if (res.source === "fallback") {
+        toast.message("Usando sugestões prontas (IA indisponível ou fallback).");
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const acceptSuggestM = useMutation({
+    mutationFn: () => bulkFn({ data: { habits: suggestions } }),
+    onSuccess: (res) => {
+      toast.success(`${res.habits.length} hábitos adicionados`);
+      setSuggestOpen(false);
+      setSuggestions([]);
+      void qc.invalidateQueries({ queryKey: ["journey"] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="font-display text-2xl font-bold">Hábitos</h1>
           <p className="text-sm text-muted-foreground">Rituais diários que forjam o herói.</p>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-1 h-4 w-4" />
-              Novo
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Novo hábito</DialogTitle>
-            </DialogHeader>
-            <HabitForm
-              submitLabel="Criar hábito"
-              onSubmit={(v) => createM.mutate(v)}
-              loading={createM.isPending}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => suggestM.mutate()}
+            disabled={suggestM.isPending}
+          >
+            <Sparkles className="mr-1 h-4 w-4" />
+            {suggestM.isPending ? "Gerando…" : "Sugerir com Charlie"}
+          </Button>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-1 h-4 w-4" />
+                Novo
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Novo hábito</DialogTitle>
+              </DialogHeader>
+              <HabitForm
+                submitLabel="Criar hábito"
+                onSubmit={(v) => createM.mutate(v)}
+                loading={createM.isPending}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
+
+      <Dialog open={suggestOpen} onOpenChange={setSuggestOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Sugestões do Charlie</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {suggestions.map((h, i) => (
+              <div key={i} className="space-y-2 border border-border p-3">
+                <Input
+                  value={h.titulo}
+                  onChange={(e) => {
+                    const next = [...suggestions];
+                    next[i] = { ...next[i], titulo: e.target.value };
+                    setSuggestions(next);
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {ATRIBUTO_LABELS[h.atributo]} · +{h.xp_recompensa} XP
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSuggestions(suggestions.filter((_, x) => x !== i))}
+                >
+                  Remover
+                </Button>
+              </div>
+            ))}
+          </div>
+          <Button
+            className="w-full"
+            disabled={acceptSuggestM.isPending || suggestions.length === 0}
+            onClick={() => acceptSuggestM.mutate()}
+          >
+            <Check className="mr-1 h-4 w-4" />
+            Adicionar selecionados
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={Boolean(editing)}
@@ -190,9 +299,20 @@ function HabitsPage() {
 
       <Card className="p-4">
         {data.habits.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            Sem hábitos ainda. Comece pequeno — um só.
-          </p>
+          <div className="py-10 text-center">
+            <p className="text-sm text-muted-foreground">
+              Sem hábitos ainda. Comece pequeno — ou peça sugestões ao Charlie.
+            </p>
+            <Button
+              className="mt-4"
+              variant="outline"
+              onClick={() => suggestM.mutate()}
+              disabled={suggestM.isPending}
+            >
+              <Sparkles className="mr-1 h-4 w-4" />
+              Sugerir rotina
+            </Button>
+          </div>
         ) : (
           <ul className="divide-y divide-border">
             {data.habits.map((h) => {
@@ -257,72 +377,71 @@ function HabitForm({
   const [titulo, setTitulo] = useState(initial?.titulo ?? "");
   const [xp, setXp] = useState(initial?.xp_recompensa ?? 10);
   const [atributo, setAtributo] = useState<HabitAttr>(initial?.atributo ?? "disciplina");
-  const [categoria, setCategoria] = useState<HabitCategory>(initial?.categoria ?? "mente");
+  const [categoria, setCategoria] = useState<HabitCategory | "">(
+    (initial?.categoria as HabitCategory | undefined) ?? "",
+  );
 
   return (
     <form
+      className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit({ titulo, xp_recompensa: xp, atributo, categoria });
+        onSubmit({
+          titulo,
+          xp_recompensa: xp,
+          atributo,
+          ...(categoria ? { categoria } : {}),
+        });
       }}
-      className="space-y-4"
     >
       <div className="space-y-2">
         <Label>Título</Label>
-        <Input
-          value={titulo}
-          onChange={(e) => setTitulo(e.target.value)}
-          placeholder="Ex: Treinar 30 min"
-          required
-          minLength={2}
-          maxLength={80}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label>Atributo</Label>
-          <Select value={atributo} onValueChange={(v) => setAtributo(v as HabitAttr)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(ATRIBUTO_LABELS).map(([k, l]) => (
-                <SelectItem key={k} value={k}>
-                  {l}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Categoria</Label>
-          <Select value={categoria} onValueChange={(v) => setCategoria(v as HabitCategory)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CATEGORIAS.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.emoji} {c.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} required minLength={2} />
       </div>
       <div className="space-y-2">
-        <Label>XP por conclusão ({xp})</Label>
-        <input
-          type="range"
+        <Label>XP</Label>
+        <Input
+          type="number"
           min={5}
-          max={100}
-          step={5}
+          max={200}
           value={xp}
           onChange={(e) => setXp(Number(e.target.value))}
-          className="w-full accent-hero"
         />
       </div>
-      <Button type="submit" className="w-full" disabled={loading}>
+      <div className="space-y-2">
+        <Label>Atributo</Label>
+        <Select value={atributo} onValueChange={(v) => setAtributo(v as HabitAttr)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(ATRIBUTO_LABELS).map(([k, label]) => (
+              <SelectItem key={k} value={k}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Categoria</Label>
+        <Select
+          value={categoria || undefined}
+          onValueChange={(v) => setCategoria(v as HabitCategory)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Opcional" />
+          </SelectTrigger>
+          <SelectContent>
+            {CATEGORIAS.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <Button type="submit" disabled={loading} className="w-full">
         {submitLabel}
       </Button>
     </form>

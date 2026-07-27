@@ -22,6 +22,16 @@ dist-ssr
 .env.*
 !.env.example
 
+# ML Fase 2
+ml/.venv/
+ml/artifacts/**
+!ml/artifacts/.gitkeep
+!ml/artifacts/.gitignore
+ml/reports/**
+!ml/reports/.gitkeep
+!ml/reports/.gitignore
+!ml/reports/last_evaluate.md
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
@@ -36,3 +46,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python
+__pycache__/
+*.py[cod]
+*.class
+

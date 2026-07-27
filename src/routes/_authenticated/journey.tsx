@@ -1,13 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Flame, Check, Sparkles, ChevronRight, Trophy, Target, ArrowRight } from "lucide-react";
+import { Flame, Check, Sparkles, ChevronRight, Trophy, Target, ArrowRight, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 
 import { completeHabit } from "@/lib/journey.functions";
-import { journeyQueryOptions, type JourneyData } from "@/lib/journey-queries";
+import {
+  journeyQueryOptions,
+  missionsQueryOptions,
+  type JourneyData,
+} from "@/lib/journey-queries";
 import { calcularNivel, fraseDoDia, ATRIBUTO_LABELS } from "@/lib/journey";
+import { chapterName } from "@/lib/chapters";
 import { MentorJourneyCard } from "@/mentor/MentorJourneyCard";
+import { CheckinCard } from "@/components/CheckinCard";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
@@ -23,7 +29,12 @@ function JourneyPending() {
 }
 
 export const Route = createFileRoute("/_authenticated/journey")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(journeyQueryOptions()),
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(journeyQueryOptions()),
+      context.queryClient.ensureQueryData(missionsQueryOptions()),
+    ]);
+  },
   pendingComponent: JourneyPending,
   errorComponent: ({ error }) => (
     <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-6 text-sm text-destructive">
@@ -54,6 +65,7 @@ function patchComplete(old: JourneyData | undefined, res: Awaited<ReturnType<typ
       xp_total: res.novoXpTotal,
       streak_atual: res.streak,
       streak_maximo: res.streakMaximo,
+      capitulo_atual: res.capitulo_atual ?? old.profile.capitulo_atual,
     },
     attributes: attrs,
   };
@@ -61,6 +73,7 @@ function patchComplete(old: JourneyData | undefined, res: Awaited<ReturnType<typ
 
 function JourneyPage() {
   const { data } = useSuspenseQuery(journeyQueryOptions());
+  const { data: missionsData } = useSuspenseQuery(missionsQueryOptions());
   const queryClient = useQueryClient();
   const completeFn = useServerFn(completeHabit);
 
@@ -88,10 +101,20 @@ function JourneyPage() {
       return { prev };
     },
     onSuccess: (res) => {
-      toast.success(`+${res.xpGanho} XP · Streak ${res.streak}🔥`);
+      let msg = `+${res.xpGanho} XP · Streak ${res.streak}🔥`;
+      if (res.unlockedAchievements?.length) {
+        msg += ` · ${res.unlockedAchievements.map((a) => a.titulo).join(", ")}`;
+      }
+      if (res.chapterChanged) {
+        toast.success(`Capítulo ${res.chapterChanged.to}: ${res.chapterChanged.nome}`);
+      }
+      toast.success(msg);
       queryClient.setQueryData<JourneyData>(["journey"], (old) => patchComplete(old, res));
       void queryClient.invalidateQueries({ queryKey: ["notifications"] });
       void queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+      void queryClient.invalidateQueries({ queryKey: ["missions"] });
+      void queryClient.invalidateQueries({ queryKey: ["activity-history"] });
+      void queryClient.invalidateQueries({ queryKey: ["profile-panorama"] });
     },
     onError: (err, _id, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(["journey"], ctx.prev);
@@ -120,6 +143,9 @@ function JourneyPage() {
   const habitsRestantes = data.habits.filter((h) => !data.completedToday.includes(h.id));
   const totalHoje = data.habits.length;
   const feitos = data.completedToday.length;
+  const activeMissions = missionsData.missions.filter((m) => m.status === "ativa");
+  const principal = activeMissions.find((m) => m.kind === "principal");
+  const secundarias = activeMissions.filter((m) => m.kind === "secundaria");
 
   return (
     <div className="space-y-6">
@@ -162,10 +188,24 @@ function JourneyPage() {
         </p>
       </Card>
 
+      {(principal || secundarias.length > 0) && (
+        <Card className="p-6">
+          <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-semibold">
+            <ScrollText className="h-5 w-5 text-hero" /> Missões do capítulo
+          </h2>
+          <div className="space-y-3">
+            {principal && <MissionCard mission={principal} />}
+            {secundarias.map((m) => (
+              <MissionCard key={m.id} mission={m} secondary />
+            ))}
+          </div>
+        </Card>
+      )}
+
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="font-display text-lg font-semibold">Missão de hoje</h2>
+            <h2 className="font-display text-lg font-semibold">Hábitos de hoje</h2>
             <p className="text-sm text-muted-foreground">
               {feitos} de {totalHoje} hábitos concluídos
             </p>
@@ -182,10 +222,19 @@ function JourneyPage() {
         {data.habits.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border py-10 text-center">
             <Target className="mx-auto h-8 w-8 text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">Nenhum hábito ainda. Crie o primeiro.</p>
-            <Link to="/habits" className="mt-4 inline-block">
-              <Button size="sm">Criar hábito</Button>
-            </Link>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Nenhum hábito ainda. Crie o primeiro ou peça sugestões ao Charlie.
+            </p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <Link to="/habits">
+                <Button size="sm">Criar hábito</Button>
+              </Link>
+              <Link to="/habits">
+                <Button size="sm" variant="outline">
+                  Sugerir com Charlie
+                </Button>
+              </Link>
+            </div>
           </div>
         ) : (
           <ul className="space-y-2">
@@ -236,6 +285,7 @@ function JourneyPage() {
       </Card>
 
       <MentorJourneyCard />
+      <CheckinCard />
 
       <Card className="p-6">
         <h2 className="mb-4 font-display text-lg font-semibold">Atributos</h2>
@@ -277,7 +327,47 @@ function JourneyPage() {
   );
 }
 
-function chapterName(n: number) {
-  const nomes = ["O Chamado", "A Travessia", "As Provas", "O Abismo", "A Recompensa", "O Retorno", "A Lenda"];
-  return nomes[n - 1] ?? "O Chamado";
+function MissionCard({
+  mission,
+  secondary,
+}: {
+  mission: {
+    id: string;
+    titulo: string;
+    descricao: string;
+    progresso_atual: number;
+    progresso_alvo: number;
+    xp_recompensa: number;
+    kind: string;
+  };
+  secondary?: boolean;
+}) {
+  const pct = Math.min(100, (mission.progresso_atual / Math.max(1, mission.progresso_alvo)) * 100);
+  return (
+    <div
+      className={`rounded-lg border p-4 ${
+        secondary ? "border-border bg-surface/60" : "border-hero/30 bg-hero/5"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            {mission.kind === "principal" ? "Principal" : "Secundária"}
+          </p>
+          <p className="font-medium">{mission.titulo}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{mission.descricao}</p>
+        </div>
+        <span className="shrink-0 text-xs text-hero">+{mission.xp_recompensa} XP</span>
+      </div>
+      <div className="mt-3">
+        <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+          <span>
+            {mission.progresso_atual}/{mission.progresso_alvo}
+          </span>
+          <span>{Math.round(pct)}%</span>
+        </div>
+        <Progress value={pct} className="h-1.5" />
+      </div>
+    </div>
+  );
 }

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery, useMutation, useQueryClient, useSuspenseInfiniteQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import {
@@ -10,6 +10,8 @@ import {
   Flame,
   CalendarDays,
   Pencil,
+  MapPin,
+  History,
 } from "lucide-react";
 import {
   PolarAngleAxis,
@@ -24,6 +26,7 @@ import { toast } from "sonner";
 import { updateProfile } from "@/lib/journey.functions";
 import {
   profilePanoramaQueryOptions,
+  activityHistoryInfiniteQueryOptions,
   type JourneyData,
   type ProfilePanoramaData,
 } from "@/lib/journey-queries";
@@ -54,7 +57,10 @@ export const Route = createFileRoute("/_authenticated/profile")({
   ssr: false,
   loader: async ({ context }) => {
     try {
-      await context.queryClient.ensureQueryData(profilePanoramaQueryOptions());
+      await Promise.all([
+        context.queryClient.ensureQueryData(profilePanoramaQueryOptions()),
+        context.queryClient.ensureInfiniteQueryData(activityHistoryInfiniteQueryOptions()),
+      ]);
     } catch (e) {
       throw e instanceof Error ? e : new Error(String(e ?? "Falha ao carregar o perfil"));
     }
@@ -82,17 +88,53 @@ function ProfilePage() {
 
   const [nome, setNome] = useState(data.profile.nome ?? "");
   const [bio, setBio] = useState(data.profile.bio ?? "");
+  const [locationQuery, setLocationQuery] = useState(
+    () => (data.profile as { location_label?: string | null }).location_label ?? "",
+  );
   const [wallpaperId, setWallpaperId] = useState(() => readStoredWallpaperId());
 
+  const locationLabel =
+    (data.profile as { location_label?: string | null }).location_label ?? null;
+
   const m = useMutation({
-    mutationFn: () => updateFn({ data: { nome, bio } }),
-    onSuccess: () => {
+    mutationFn: () =>
+      updateFn({
+        data: {
+          nome,
+          bio,
+          location_query: locationQuery,
+        },
+      }),
+    onSuccess: (res) => {
       toast.success("Perfil atualizado");
+      const nextLabel =
+        res.location_label !== undefined ? res.location_label : locationLabel;
+      if (typeof nextLabel === "string") setLocationQuery(nextLabel);
+      if (nextLabel === null) setLocationQuery("");
       qc.setQueryData<ProfilePanoramaData>(["profile-panorama"], (old) =>
-        old ? { ...old, profile: { ...old.profile, nome, bio } } : old,
+        old
+          ? {
+              ...old,
+              profile: {
+                ...old.profile,
+                nome,
+                bio,
+                location_label: nextLabel ?? null,
+              },
+            }
+          : old,
       );
       qc.setQueryData<JourneyData>(["journey"], (old) =>
-        old?.profile ? { ...old, profile: { ...old.profile, nome, bio } } : old,
+        old?.profile
+          ? {
+              ...old,
+              profile: {
+                ...old.profile,
+                nome,
+                bio,
+              },
+            }
+          : old,
       );
     },
     onError: (e) => toast.error(e.message),
@@ -170,6 +212,14 @@ function ProfilePage() {
         {data.profile.bio ? (
           <p className="mt-5 border-l-2 border-hero pl-4 text-sm italic text-muted-foreground">
             {data.profile.bio}
+          </p>
+        ) : null}
+
+        {locationLabel ? (
+          <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5 text-hero" />
+            {locationLabel}
+            <span className="text-muted-foreground/70">· Charlie usa o clima desta região</span>
           </p>
         ) : null}
       </Card>
@@ -368,6 +418,13 @@ function ProfilePage() {
             </ul>
           )}
         </section>
+
+        <section className="mt-6 space-y-3">
+          <h3 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <History className="h-3.5 w-3.5" /> Histórico de atividade
+          </h3>
+          <ActivityHistorySection />
+        </section>
       </Card>
 
       <Card className="border-transparent p-6">
@@ -406,6 +463,19 @@ function ProfilePage() {
             <Label>Bio</Label>
             <Textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280} rows={3} />
           </div>
+          <div className="space-y-2">
+            <Label>Cidade / região (clima do Charlie)</Label>
+            <Input
+              value={locationQuery}
+              onChange={(e) => setLocationQuery(e.target.value)}
+              placeholder="Ex.: São Paulo, Curitiba, Recife…"
+              maxLength={120}
+            />
+            <p className="text-xs text-muted-foreground">
+              Charlie usa a previsão do tempo desta região (Open-Meteo). Deixe em branco e salve
+              para remover.
+            </p>
+          </div>
           <Button type="submit" disabled={m.isPending} className="rounded-none shadow-hero">
             Salvar
           </Button>
@@ -420,6 +490,103 @@ function StatCell({ label, value }: { label: string; value: string }) {
     <div className="bg-surface/80 px-2 py-3">
       <p className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="mt-1 font-display text-lg font-bold text-hero sm:text-xl">{value}</p>
+    </div>
+  );
+}
+
+function ActivityHistorySection() {
+  const {
+    data,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useSuspenseInfiniteQuery(activityHistoryInfiniteQueryOptions());
+
+  const items = data.pages.flatMap((p) => p.items);
+
+  if (items.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Suas ações aparecem aqui quando você concluir hábitos e desafios.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <ActivityTimeline items={items} />
+      {hasNextPage && (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full rounded-none"
+          disabled={isFetchingNextPage}
+          onClick={() => void fetchNextPage()}
+        >
+          {isFetchingNextPage ? "Carregando…" : "Carregar mais"}
+        </Button>
+      )}
+      {!hasNextPage && items.length > 0 && (
+        <p className="text-center text-xs text-muted-foreground">Fim do histórico</p>
+      )}
+    </div>
+  );
+}
+
+function ActivityTimeline({
+  items,
+}: {
+  items: Array<{
+    id: string;
+    tipo: string;
+    descricao: string;
+    xp_delta: number;
+    created_at: string;
+  }>;
+}) {
+  const groups = new Map<string, typeof items>();
+  for (const item of items) {
+    const day = new Date(item.created_at).toLocaleDateString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+    });
+    const list = groups.get(day) ?? [];
+    list.push(item);
+    groups.set(day, list);
+  }
+
+  return (
+    <div className="space-y-4">
+      {[...groups.entries()].map(([day, rows]) => (
+        <div key={day}>
+          <p className="mb-2 text-[0.65rem] uppercase tracking-wider text-muted-foreground">
+            {day}
+          </p>
+          <ul className="space-y-2">
+            {rows.map((row) => (
+              <li
+                key={row.id}
+                className="flex items-start justify-between gap-3 border border-border bg-surface/80 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm">{row.descricao}</p>
+                  <p className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">
+                    {row.tipo.replace(/_/g, " ")}
+                  </p>
+                </div>
+                {row.xp_delta !== 0 && (
+                  <span className="shrink-0 text-xs font-medium text-hero">
+                    {row.xp_delta > 0 ? "+" : ""}
+                    {row.xp_delta} XP
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }

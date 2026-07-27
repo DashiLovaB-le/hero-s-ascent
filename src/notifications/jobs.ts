@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { createNotification, type NotificationTipo } from "@/notifications/create";
+import { decideReminders, scoresFromMlRow } from "@/lib/ml/adaptive";
 
 type Admin = SupabaseClient<Database>;
 
@@ -79,9 +80,9 @@ export type NotificationJobsResult = {
 };
 
 /**
- * Gatilhos de produto (Fase 2).
+ * Gatilhos de produto (Fase 2 + ML Fase 3 adaptive).
  * - Expira desafios overdue + notifica (sempre)
- * - habit_reminder / streak_risk (pula em quiet hours, salvo force)
+ * - habit_reminder / streak_risk guiados por user_ml_scores (pula em quiet hours, salvo force)
  *
  * Horário documentado do cron: 22:00 America/Sao_Paulo (= 01:00 UTC).
  */
@@ -267,6 +268,15 @@ async function sendDailyProductReminders(admin: Admin, hoje: string) {
 
   const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
 
+  const { data: mlRows } = await admin
+    .from("user_ml_scores")
+    .select("user_id, risco_streak, risco_abandono, weekday_weakest, explicacao")
+    .in("user_id", userIds);
+
+  const mlByUser = new Map(
+    (mlRows ?? []).map((r) => [r.user_id, scoresFromMlRow(r)]),
+  );
+
   for (const [userId, habitIds] of habitsByUser) {
     const profile = profileById.get(userId);
     if (!profile) continue;
@@ -275,35 +285,43 @@ async function sendDailyProductReminders(admin: Admin, hoje: string) {
     const pending = habitIds.filter((id) => !done.has(id)).length;
     const allDone = pending === 0;
 
-    if (!allDone) {
+    const decision = decideReminders({
+      scores: mlByUser.get(userId) ?? null,
+      pending,
+      allDone,
+      streakAtual: profile.streak_atual ?? 0,
+      ultimoDiaCompleto: profile.ultimo_dia_completo,
+      hoje,
+    });
+
+    if (decision.sendHabitReminder) {
       const res = await createNotificationOncePerDay({
         userId,
         tipo: "habit_reminder",
-        titulo: "Missões do dia em aberto",
-        corpo:
-          pending === 1
-            ? "Ainda falta 1 hábito hoje. Mantém o ritmo."
-            : `Ainda faltam ${pending} hábitos hoje. Mantém o ritmo.`,
-        metadata: { href: "/habits", pending },
+        titulo: decision.habitTitulo,
+        corpo: decision.habitCorpo,
+        metadata: {
+          href: "/habits",
+          pending,
+          ...decision.metadataExtra,
+          adaptive_reasons: decision.reasons,
+        },
         dia: hoje,
       });
       if (res.ok && !res.skipped) habitReminders += 1;
     }
 
-    const streakRisk =
-      (profile.streak_atual ?? 0) > 0 &&
-      profile.ultimo_dia_completo !== hoje &&
-      !allDone;
-
-    if (streakRisk) {
+    if (decision.sendStreakRisk) {
       const res = await createNotificationOncePerDay({
         userId,
         tipo: "streak_risk",
-        titulo: "Sua streak está em risco",
-        corpo: `Sequência de ${profile.streak_atual} dias — conclua um hábito hoje.`,
+        titulo: decision.streakTitulo,
+        corpo: decision.streakCorpo,
         metadata: {
           href: "/habits",
           streak: profile.streak_atual,
+          ...decision.metadataExtra,
+          adaptive_reasons: decision.reasons,
         },
         dia: hoje,
       });

@@ -38,7 +38,7 @@ Objetivo: centro de notificações no app, sem push.
 - [x] Wire nos fluxos existentes
   - [x] Ao criar desafio do Charlie → insert em `notifications`
   - [x] Ao concluir desafio → insert opcional (“desafio concluído +XP”)
-- [x] Atualizar `StatusAplicacao.md` com a seção de notificações
+- [x] Atualizar `plans/ResumoAplicacao.md` com a seção de notificações
 
 **Critério de pronto (Fase 1):** usuário vê sino, lista notificações, marca como lida; pelo menos 1 evento real (desafio Charlie) gera notificação.
 
@@ -131,4 +131,4 @@ Não fazer nestas fases:
 - API: TanStack `createServerFn` + `requireSupabaseAuth`
 - UI: shell em `src/routes/_authenticated/route.tsx`; visual `cp-panel` / paleta V-Project
 - Toasts Sonner: manter para feedback **imediato** da ação; notificações = histórico + badge
-- Atualizar docs: `StatusAplicacao.md` e, se útil, `RelacaoDeIcones.md` (ícone do sino)
+- Atualizar docs: `plans/ResumoAplicacao.md` e, se útil, `RelacaoDeIcones.md` (ícone do sino)

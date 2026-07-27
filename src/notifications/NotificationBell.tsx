@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Bell } from "lucide-react";
+import { Bell, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -173,33 +173,64 @@ export function NotificationBell() {
             <ul className="space-y-2">
               {items.map((n) => {
                 const unreadItem = !n.lido_em;
+                const markingThis = markRead.isPending && markRead.variables === n.id;
                 return (
                   <li key={n.id}>
-                    <button
-                      type="button"
-                      onClick={() => void onItemClick(n)}
+                    <div
                       className={cn(
-                        "cp-panel w-full border border-transparent p-3 text-left transition-[filter,background-color] hover:brightness-110",
+                        "cp-panel flex w-full items-start gap-2 border border-transparent p-3 transition-[filter,background-color]",
                         unreadItem ? "bg-hero/10" : "bg-surface/60",
                       )}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <p
-                          className={cn(
-                            "text-sm leading-snug",
-                            unreadItem ? "font-semibold text-foreground" : "text-foreground/90",
-                          )}
+                      <button
+                        type="button"
+                        onClick={() => void onItemClick(n)}
+                        className="min-w-0 flex-1 text-left transition-[filter] hover:brightness-110"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p
+                            className={cn(
+                              "text-sm leading-snug",
+                              unreadItem ? "font-semibold text-foreground" : "text-foreground/90",
+                            )}
+                          >
+                            {n.titulo}
+                          </p>
+                          <span className="shrink-0 text-[10px] text-muted-foreground">
+                            {formatRelative(n.created_at)}
+                          </span>
+                        </div>
+                        {n.corpo ? (
+                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{n.corpo}</p>
+                        ) : null}
+                      </button>
+
+                      {unreadItem ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="mt-0.5 h-7 w-7 shrink-0 text-muted-foreground hover:bg-hero/15 hover:text-hero"
+                          disabled={markingThis}
+                          aria-label="Marcar como lida"
+                          title="Marcar como lida"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markRead.mutate(n.id);
+                          }}
                         >
-                          {n.titulo}
-                        </p>
-                        <span className="shrink-0 text-[10px] text-muted-foreground">
-                          {formatRelative(n.created_at)}
+                          <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                        </Button>
+                      ) : (
+                        <span
+                          className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center text-hero/50"
+                          title="Lida"
+                          aria-label="Lida"
+                        >
+                          <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
                         </span>
-                      </div>
-                      {n.corpo ? (
-                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{n.corpo}</p>
-                      ) : null}
-                    </button>
+                      )}
+                    </div>
                   </li>
                 );
               })}

@@ -14,10 +14,11 @@ import {
   readStoredWallpaperId,
   resolveWallpaperBackground,
 } from "@/lib/wallpaper-storage";
+import { isOnboardingAllowedPath } from "@/lib/chapters";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -51,7 +52,24 @@ export const Route = createFileRoute("/_authenticated")({
       throw redirect({ to: "/auth" });
     }
 
-    return { user };
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("onboarding_completo")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const onboardingDone = profile?.onboarding_completo === true;
+    const path = location.pathname;
+    const onOnboarding = path === "/onboarding" || path.endsWith("/onboarding");
+
+    if (!onboardingDone && !isOnboardingAllowedPath(path)) {
+      throw redirect({ to: "/onboarding" });
+    }
+    if (onboardingDone && onOnboarding) {
+      throw redirect({ to: "/journey" });
+    }
+
+    return { user, onboardingCompleto: onboardingDone };
   },
   component: AuthedLayout,
 });

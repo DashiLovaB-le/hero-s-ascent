@@ -2,9 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const PROFILE_COLS =
-  "id, nome, avatar_url, bio, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, frase_motivacional, onboarding_completo, created_at";
+  "id, nome, avatar_url, bio, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, frase_motivacional, onboarding_completo, created_at, location_label, location_lat, location_lon, location_timezone";
 const ATTR_COLS =
   "user_id, forca, disciplina, sabedoria, espirito, testosterona, prosperidade, conhecimento, lideranca";
+const PROFILE_COLS_LEGACY =
+  "id, nome, avatar_url, bio, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, frase_motivacional, onboarding_completo, created_at";
 const CHALLENGE_COLS =
   "id, titulo, descricao, duracao_dias, xp_recompensa, titulo_recompensa, status, starts_at, ends_at, completed_at, created_at";
 
@@ -55,7 +57,7 @@ export const getProfilePanorama = createServerFn({ method: "POST" })
     const hoje = hojeISO();
     const from21 = daysAgoISO(20);
 
-    const [profileRes, attrsRes, habitsRes, goalsRes, compsRes, achRes, chalRes] =
+    const [profileRes0, attrsRes, habitsRes, goalsRes, compsRes, achRes, chalRes] =
       await Promise.all([
         supabase.from("profiles").select(PROFILE_COLS).eq("id", userId).maybeSingle(),
         supabase.from("attributes").select(ATTR_COLS).eq("user_id", userId).maybeSingle(),
@@ -86,6 +88,15 @@ export const getProfilePanorama = createServerFn({ method: "POST" })
           .order("completed_at", { ascending: false })
           .limit(12),
       ]);
+
+    let profileRes = profileRes0;
+    if (profileRes.error && /location_/i.test(profileRes.error.message)) {
+      profileRes = await supabase
+        .from("profiles")
+        .select(PROFILE_COLS_LEGACY)
+        .eq("id", userId)
+        .maybeSingle();
+    }
 
     // Essenciais — se falhar, página não abre
     if (profileRes.error) throw asError("profiles", profileRes.error);

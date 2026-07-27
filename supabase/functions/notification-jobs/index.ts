@@ -1,5 +1,5 @@
 /**
- * Edge Function: notification-jobs (Fase 2)
+ * Edge Function: notification-jobs (Fase 2 + ML Fase 3 adaptive)
  *
  * Agenda sugerida: `0 1 * * *` (01:00 UTC = 22:00 Brasília).
  * Header: `x-cron-secret: <CRON_SECRET>` (mesmo valor do secret no projeto).
@@ -11,6 +11,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const REMINDER_TIPOS = ["habit_reminder", "streak_risk"] as const;
+const ML_QUIET = 0.35;
+const ML_MOD = 0.35;
+const ML_HIGH = 0.55;
 
 Deno.serve(async (req) => {
   try {
@@ -218,6 +221,13 @@ async function sendReminders(admin: ReturnType<typeof createClient>, hoje: strin
 
   const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
 
+  const { data: mlRows } = await admin
+    .from("user_ml_scores")
+    .select("user_id, risco_streak, risco_abandono, weekday_weakest, explicacao")
+    .in("user_id", userIds);
+
+  const mlByUser = new Map((mlRows ?? []).map((r) => [r.user_id, r]));
+
   for (const [userId, habitIds] of habitsByUser) {
     const profile = profileById.get(userId);
     if (!profile) continue;
@@ -225,30 +235,57 @@ async function sendReminders(admin: ReturnType<typeof createClient>, hoje: strin
     const done = doneByUser.get(userId) ?? new Set<string>();
     const pending = habitIds.filter((id) => !done.has(id)).length;
     const allDone = pending === 0;
+    const ml = mlByUser.get(userId);
+    const decision = decideRemindersEdge({
+      scores: ml
+        ? {
+            risco_streak: Number(ml.risco_streak) || 0,
+            risco_abandono: Number(ml.risco_abandono) || 0,
+            weekday_weakest_label:
+              ((ml.explicacao as { weekday_weakest_label?: string } | null)
+                ?.weekday_weakest_label) ?? null,
+          }
+        : null,
+      pending,
+      allDone,
+      streakAtual: profile.streak_atual ?? 0,
+      ultimoDiaCompleto: profile.ultimo_dia_completo,
+      hoje,
+    });
 
-    if (!allDone) {
+    if (decision.sendHabitReminder) {
       const ok = await oncePerDay(
         admin,
         userId,
         "habit_reminder",
-        "Missões do dia em aberto",
-        pending === 1
-          ? "Ainda falta 1 hábito hoje. Mantém o ritmo."
-          : `Ainda faltam ${pending} hábitos hoje. Mantém o ritmo.`,
-        { href: "/habits", pending },
+        decision.habitTitulo,
+        decision.habitCorpo,
+        {
+          href: "/habits",
+          pending,
+          ml_guided: decision.ml_guided,
+          risco_streak: decision.risco_streak,
+          risco_abandono: decision.risco_abandono,
+        },
         hoje,
       );
       if (ok) habitReminders += 1;
     }
 
-    if ((profile.streak_atual ?? 0) > 0 && profile.ultimo_dia_completo !== hoje && !allDone) {
+    if (decision.sendStreakRisk) {
       const ok = await oncePerDay(
         admin,
         userId,
         "streak_risk",
-        "Sua streak está em risco",
-        `Sequência de ${profile.streak_atual} dias — conclua um hábito hoje.`,
-        { href: "/habits", streak: profile.streak_atual },
+        decision.streakTitulo,
+        decision.streakCorpo,
+        {
+          href: "/habits",
+          streak: profile.streak_atual,
+          ml_guided: decision.ml_guided,
+          risco_streak: decision.risco_streak,
+          risco_abandono: decision.risco_abandono,
+        },
         hoje,
       );
       if (ok) streakRisks += 1;
@@ -256,6 +293,87 @@ async function sendReminders(admin: ReturnType<typeof createClient>, hoje: strin
   }
 
   return { habitReminders, streakRisks };
+}
+
+/** Espelho enxuto de src/lib/ml/adaptive.ts decideReminders (Edge). */
+function decideRemindersEdge(input: {
+  scores: {
+    risco_streak: number;
+    risco_abandono: number;
+    weekday_weakest_label: string | null;
+  } | null;
+  pending: number;
+  allDone: boolean;
+  streakAtual: number;
+  ultimoDiaCompleto: string | null;
+  hoje: string;
+}) {
+  const s = input.scores;
+  const classicStreakRisk =
+    input.streakAtual > 0 &&
+    input.ultimoDiaCompleto !== input.hoje &&
+    !input.allDone;
+
+  let sendHabitReminder = !input.allDone && input.pending > 0;
+  let sendStreakRisk = classicStreakRisk;
+
+  if (
+    sendHabitReminder &&
+    input.pending === 1 &&
+    s &&
+    s.risco_streak < ML_QUIET &&
+    s.risco_abandono < ML_QUIET
+  ) {
+    sendHabitReminder = false;
+  }
+
+  if (s && s.risco_streak >= ML_HIGH && input.streakAtual > 0 && !input.allDone) {
+    sendStreakRisk = true;
+  }
+
+  let habitTitulo = "Missões do dia em aberto";
+  let habitCorpo =
+    input.pending === 1
+      ? "Ainda falta 1 hábito hoje. Mantém o ritmo."
+      : `Ainda faltam ${input.pending} hábitos hoje. Mantém o ritmo.`;
+
+  if (s && s.risco_abandono >= ML_HIGH && sendHabitReminder) {
+    habitTitulo = "Não quebre o ritmo hoje";
+    habitCorpo =
+      input.pending === 1
+        ? "Um hábito ainda aberto — feche o dia antes que a ausência vire hábito."
+        : `${input.pending} hábitos em aberto. Volte agora; o ritmo está em risco.`;
+  } else if (s && s.risco_abandono >= ML_MOD && sendHabitReminder) {
+    habitCorpo =
+      input.pending === 1
+        ? "Ainda falta 1 hábito. Um passo curto basta."
+        : `Faltam ${input.pending} hábitos. Um de cada vez.`;
+  }
+
+  let streakTitulo = "Sua streak está em risco";
+  let streakCorpo = `Sequência de ${input.streakAtual} dias — conclua um hábito hoje.`;
+
+  if (s && s.risco_streak >= ML_HIGH && sendStreakRisk) {
+    streakTitulo = "Streak em risco alto";
+    const weak = s.weekday_weakest_label;
+    streakCorpo = weak
+      ? `Sequência de ${input.streakAtual} dias. Seu padrão fraco costuma ser ${weak} — não deixe hoje seguir o mesmo caminho.`
+      : `Sequência de ${input.streakAtual} dias sob pressão. Conclua ao menos um hábito hoje.`;
+  } else if (s && s.risco_streak >= ML_MOD && sendStreakRisk) {
+    streakCorpo = `Sequência de ${input.streakAtual} dias. Um hábito hoje segura o ritmo.`;
+  }
+
+  return {
+    sendHabitReminder,
+    sendStreakRisk,
+    habitTitulo,
+    habitCorpo,
+    streakTitulo,
+    streakCorpo,
+    ml_guided: Boolean(s),
+    risco_streak: s?.risco_streak ?? null,
+    risco_abandono: s?.risco_abandono ?? null,
+  };
 }
 
 async function maybeTelegram(
