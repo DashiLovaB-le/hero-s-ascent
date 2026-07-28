@@ -426,7 +426,7 @@ Cliente e servidor devem apontar para o **mesmo** projeto Supabase (`VITE_*` ali
 | `APP_PUBLIC_URL` | Server | Links em mensagens Telegram |
 
 Modelo: `.env.example`.  
-`.env` **não** deve ser commitado.
+`.env` **não** deve ser commitado...
 
 No **Vercel**, as mesmas variáveis precisam estar em Environment Variables (Production), e `VITE_*` precisam existir no **build**.
 
