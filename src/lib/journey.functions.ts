@@ -15,6 +15,8 @@ import {
   ensureChapterMissions,
   grantMissionRewards,
 } from "@/lib/missions-core";
+import { hojeISO, ontemISO } from "@/lib/datetime";
+import { loadLevelsFromDb, loadWallpapersFromDb } from "@/lib/catalog.server";
 
 type Client = SupabaseClient<Database>;
 
@@ -49,10 +51,6 @@ const PROFILE_COLS =
 const ATTR_COLS =
   "user_id, forca, disciplina, sabedoria, espirito, testosterona, prosperidade, conhecimento, lideranca";
 const HABIT_COLS = "id, titulo, descricao, xp_recompensa, atributo, categoria, ativo, created_at";
-
-function hojeISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 // ---------- GET JOURNEY (bootstrap embutido + selects enxutos) ----------
 export const getJourney = createServerFn({ method: "POST" })
@@ -141,12 +139,19 @@ export const getJourney = createServerFn({ method: "POST" })
       throw new Error("Não foi possível inicializar seu perfil de herói. Tente sair e entrar de novo.");
     }
 
+    const [levels, wallpapers] = await Promise.all([
+      loadLevelsFromDb(),
+      loadWallpapersFromDb(),
+    ]);
+
     return {
       profile: profileRes.data,
       attributes: attrsRes.data,
       habits: habitsRes.data ?? [],
       completedToday: (todayRes.data ?? []).map((r) => r.habit_id),
       achievements: achRes.data ?? [],
+      levels,
+      wallpapers,
     };
   });
 
@@ -195,9 +200,7 @@ export const completeHabit = createServerFn({ method: "POST" })
     if (!prof) throw new Error("Perfil não encontrado");
 
     const xp = habit.xp_recompensa ?? 10;
-    const ontem = new Date();
-    ontem.setDate(ontem.getDate() - 1);
-    const ontemStr = ontem.toISOString().slice(0, 10);
+    const ontemStr = ontemISO();
 
     let streak = prof.streak_atual;
     if (prof.ultimo_dia_completo === hoje) {
@@ -577,8 +580,14 @@ export const updateProfile = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
 
     if (data.wallpaper_id != null) {
-      const def = getWallpaperById(data.wallpaper_id);
-      if (def.id !== data.wallpaper_id && data.wallpaper_id !== DEFAULT_WALLPAPER_ID) {
+      const catalog = await loadWallpapersFromDb();
+      const levels = await loadLevelsFromDb();
+      const def =
+        catalog.find((w) => w.id === data.wallpaper_id) ??
+        (data.wallpaper_id === DEFAULT_WALLPAPER_ID
+          ? catalog[0]
+          : getWallpaperById(data.wallpaper_id));
+      if (!def || (def.id !== data.wallpaper_id && data.wallpaper_id !== DEFAULT_WALLPAPER_ID)) {
         throw new Error("Fundo de tela inválido.");
       }
 
@@ -590,11 +599,15 @@ export const updateProfile = createServerFn({ method: "POST" })
       if (pErr || !profile) throw new Error(pErr?.message ?? "Perfil não encontrado.");
 
       if (
-        !isWallpaperUnlocked(def, {
-          xp_total: profile.xp_total,
-          streak_maximo: profile.streak_maximo,
-          capitulo_atual: profile.capitulo_atual,
-        })
+        !isWallpaperUnlocked(
+          def,
+          {
+            xp_total: profile.xp_total,
+            streak_maximo: profile.streak_maximo,
+            capitulo_atual: profile.capitulo_atual,
+          },
+          levels,
+        )
       ) {
         throw new Error("Este fundo ainda está bloqueado. Continue sua jornada.");
       }

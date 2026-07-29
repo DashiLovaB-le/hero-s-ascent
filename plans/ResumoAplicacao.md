@@ -362,7 +362,7 @@ CLI Python: `cd ml && python -m vproject_ml train|evaluate|score-shadow`.
 | `habits` | Hábitos |
 | `habit_completions` | Check diário |
 | `activity_history` | Log de XP/eventos |
-| `user_roles` | `admin` / `user` |
+| `user_roles` | `dashi` (control room) / `user` (legado: `admin` no enum, não usado pelo app) |
 | `mentor_*` | Mensagens, memórias, desafios, objetivos |
 | `notifications` | Centro in-app |
 | `telegram_link_codes` | Códigos one-time |

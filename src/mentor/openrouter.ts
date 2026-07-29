@@ -13,12 +13,23 @@ type OpenRouterOptions = {
   temperature?: number;
   maxTokens?: number;
   jsonMode?: boolean;
+  /** Para telemetria de custo */
+  usageContext?: {
+    userId?: string | null;
+    source?: string;
+    metadata?: Record<string, unknown>;
+  };
 };
 
-type OpenRouterResult = {
+export type OpenRouterResult = {
   content: string;
   model: string;
   finishReason: string | null;
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 };
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -69,6 +80,11 @@ export async function chatCompletion(opts: OpenRouterOptions): Promise<OpenRoute
 
   const data = (await res.json()) as {
     model?: string;
+    usage?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      total_tokens?: number;
+    };
     choices?: Array<{
       message?: { content?: string | null };
       finish_reason?: string | null;
@@ -81,9 +97,29 @@ export async function chatCompletion(opts: OpenRouterOptions): Promise<OpenRoute
     throw new Error("O Mentor ficou em silêncio. Tente novamente.");
   }
 
+  const promptTokens = Number(data.usage?.prompt_tokens) || 0;
+  const completionTokens = Number(data.usage?.completion_tokens) || 0;
+  const totalTokens = Number(data.usage?.total_tokens) || promptTokens + completionTokens;
+  const resolvedModel = data.model ?? model;
+  const finishReason = choice?.finish_reason ?? null;
+
+  if (opts.usageContext) {
+    const { logAiUsage } = await import("@/lib/ai-usage.server");
+    void logAiUsage({
+      userId: opts.usageContext.userId,
+      source: opts.usageContext.source ?? "mentor",
+      model: resolvedModel,
+      promptTokens,
+      completionTokens,
+      finishReason,
+      metadata: opts.usageContext.metadata,
+    });
+  }
+
   return {
     content,
-    model: data.model ?? model,
-    finishReason: choice?.finish_reason ?? null,
+    model: resolvedModel,
+    finishReason,
+    usage: { promptTokens, completionTokens, totalTokens },
   };
 }

@@ -4,6 +4,7 @@
  */
 
 import { ML_HIGH, ML_MOD, type AdaptiveScores } from "@/lib/ml/adaptive";
+import { hourInTz } from "@/lib/datetime";
 
 export type AgentKind = "checkin_nudge" | "streak_protect" | "cf_habit_hint";
 
@@ -65,12 +66,12 @@ export function decideAgentInitiative(input: {
     };
   }
 
-  // Prioridade 2: check-in ausente + risco moderado/alto OU noite
-  const hour = input.hourLocalApprox ?? new Date().getHours();
-  const evening = hour >= 20 || hour < 2;
+  // Prioridade 2: check-in ausente após o amanhecer (ou risco moderado)
+  const hour = input.hourLocalApprox ?? hourInTz();
+  const pastMorning = hour >= 8;
   if (
     !input.hasCheckinToday &&
-    (riscoA >= ML_MOD || riscoS >= ML_MOD || evening)
+    (riscoA >= ML_MOD || riscoS >= ML_MOD || pastMorning)
   ) {
     reasons.push("checkin_nudge");
     return {

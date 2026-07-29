@@ -3,12 +3,9 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { hojeISO, zonedDayBoundsUtcIso } from "@/lib/datetime";
 
 type Client = SupabaseClient<Database>;
-
-function hojeISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 const checkinSchema = z.object({
   dia: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -52,18 +49,28 @@ export const getTodayCheckin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
+    const dia = hojeISO();
+    const { start: dayStart } = zonedDayBoundsUtcIso(dia);
+
     const { data, error } = await supabase
       .from("user_checkins")
       .select(
         "id, user_id, dia, sono_horas, sono_qualidade, energia, humor, nota, created_at, updated_at",
       )
       .eq("user_id", userId)
-      .eq("dia", hojeISO())
+      .eq("dia", dia)
       .maybeSingle();
 
     if (error && !/does not exist|user_checkins/i.test(error.message)) {
       throw new Error(error.message);
     }
+
+    // Bleed legado: check-in gravado com dia UTC (noite BRT do dia anterior).
+    // Se created_at é antes do início do dia civil em Brasília, não conta como “hoje”.
+    if (data?.created_at && new Date(data.created_at).getTime() < new Date(dayStart).getTime()) {
+      return null;
+    }
+
     return data ?? null;
   });
 

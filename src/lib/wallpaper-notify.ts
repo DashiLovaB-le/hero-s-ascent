@@ -1,8 +1,10 @@
 import type { Json } from "@/integrations/supabase/types";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { createNotification } from "@/notifications/create";
+import { loadWallpapersFromDb } from "@/lib/catalog.server";
 import {
-  getNewlyUnlockedWallpapers,
+  isWallpaperUnlocked,
+  setWallpaperCatalog,
   type WallpaperProgress,
 } from "@/lib/wallpapers";
 
@@ -15,7 +17,14 @@ export async function notifyNewlyUnlockedWallpapers(
   before: WallpaperProgress,
   after: WallpaperProgress,
 ) {
-  const newly = getNewlyUnlockedWallpapers(before, after);
+  const catalog = await loadWallpapersFromDb();
+  setWallpaperCatalog(catalog);
+  const newly = catalog.filter(
+    (w) =>
+      w.unlock.kind !== "always" &&
+      !isWallpaperUnlocked(w, before) &&
+      isWallpaperUnlocked(w, after),
+  );
   if (!newly.length) return { created: 0 };
 
   let created = 0;
@@ -41,11 +50,9 @@ export async function notifyNewlyUnlockedWallpapers(
       metadata: {
         wallpaper_id: w.id,
         kind: "wallpaper_unlock",
-        href: "/profile",
       } as Record<string, Json | undefined>,
     });
     if (res.ok) created += 1;
   }
-
   return { created };
 }

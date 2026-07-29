@@ -9,15 +9,12 @@ import { scoresFromMlRow } from "@/lib/ml/adaptive";
 import { computeCfRecommendations } from "@/lib/ml/collaborative";
 import { isQuietHoursUtc } from "@/notifications/jobs";
 import { createNotification } from "@/notifications/create";
+import { hourInTz, hojeISO, zonedDayBoundsUtcIso } from "@/lib/datetime";
 
 type Admin = SupabaseClient<Database>;
 
-function hojeISO(d = new Date()) {
-  return d.toISOString().slice(0, 10);
-}
-
 function dayBounds(dia: string) {
-  return { start: `${dia}T00:00:00.000Z`, end: `${dia}T23:59:59.999Z` };
+  return zonedDayBoundsUtcIso(dia);
 }
 
 export async function runCfAndAgentJobs(
@@ -189,7 +186,7 @@ async function createInitiatives(admin: Admin, hoje: string, now: Date, limit: n
       alreadyNotifiedToday: (notifRes.count ?? 0) > 0,
       quietHours: false,
       cfSuggestion,
-      hourLocalApprox: now.getUTCHours() - 3, // approx BRT
+      hourLocalApprox: hourInTz(now),
     });
 
     if (!decision.create || !decision.kind) continue;

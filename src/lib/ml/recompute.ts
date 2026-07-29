@@ -11,6 +11,7 @@ import {
   type UserFeaturesV1,
   type MlScoresV1,
 } from "@/lib/ml/features";
+import { addDaysToDateKey, hojeISO } from "@/lib/datetime";
 
 type Client = SupabaseClient<Database>;
 
@@ -44,22 +45,12 @@ export function mlScoresFromRow(
   };
 }
 
-function hojeISO() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function daysAgoISO(n: number) {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - n);
-  return d.toISOString().slice(0, 10);
-}
-
 export async function recomputeUserMl(
   supabase: Client,
   userId: string,
   asOfDate = hojeISO(),
 ): Promise<{ features: UserFeaturesV1; scores: MlScoresV1 }> {
-  const from21 = daysAgoISO(20);
+  const from21 = addDaysToDateKey(asOfDate, -20);
 
   const [profileRes, habitsRes, compsRes, chalRes] = await Promise.all([
     supabase

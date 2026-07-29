@@ -908,6 +908,114 @@ export type Database = {
           },
         ]
       }
+      wallpaper_catalog: {
+        Row: {
+          id: string
+          titulo: string
+          descricao: string
+          file_name: string | null
+          image_url: string | null
+          unlock_kind: string
+          unlock_min: number
+          sort_order: number
+          ativo: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          titulo: string
+          descricao?: string
+          file_name?: string | null
+          image_url?: string | null
+          unlock_kind?: string
+          unlock_min?: number
+          sort_order?: number
+          ativo?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          titulo?: string
+          descricao?: string
+          file_name?: string | null
+          image_url?: string | null
+          unlock_kind?: string
+          unlock_min?: number
+          sort_order?: number
+          ativo?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_cost_rates: {
+        Row: {
+          model: string
+          input_usd_per_1m: number
+          output_usd_per_1m: number
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          model: string
+          input_usd_per_1m?: number
+          output_usd_per_1m?: number
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          model?: string
+          input_usd_per_1m?: number
+          output_usd_per_1m?: number
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_usage_events: {
+        Row: {
+          id: string
+          user_id: string | null
+          source: string
+          model: string
+          prompt_tokens: number
+          completion_tokens: number
+          total_tokens: number
+          estimated_cost_usd: number
+          finish_reason: string | null
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          source?: string
+          model: string
+          prompt_tokens?: number
+          completion_tokens?: number
+          total_tokens?: number
+          estimated_cost_usd?: number
+          finish_reason?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          source?: string
+          model?: string
+          prompt_tokens?: number
+          completion_tokens?: number
+          total_tokens?: number
+          estimated_cost_usd?: number
+          finish_reason?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -926,6 +1034,27 @@ export type Database = {
         }
         Relationships: []
       }
+      mentor_settings: {
+        Row: {
+          key: string
+          value: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          key: string
+          value: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          key?: string
+          value?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -940,7 +1069,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "dashi" | "user"
       attribute_type:
         | "forca"
         | "disciplina"
@@ -1095,7 +1224,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "dashi", "user"],
       attribute_type: [
         "forca",
         "disciplina",

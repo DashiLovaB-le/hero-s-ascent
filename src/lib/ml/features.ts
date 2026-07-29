@@ -4,6 +4,7 @@
  */
 
 import { calcularNivel } from "../journey";
+import { hojeISO } from "@/lib/datetime";
 
 export const FEATURES_VERSION = "v1";
 export const MODEL_VERSION = "heuristic_v1";
@@ -17,7 +18,7 @@ export type ChallengeAggRow = {
 };
 
 export type FeatureInput = {
-  asOfDate: string; // YYYY-MM-DD (UTC calendar day for job)
+  asOfDate: string; // YYYY-MM-DD (calendário America/Sao_Paulo)
   habitCountAtivo: number;
   completions: HabitCompletionRow[];
   challenges: ChallengeAggRow[];
@@ -238,7 +239,7 @@ export function scoreUserHeuristicV1(
   features: UserFeaturesV1,
   opts?: { asOfDate?: string; tomorrowWeekday?: number },
 ): MlScoresV1 {
-  const asOf = opts?.asOfDate ?? new Date().toISOString().slice(0, 10);
+  const asOf = opts?.asOfDate ?? hojeISO();
   const tomorrowWd =
     opts?.tomorrowWeekday ??
     (() => {

@@ -5,7 +5,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { chatCompletion } from "@/mentor/openrouter";
 import {
-  MENTOR_SYSTEM_PROMPT,
   buildMentorContextBlock,
   defaultObjectiveForHero,
   detectPresenceKind,
@@ -13,6 +12,7 @@ import {
   presenceUserPrompt,
   type MentorPresenceKind,
 } from "@/mentor/context";
+import { getMentorSystemPrompt } from "@/mentor/prompt.server";
 import { fetchWeatherForCoords, formatWeatherForMentor } from "@/lib/weather";
 import { mlScoresFromRow, recomputeUserMl } from "@/lib/ml/recompute";
 import {
@@ -21,6 +21,7 @@ import {
   scoresFromMlRow,
 } from "@/lib/ml/adaptive";
 import { loadCheckinsForMentor } from "@/lib/checkins.functions";
+import { addDaysToDateKey, calendarDateInTz, hourInTz, hojeISO } from "@/lib/datetime";
 
 type Client = SupabaseClient<Database>;
 
@@ -28,10 +29,6 @@ const MSG_COLS = "id, role, kind, content, metadata, created_at";
 const CHALLENGE_COLS =
   "id, user_id, titulo, descricao, duracao_dias, xp_recompensa, titulo_recompensa, status, starts_at, ends_at, completed_at, created_at, habit_id, completions_required";
 const OBJECTIVE_COLS = "user_id, titulo, motivo, source, ativo, created_at, updated_at";
-
-function hojeISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function daysBetween(isoA: string, isoB: string) {
   const a = new Date(`${isoA}T12:00:00`).getTime();
@@ -180,9 +177,7 @@ async function hadStructuredQuestionToday(supabase: Client, userId: string) {
 
 async function loadJourneySnapshot(supabase: Client, userId: string) {
   const hoje = hojeISO();
-  const from21 = new Date();
-  from21.setDate(from21.getDate() - 21);
-  const from21Iso = from21.toISOString().slice(0, 10);
+  const from21Iso = addDaysToDateKey(hoje, -21);
 
   await expireOverdueChallenges(supabase, userId);
 
@@ -430,8 +425,10 @@ async function callMentor(
     checkinsSummary: snap.checkinsSummary,
   });
 
+  const systemPrompt = (await getMentorSystemPrompt()).prompt;
+
   const messages = [
-    { role: "system" as const, content: MENTOR_SYSTEM_PROMPT },
+    { role: "system" as const, content: systemPrompt },
     {
       role: "system" as const,
       content: `CONTEXTO ATUAL DA JORNADA\n${contextBlock}`,
@@ -445,6 +442,7 @@ async function callMentor(
     jsonMode: true,
     temperature: 0.8,
     maxTokens: 1200,
+    usageContext: { userId, source: `mentor:${opts.kind}` },
   });
 
   // Truncamento (max tokens) ou JSON claramente incompleto → uma nova tentativa mais curta
@@ -469,6 +467,7 @@ async function callMentor(
       jsonMode: true,
       temperature: 0.5,
       maxTokens: 900,
+      usageContext: { userId, source: `mentor:${opts.kind}:retry` },
     });
     content = retry.content;
     model = retry.model;
@@ -711,13 +710,16 @@ export const ensureMentorPresence = createServerFn({ method: "POST" })
 
     const messages = [...(recent ?? [])].reverse();
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-    const hour = new Date().getHours();
+    const hour = hourInTz();
     const today = hojeISO();
-    const todayMsgs = messages.filter((m) => m.created_at.slice(0, 10) === today);
+    const todayMsgs = messages.filter((m) => calendarDateInTz(new Date(m.created_at)) === today);
 
     let daysSinceLastVisit: number | null = null;
     if (lastAssistant?.created_at) {
-      daysSinceLastVisit = daysBetween(lastAssistant.created_at.slice(0, 10), hojeISO());
+      daysSinceLastVisit = daysBetween(
+        calendarDateInTz(new Date(lastAssistant.created_at)),
+        hojeISO(),
+      );
     }
 
     let kind = detectPresenceKind({

@@ -413,6 +413,41 @@
   animation: mentor-focus-icon-pulse 1.8s ease-in-out infinite;
 }
 
+/* Pop-up de boas-vindas (auth) — HUD cyberpunk compacto */
+.auth-welcome-dialog {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--hero) 35%, transparent),
+    0 0 28px color-mix(in srgb, var(--hero) 18%, transparent),
+    0 18px 48px color-mix(in srgb, #1b1b1b 75%, transparent);
+}
+
+.auth-welcome-dialog__scanlines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    color-mix(in srgb, #ffe7d0 4%, transparent) 2px,
+    color-mix(in srgb, #ffe7d0 4%, transparent) 3px
+  );
+  mix-blend-mode: soft-light;
+  opacity: 0.55;
+}
+
+@keyframes auth-welcome-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+.auth-welcome-dialog__blink {
+  animation: auth-welcome-blink 1.4s steps(2, end) infinite;
+  box-shadow: 0 0 8px var(--hero);
+}
+
 /* ── Auth door open (login success) ─────────────────────────────────────── */
 .auth-door {
   --auth-door-accent: #fc6e20;
@@ -445,38 +480,78 @@
   transform: scale(1.08);
 }
 
-.auth-door__bloom {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: min(28vw, 120px);
-  translate: -50% 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, #fc6e20 70%, transparent),
-    #ffe7d0,
-    color-mix(in srgb, #fc6e20 70%, transparent),
-    transparent
-  );
+/* Fase de boot: fundo preto limpo + barra real */
+.auth-door--loading {
+  background: #000;
+}
+
+.auth-door--loading .auth-door__void {
   opacity: 0;
-  filter: blur(10px);
-  transition: opacity 280ms ease;
-  z-index: 2;
+  transition: opacity 120ms ease;
+}
+
+.auth-door__boot {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 1.5rem;
+  background: #000;
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
   pointer-events: none;
 }
 
-.auth-door--arming .auth-door__bloom,
-.auth-door--open .auth-door__bloom {
-  opacity: 0.85;
-  animation: auth-door-bloom-pulse 520ms ease-in-out infinite alternate;
+.auth-door__boot--in {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
-.auth-door--open .auth-door__bloom {
+.auth-door__boot--out {
   opacity: 0;
-  transition-delay: 380ms;
-  animation: none;
+  transform: translateY(-4px) scale(0.99);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.auth-door__boot-label {
+  margin: 0;
+  font-family: var(--font-display, inherit);
+  font-size: 0.65rem;
+  letter-spacing: 0.32em;
+  color: #fc6e20;
+}
+
+.auth-door__boot-track {
+  width: min(72vw, 18rem);
+  height: 3px;
+  background: color-mix(in srgb, #fc6e20 18%, #1a1a1a);
+  overflow: hidden;
+  box-shadow: 0 0 12px color-mix(in srgb, #fc6e20 25%, transparent);
+}
+
+.auth-door__boot-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #c44e12, #fc6e20, #ffb070);
+  box-shadow: 0 0 10px color-mix(in srgb, #fc6e20 70%, transparent);
+  transition: width 120ms linear;
+}
+
+.auth-door__boot-pct {
+  margin: 0;
+  font-family: var(--font-display, inherit);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  color: color-mix(in srgb, #ffe7d0 70%, transparent);
 }
 
 .auth-door__panel {
@@ -684,17 +759,6 @@
   }
 }
 
-@keyframes auth-door-bloom-pulse {
-  from {
-    opacity: 0.45;
-    filter: blur(8px);
-  }
-  to {
-    opacity: 0.95;
-    filter: blur(14px);
-  }
-}
-
 @keyframes auth-door-scan {
   from {
     transform: translateX(-120%);
@@ -713,10 +777,11 @@
 @media (prefers-reduced-motion: reduce) {
   .auth-door,
   .auth-door__void,
-  .auth-door__bloom,
   .auth-door__panel,
   .auth-door__hud,
-  .auth-door__bar > span {
+  .auth-door__bar > span,
+  .auth-door__boot,
+  .auth-door__boot-fill {
     animation: none !important;
     transition: none !important;
   }

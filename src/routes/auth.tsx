@@ -1,19 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { Component, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { clearAllSupabaseAuthStorage, getSupabasePublicEnv } from "@/integrations/supabase/env";
-import {
-  getJwtProjectRef,
-} from "@/integrations/supabase/auth-session";
+import { getJwtProjectRef } from "@/integrations/supabase/auth-session";
 import { AuthDoorOverlay } from "@/components/auth/AuthDoorOverlay";
 import { AuthWelcomeDialog } from "@/components/auth/AuthWelcomeDialog";
+import { AuthTerminal3D } from "@/components/auth/AuthTerminal3D";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -31,13 +29,16 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [doorActive, setDoorActive] = useState(false);
+  const [terminalExiting, setTerminalExiting] = useState(false);
+  const [terminalGone, setTerminalGone] = useState(false);
   const entering = useRef(false);
+  const pendingWelcome = useRef(false);
 
   function goJourney() {
     navigate({ to: "/journey", replace: true });
   }
 
-  function showWelcome() {
+  function openWelcome() {
     if (entering.current || welcomeOpen || doorActive) return;
     try {
       sessionStorage.removeItem(DOOR_FLAG);
@@ -45,6 +46,22 @@ function AuthPage() {
       /* ignore */
     }
     setWelcomeOpen(true);
+  }
+
+  /** Sucesso de auth: some o terminal 3D, depois abre o welcome → porta. */
+  function beginSuccessExit() {
+    if (entering.current || terminalExiting || doorActive) return;
+    pendingWelcome.current = true;
+    setTerminalExiting(true);
+  }
+
+  function handleTerminalExitComplete() {
+    setTerminalGone(true);
+    setTerminalExiting(false);
+    if (pendingWelcome.current) {
+      pendingWelcome.current = false;
+      openWelcome();
+    }
   }
 
   function playDoorThenEnter() {
@@ -63,7 +80,6 @@ function AuthPage() {
     let cancelled = false;
 
     async function checkSession() {
-      // Limpa tokens de outros projetos (ex.: Lovable Cloud antigo)
       try {
         const { projectRef } = getSupabasePublicEnv();
         const { data: sess } = await supabase.auth.getSession();
@@ -90,7 +106,8 @@ function AuthPage() {
       }
 
       if (wantsDoor) {
-        showWelcome();
+        setTerminalGone(true);
+        openWelcome();
       } else {
         goJourney();
       }
@@ -116,7 +133,7 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) return toast.error(error.message);
-    showWelcome();
+    beginSuccessExit();
   }
 
   async function handleSignUp(e: React.FormEvent<HTMLFormElement>) {
@@ -149,8 +166,6 @@ function AuthPage() {
     } catch {
       /* ignore */
     }
-    // OAuth direto no projeto do .env (gmzddccy...) — NÃO usar Lovable Cloud Auth,
-    // que emite token de outro projeto e causa "Token from a different Supabase project".
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -168,11 +183,11 @@ function AuthPage() {
     }
   }
 
-  const locked = loading || welcomeOpen || doorActive;
+  const locked = loading || welcomeOpen || doorActive || terminalExiting;
 
   return (
     <div
-      className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-12"
+      className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-4 py-10"
       style={{
         backgroundImage: "url('/porta-login.png')",
         backgroundSize: "cover",
@@ -181,8 +196,9 @@ function AuthPage() {
       }}
     >
       <div className="absolute inset-0 bg-background/55" aria-hidden />
-      <div className="relative z-10 w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <Link to="/" className="mb-8 flex items-center justify-center gap-2">
+
+      <div className="relative z-10 flex w-full max-w-lg flex-col items-center">
+        <Link to="/" className="mb-4 flex items-center justify-center gap-2">
           <img
             src="/logo.png"
             alt="V-Project"
@@ -191,67 +207,31 @@ function AuthPage() {
           <span className="font-display text-xl font-bold">V-Project</span>
         </Link>
 
-        <div className="cp-modal cp-brackets border border-transparent bg-card/90 p-6 shadow-elevated backdrop-blur-sm">
-          <Tabs defaultValue="signin">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Entrar</TabsTrigger>
-              <TabsTrigger value="signup">Criar conta</TabsTrigger>
-            </TabsList>
+        {!terminalGone ? (
+          <TerminalErrorBoundary
+            fallback={
+              <AuthFallback2D
+                locked={locked}
+                onSignIn={handleSignIn}
+                onSignUp={handleSignUp}
+                onGoogle={handleGoogle}
+              />
+            }
+          >
+            <AuthTerminal3D
+              locked={locked}
+              exiting={terminalExiting}
+              onExitComplete={handleTerminalExitComplete}
+              onSignIn={handleSignIn}
+              onSignUp={handleSignUp}
+              onGoogle={handleGoogle}
+            />
+          </TerminalErrorBoundary>
+        ) : (
+          <div className="h-24" aria-hidden />
+        )}
 
-            <TabsContent value="signin" className="mt-6">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email-in">E-mail</Label>
-                  <Input id="email-in" name="email" type="email" required autoComplete="email" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pass-in">Senha</Label>
-                  <Input id="pass-in" name="password" type="password" required autoComplete="current-password" />
-                </div>
-                <Button type="submit" className="w-full" disabled={locked}>
-                  Entrar
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup" className="mt-6">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="nome">Nome do herói</Label>
-                  <Input id="nome" name="nome" required autoComplete="name" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email-up">E-mail</Label>
-                  <Input id="email-up" name="email" type="email" required autoComplete="email" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pass-up">Senha</Label>
-                  <Input
-                    id="pass-up"
-                    name="password"
-                    type="password"
-                    required
-                    autoComplete="new-password"
-                    minLength={6}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={locked}>
-                  Aceitar o chamado
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-
-          <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-widest text-muted-foreground">
-            <div className="h-px flex-1 bg-border" /> ou <div className="h-px flex-1 bg-border" />
-          </div>
-
-          <Button type="button" variant="outline" className="w-full" onClick={handleGoogle} disabled={locked}>
-            Continuar com Google
-          </Button>
-        </div>
-
-        <p className="mt-6 text-center text-xs text-muted-foreground">
+        <p className="mt-2 text-center text-xs text-muted-foreground">
           Ao continuar, você aceita percorrer sua Jornada do Herói.
         </p>
       </div>
@@ -260,4 +240,113 @@ function AuthPage() {
       <AuthDoorOverlay active={doorActive} onComplete={goJourney} />
     </div>
   );
+}
+
+/** Fallback 2D se o canvas 3D falhar. */
+function AuthFallback2D({
+  locked,
+  onSignIn,
+  onSignUp,
+  onGoogle,
+}: {
+  locked: boolean;
+  onSignIn: (e: React.FormEvent<HTMLFormElement>) => void;
+  onSignUp: (e: React.FormEvent<HTMLFormElement>) => void;
+  onGoogle: () => void;
+}) {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  return (
+    <div className="w-full max-w-md border border-[#FC6E20]/40 bg-card/90 p-6 shadow-elevated backdrop-blur-sm">
+      <div className="mb-4 grid grid-cols-2 gap-2">
+        <Button
+          type="button"
+          variant={mode === "signin" ? "default" : "outline"}
+          onClick={() => setMode("signin")}
+          disabled={locked}
+        >
+          Entrar
+        </Button>
+        <Button
+          type="button"
+          variant={mode === "signup" ? "default" : "outline"}
+          onClick={() => setMode("signup")}
+          disabled={locked}
+        >
+          Criar conta
+        </Button>
+      </div>
+      {mode === "signin" ? (
+        <form onSubmit={onSignIn} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="fb-email-in">E-mail</Label>
+            <Input id="fb-email-in" name="email" type="email" required autoComplete="email" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="fb-pass-in">Senha</Label>
+            <Input
+              id="fb-pass-in"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={locked}>
+            Entrar
+          </Button>
+        </form>
+      ) : (
+        <form onSubmit={onSignUp} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="fb-nome">Nome do herói</Label>
+            <Input id="fb-nome" name="nome" required autoComplete="name" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="fb-email-up">E-mail</Label>
+            <Input id="fb-email-up" name="email" type="email" required autoComplete="email" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="fb-pass-up">Senha</Label>
+            <Input
+              id="fb-pass-up"
+              name="password"
+              type="password"
+              required
+              autoComplete="new-password"
+              minLength={6}
+            />
+          </div>
+          <Button type="submit" className="w-full" disabled={locked}>
+            Aceitar o chamado
+          </Button>
+        </form>
+      )}
+      <div className="my-4 text-center text-xs uppercase tracking-widest text-muted-foreground">
+        ou
+      </div>
+      <Button type="button" variant="outline" className="w-full" onClick={onGoogle} disabled={locked}>
+        Continuar com Google
+      </Button>
+    </div>
+  );
+}
+
+class TerminalErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown, info: ErrorInfo) {
+    console.error("[AuthTerminal3D]", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
 }

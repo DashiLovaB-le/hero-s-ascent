@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, Lock, ImageIcon } from "lucide-react";
@@ -20,19 +20,33 @@ import {
   isWallpaperUnlocked,
   unlockHint,
   lockedWallpaperMessage,
+  setWallpaperCatalog,
   type WallpaperDef,
   type WallpaperProgress,
 } from "@/lib/wallpapers";
 import { writeStoredWallpaperId } from "@/lib/wallpaper-storage";
 import type { JourneyData } from "@/lib/journey-queries";
+import { type LevelInfo } from "@/lib/journey";
 
 type Props = {
   selectedId: string;
   progress: WallpaperProgress;
   onSelect?: (id: string) => void;
+  wallpapers?: WallpaperDef[];
+  levels?: LevelInfo[];
 };
 
-export function WallpaperSettings({ selectedId, progress, onSelect }: Props) {
+export function WallpaperSettings({
+  selectedId,
+  progress,
+  onSelect,
+  wallpapers = WALLPAPERS,
+  levels,
+}: Props) {
+  useEffect(() => {
+    setWallpaperCatalog(wallpapers);
+  }, [wallpapers]);
+
   const updateFn = useServerFn(updateProfile);
   const qc = useQueryClient();
   const [locked, setLocked] = useState<WallpaperDef | null>(null);
@@ -78,10 +92,10 @@ export function WallpaperSettings({ selectedId, progress, onSelect }: Props) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {WALLPAPERS.map((w) => {
-          const unlocked = isWallpaperUnlocked(w, progress);
+        {wallpapers.map((w) => {
+          const unlocked = isWallpaperUnlocked(w, progress, levels);
           const active = selectedId === w.id;
-          const src = wallpaperSrc(w.file);
+          const src = wallpaperSrc(w);
 
           return (
             <button

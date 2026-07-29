@@ -31,5 +31,5 @@ export function resolveWallpaperBackground(id: string | null | undefined): {
   src: string | null;
 } {
   const def = getWallpaperById(id);
-  return { id: def.id, src: wallpaperSrc(def.file) };
+  return { id: def.id, src: wallpaperSrc(def) };
 }

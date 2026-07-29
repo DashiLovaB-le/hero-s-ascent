@@ -49,7 +49,7 @@ export function CheckinCard() {
         <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">Check-in do dia</p>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Sono, energia e humor — o Charlie só usa o que você registrar.
+        Sono, energia e humor (dia em horário de Brasília) — o Charlie só usa o que você registrar.
       </p>
 
       {saved && today ? (

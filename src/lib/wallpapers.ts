@@ -17,6 +17,8 @@ export type WallpaperDef = {
   id: string;
   /** Nome do arquivo em /public/wallpapers/ — ex: "02-aprendiz.jpg" */
   file: string | null;
+  /** URL absoluta (Storage) — tem prioridade sobre `file` quando presente. */
+  imageUrl?: string | null;
   titulo: string;
   descricao: string;
   unlock: WallpaperUnlock;
@@ -153,17 +155,48 @@ export type WallpaperProgress = {
   capitulo_atual: number;
 };
 
-export function wallpaperSrc(file: string | null): string | null {
-  if (!file) return null;
-  return `/wallpapers/${file}`;
+export function wallpaperSrc(def: WallpaperDef | string | null): string | null {
+  if (def == null) return null;
+  if (typeof def === "string") {
+    if (!def) return null;
+    if (def.startsWith("http://") || def.startsWith("https://") || def.startsWith("/")) return def;
+    return `/wallpapers/${def}`;
+  }
+  if (def.imageUrl) return def.imageUrl;
+  if (!def.file) return null;
+  if (def.file.startsWith("http://") || def.file.startsWith("https://") || def.file.startsWith("/")) {
+    return def.file;
+  }
+  return `/wallpapers/${def.file}`;
+}
+
+/** Catálogo estático de fallback (quando DB indisponível). */
+export const WALLPAPERS_FALLBACK = WALLPAPERS;
+
+let runtimeCatalog: WallpaperDef[] | null = null;
+
+/** Injeta catálogo do DB (client/server) para getWallpaperById / resolve. */
+export function setWallpaperCatalog(list: WallpaperDef[] | null | undefined) {
+  runtimeCatalog = list?.length ? list : null;
+}
+
+function catalog(): WallpaperDef[] {
+  return runtimeCatalog ?? WALLPAPERS;
 }
 
 export function getWallpaperById(id: string | null | undefined): WallpaperDef {
-  return WALLPAPERS.find((w) => w.id === id) ?? WALLPAPERS[0];
+  const list = catalog();
+  return list.find((w) => w.id === id) ?? list[0] ?? WALLPAPERS[0];
 }
 
-export function isWallpaperUnlocked(def: WallpaperDef, progress: WallpaperProgress): boolean {
-  const nivel = calcularNivel(progress.xp_total).atual.nivel;
+export const WALLPAPER_IDS = () => catalog().map((w) => w.id);
+
+export function isWallpaperUnlocked(
+  def: WallpaperDef,
+  progress: WallpaperProgress,
+  levels?: import("@/lib/journey").LevelInfo[],
+): boolean {
+  const nivel = calcularNivel(progress.xp_total, levels).atual.nivel;
   switch (def.unlock.kind) {
     case "always":
       return true;
@@ -202,7 +235,7 @@ export function getNewlyUnlockedWallpapers(
   before: WallpaperProgress,
   after: WallpaperProgress,
 ): WallpaperDef[] {
-  return WALLPAPERS.filter(
+  return catalog().filter(
     (w) =>
       w.unlock.kind !== "always" &&
       !isWallpaperUnlocked(w, before) &&
@@ -224,5 +257,3 @@ export function lockedWallpaperMessage(def: WallpaperDef): string {
       return `“${def.titulo}” ainda está bloqueado. Continue a jornada.`;
   }
 }
-
-export const WALLPAPER_IDS = WALLPAPERS.map((w) => w.id);

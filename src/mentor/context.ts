@@ -1,5 +1,6 @@
 import { calcularNivel, ATRIBUTO_LABELS, LEVELS } from "@/lib/journey";
 import { formatMlSignalsForMentor, type MlScoresV1 } from "@/lib/ml/features";
+import { addDaysToDateKey, hojeISO } from "@/lib/datetime";
 
 export type MentorPresenceKind = "welcome" | "morning" | "evening" | "return" | "insight" | null;
 
@@ -71,7 +72,7 @@ export function defaultObjectiveForHero(nome: string, xp: number): { titulo: str
   };
 }
 
-/** Detecta padrões simples de falha nos últimos 21 dias. */
+/** Detecta padrões simples de falha nos últimos 21 dias (calendário Brasília). */
 export function detectSkipPatterns(habits: HabitRow[], completions: CompletionRow[]): string[] {
   if (!habits.length) return [];
 
@@ -81,13 +82,12 @@ export function detectSkipPatterns(habits: HabitRow[], completions: CompletionRo
   }
 
   const weekdayMisses = new Map<number, number>();
-  const today = new Date();
+  const todayKey = hojeISO();
   for (let i = 1; i <= 21; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const iso = d.toISOString().slice(0, 10);
+    const iso = addDaysToDateKey(todayKey, -i);
     if ((completionsPerDay.get(iso) ?? 0) === 0) {
-      const wd = d.getDay();
+      // weekday via UTC noon on the date key (stable for calendar keys)
+      const wd = new Date(`${iso}T12:00:00.000Z`).getUTCDay();
       weekdayMisses.set(wd, (weekdayMisses.get(wd) ?? 0) + 1);
     }
   }
@@ -227,7 +227,7 @@ export function detectPresenceKind(opts: {
   return null;
 }
 
-export const MENTOR_SYSTEM_PROMPT = `Você é CHARLIE, o Mentor do V-Project — um mestre que já percorreu a Jornada do Herói.
+export const MENTOR_SYSTEM_PROMPT_DEFAULT = `Você é CHARLIE, o Mentor do V-Project — um mestre que já percorreu a Jornada do Herói.
 Seu nome é sempre "Charlie". Nunca mude de nome. Nunca quebre o personagem.
 
 IDENTIDADE
@@ -308,6 +308,9 @@ FORMATO DE RESPOSTA (obrigatório — JSON válido, sem markdown fora do JSON)
 - Nunca use tags HTML/XML. Nunca invente sequências como "</".
 - O JSON deve caber por completo: message curto (até 4 frases). Se for fazer pergunta, prompt de uma linha.
 `;
+
+/** @deprecated use MENTOR_SYSTEM_PROMPT_DEFAULT ou getMentorSystemPrompt() */
+export const MENTOR_SYSTEM_PROMPT = MENTOR_SYSTEM_PROMPT_DEFAULT;
 
 export type MentorAiQuestion = {
   prompt: string;

@@ -29,20 +29,30 @@ export interface LevelProgress {
   progresso: number; // 0..1
 }
 
-export function calcularNivel(xp: number): LevelProgress {
-  let atual = LEVELS[0];
-  let proximo: LevelInfo | null = LEVELS[1] ?? null;
-  for (let i = 0; i < LEVELS.length; i++) {
-    if (xp >= LEVELS[i].xp_necessario) {
-      atual = LEVELS[i];
-      proximo = LEVELS[i + 1] ?? null;
+export function calcularNivel(xp: number, levels: LevelInfo[] = LEVELS): LevelProgress {
+  const sorted = [...levels].sort((a, b) => a.xp_necessario - b.xp_necessario);
+  if (!sorted.length) {
+    return {
+      atual: { nivel: 1, titulo: "Homem Comum", xp_necessario: 0 },
+      proximo: null,
+      xp_no_nivel: xp,
+      xp_para_proximo: 0,
+      progresso: 1,
+    };
+  }
+  let atual = sorted[0];
+  let proximo: LevelInfo | null = sorted[1] ?? null;
+  for (let i = 0; i < sorted.length; i++) {
+    if (xp >= sorted[i].xp_necessario) {
+      atual = sorted[i];
+      proximo = sorted[i + 1] ?? null;
     }
   }
   if (!proximo) {
     return { atual, proximo: null, xp_no_nivel: xp - atual.xp_necessario, xp_para_proximo: 0, progresso: 1 };
   }
   const xp_no_nivel = xp - atual.xp_necessario;
-  const xp_faixa = proximo.xp_necessario - atual.xp_necessario;
+  const xp_faixa = Math.max(1, proximo.xp_necessario - atual.xp_necessario);
   return {
     atual,
     proximo,

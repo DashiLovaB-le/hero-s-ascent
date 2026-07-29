@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { addDaysToDateKey, eachDateKeyInclusive, hojeISO } from "@/lib/datetime";
+import { loadLevelsFromDb, loadWallpapersFromDb } from "@/lib/catalog.server";
 
 const PROFILE_COLS =
   "id, nome, avatar_url, bio, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, frase_motivacional, onboarding_completo, created_at, location_label, location_lat, location_lon, location_timezone";
@@ -10,25 +12,12 @@ const PROFILE_COLS_LEGACY =
 const CHALLENGE_COLS =
   "id, titulo, descricao, duracao_dias, xp_recompensa, titulo_recompensa, status, starts_at, ends_at, completed_at, created_at";
 
-function hojeISO() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function daysAgoISO(n: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return addDaysToDateKey(hojeISO(), -n);
 }
 
 function enumerateDays(fromIso: string, toIso: string) {
-  const out: string[] = [];
-  const cur = new Date(`${fromIso}T12:00:00`);
-  const end = new Date(`${toIso}T12:00:00`);
-  while (cur <= end) {
-    out.push(cur.toISOString().slice(0, 10));
-    cur.setDate(cur.getDate() + 1);
-  }
-  return out;
+  return eachDateKeyInclusive(fromIso, toIso);
 }
 
 function bestActiveStreak(activeDays: Set<string>, days: string[]) {
@@ -146,6 +135,11 @@ export const getProfilePanorama = createServerFn({ method: "POST" })
       Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)) + 1,
     );
 
+    const [levels, wallpapers] = await Promise.all([
+      loadLevelsFromDb(),
+      loadWallpapersFromDb(),
+    ]);
+
     return {
       profile: profileRes.data,
       attributes: attrsRes.data,
@@ -153,6 +147,8 @@ export const getProfilePanorama = createServerFn({ method: "POST" })
       achievements,
       completedChallenges,
       daysOnJourney,
+      levels,
+      wallpapers,
       rhythm: {
         days: rhythmDays,
         periodDays: days.length,

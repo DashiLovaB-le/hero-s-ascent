@@ -18,12 +18,14 @@
 export { chatCompletion } from "./openrouter";
 export {
   MENTOR_SYSTEM_PROMPT,
+  MENTOR_SYSTEM_PROMPT_DEFAULT,
   buildMentorContextBlock,
   detectPresenceKind,
   detectSkipPatterns,
   parseMentorAiPayload,
   presenceUserPrompt,
 } from "./context";
+export { getMentorSystemPrompt } from "./prompt.server";
 export {
   getMentorThread,
   ensureMentorPresence,

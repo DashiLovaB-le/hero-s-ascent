@@ -44,6 +44,24 @@ describe("ML Fase 4 agent", () => {
     assert.match(d.corpo, /sexta/i);
   });
 
+  it("pede check-in quando ausente após o amanhecer", () => {
+    const d = decideAgentInitiative({
+      scores: {
+        risco_streak: 0.1,
+        risco_abandono: 0.1,
+        weekday_weakest: null,
+        weekday_weakest_label: null,
+      },
+      hasCheckinToday: false,
+      hasPendingInitiative: false,
+      alreadyNotifiedToday: false,
+      quietHours: false,
+      cfSuggestion: null,
+      hourLocalApprox: 9,
+    });
+    assert.equal(d.kind, "checkin_nudge");
+  });
+
   it("pede check-in quando ausente e risco moderado", () => {
     const d = decideAgentInitiative({
       scores: {
@@ -57,7 +75,7 @@ describe("ML Fase 4 agent", () => {
       alreadyNotifiedToday: false,
       quietHours: false,
       cfSuggestion: null,
-      hourLocalApprox: 21,
+      hourLocalApprox: 7,
     });
     assert.equal(d.kind, "checkin_nudge");
   });

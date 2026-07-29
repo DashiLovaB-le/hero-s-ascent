@@ -140,7 +140,7 @@ function ProfilePage() {
     onError: (e) => toast.error(e.message),
   });
 
-  const level = calcularNivel(data.profile.xp_total);
+  const level = calcularNivel(data.profile.xp_total, data.levels);
   const chapterName = CHAPTER_NAMES[data.profile.capitulo_atual - 1] ?? "O Chamado";
 
   const attrEntries = Object.entries(ATRIBUTO_LABELS).map(([key, label]) => ({
@@ -440,6 +440,8 @@ function ProfilePage() {
             streak_maximo: data.profile.streak_maximo,
             capitulo_atual: data.profile.capitulo_atual,
           }}
+          wallpapers={data.wallpapers}
+          levels={data.levels}
         />
       </Card>
 

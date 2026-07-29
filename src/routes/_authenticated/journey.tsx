@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useEffect } from "react";
 import { Flame, Check, Sparkles, ChevronRight, Trophy, Target, ArrowRight, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 
@@ -11,6 +12,7 @@ import {
   type JourneyData,
 } from "@/lib/journey-queries";
 import { calcularNivel, fraseDoDia, ATRIBUTO_LABELS } from "@/lib/journey";
+import { setWallpaperCatalog } from "@/lib/wallpapers";
 import { chapterName } from "@/lib/chapters";
 import { MentorJourneyCard } from "@/mentor/MentorJourneyCard";
 import { CheckinCard } from "@/components/CheckinCard";
@@ -139,7 +141,12 @@ function JourneyPage() {
     );
   }
 
-  const level = calcularNivel(profile.xp_total);
+  const level = calcularNivel(profile.xp_total, data.levels);
+
+  useEffect(() => {
+    setWallpaperCatalog(data.wallpapers);
+  }, [data.wallpapers]);
+
   const habitsRestantes = data.habits.filter((h) => !data.completedToday.includes(h.id));
   const totalHoje = data.habits.length;
   const feitos = data.completedToday.length;

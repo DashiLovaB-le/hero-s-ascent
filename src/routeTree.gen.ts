@@ -10,18 +10,43 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as DashitecnologyRouteRouteImport } from './routes/dashitecnology/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashitecnologyIndexRouteImport } from './routes/dashitecnology/index'
+import { Route as DashitecnologyWallpapersRouteImport } from './routes/dashitecnology/wallpapers'
+import { Route as DashitecnologyUsersRouteImport } from './routes/dashitecnology/users'
+import { Route as DashitecnologyTokensRouteImport } from './routes/dashitecnology/tokens'
+import { Route as DashitecnologyTelegramRouteImport } from './routes/dashitecnology/telegram'
+import { Route as DashitecnologySystemRouteImport } from './routes/dashitecnology/system'
+import { Route as DashitecnologyNotificationsRouteImport } from './routes/dashitecnology/notifications'
+import { Route as DashitecnologyMlRouteImport } from './routes/dashitecnology/ml'
+import { Route as DashitecnologyLevelsRouteImport } from './routes/dashitecnology/levels'
+import { Route as DashitecnologyJobsRouteImport } from './routes/dashitecnology/jobs'
+import { Route as DashitecnologyHabitsRouteImport } from './routes/dashitecnology/habits'
+import { Route as DashitecnologyGoalsRouteImport } from './routes/dashitecnology/goals'
+import { Route as DashitecnologyGamificationRouteImport } from './routes/dashitecnology/gamification'
+import { Route as DashitecnologyContentRouteImport } from './routes/dashitecnology/content'
+import { Route as DashitecnologyCheckinsRouteImport } from './routes/dashitecnology/checkins'
+import { Route as DashitecnologyCharlieRouteImport } from './routes/dashitecnology/charlie'
+import { Route as DashitecnologyAnalyticsRouteImport } from './routes/dashitecnology/analytics'
+import { Route as DashitecnologyAgentRouteImport } from './routes/dashitecnology/agent'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedMentorRouteImport } from './routes/_authenticated/mentor'
 import { Route as AuthenticatedJourneyRouteImport } from './routes/_authenticated/journey'
 import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated/habits'
 import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
+import { Route as DashitecnologyUsersUserIdRouteImport } from './routes/dashitecnology/users.$userId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashitecnologyRouteRoute = DashitecnologyRouteRouteImport.update({
+  id: '/dashitecnology',
+  path: '/dashitecnology',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -32,6 +57,99 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DashitecnologyIndexRoute = DashitecnologyIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyWallpapersRoute =
+  DashitecnologyWallpapersRouteImport.update({
+    id: '/wallpapers',
+    path: '/wallpapers',
+    getParentRoute: () => DashitecnologyRouteRoute,
+  } as any)
+const DashitecnologyUsersRoute = DashitecnologyUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyTokensRoute = DashitecnologyTokensRouteImport.update({
+  id: '/tokens',
+  path: '/tokens',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyTelegramRoute = DashitecnologyTelegramRouteImport.update({
+  id: '/telegram',
+  path: '/telegram',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologySystemRoute = DashitecnologySystemRouteImport.update({
+  id: '/system',
+  path: '/system',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyNotificationsRoute =
+  DashitecnologyNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => DashitecnologyRouteRoute,
+  } as any)
+const DashitecnologyMlRoute = DashitecnologyMlRouteImport.update({
+  id: '/ml',
+  path: '/ml',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyLevelsRoute = DashitecnologyLevelsRouteImport.update({
+  id: '/levels',
+  path: '/levels',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyJobsRoute = DashitecnologyJobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyHabitsRoute = DashitecnologyHabitsRouteImport.update({
+  id: '/habits',
+  path: '/habits',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyGoalsRoute = DashitecnologyGoalsRouteImport.update({
+  id: '/goals',
+  path: '/goals',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyGamificationRoute =
+  DashitecnologyGamificationRouteImport.update({
+    id: '/gamification',
+    path: '/gamification',
+    getParentRoute: () => DashitecnologyRouteRoute,
+  } as any)
+const DashitecnologyContentRoute = DashitecnologyContentRouteImport.update({
+  id: '/content',
+  path: '/content',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyCheckinsRoute = DashitecnologyCheckinsRouteImport.update({
+  id: '/checkins',
+  path: '/checkins',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyCharlieRoute = DashitecnologyCharlieRouteImport.update({
+  id: '/charlie',
+  path: '/charlie',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyAnalyticsRoute = DashitecnologyAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyAgentRoute = DashitecnologyAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => DashitecnologyRouteRoute,
 } as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
@@ -63,9 +181,16 @@ const AuthenticatedGoalsRoute = AuthenticatedGoalsRouteImport.update({
   path: '/goals',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const DashitecnologyUsersUserIdRoute =
+  DashitecnologyUsersUserIdRouteImport.update({
+    id: '/$userId',
+    path: '/$userId',
+    getParentRoute: () => DashitecnologyUsersRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dashitecnology': typeof DashitecnologyRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
@@ -73,6 +198,25 @@ export interface FileRoutesByFullPath {
   '/mentor': typeof AuthenticatedMentorRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/dashitecnology/agent': typeof DashitecnologyAgentRoute
+  '/dashitecnology/analytics': typeof DashitecnologyAnalyticsRoute
+  '/dashitecnology/charlie': typeof DashitecnologyCharlieRoute
+  '/dashitecnology/checkins': typeof DashitecnologyCheckinsRoute
+  '/dashitecnology/content': typeof DashitecnologyContentRoute
+  '/dashitecnology/gamification': typeof DashitecnologyGamificationRoute
+  '/dashitecnology/goals': typeof DashitecnologyGoalsRoute
+  '/dashitecnology/habits': typeof DashitecnologyHabitsRoute
+  '/dashitecnology/jobs': typeof DashitecnologyJobsRoute
+  '/dashitecnology/levels': typeof DashitecnologyLevelsRoute
+  '/dashitecnology/ml': typeof DashitecnologyMlRoute
+  '/dashitecnology/notifications': typeof DashitecnologyNotificationsRoute
+  '/dashitecnology/system': typeof DashitecnologySystemRoute
+  '/dashitecnology/telegram': typeof DashitecnologyTelegramRoute
+  '/dashitecnology/tokens': typeof DashitecnologyTokensRoute
+  '/dashitecnology/users': typeof DashitecnologyUsersRouteWithChildren
+  '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
+  '/dashitecnology/': typeof DashitecnologyIndexRoute
+  '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -83,11 +227,31 @@ export interface FileRoutesByTo {
   '/mentor': typeof AuthenticatedMentorRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/dashitecnology/agent': typeof DashitecnologyAgentRoute
+  '/dashitecnology/analytics': typeof DashitecnologyAnalyticsRoute
+  '/dashitecnology/charlie': typeof DashitecnologyCharlieRoute
+  '/dashitecnology/checkins': typeof DashitecnologyCheckinsRoute
+  '/dashitecnology/content': typeof DashitecnologyContentRoute
+  '/dashitecnology/gamification': typeof DashitecnologyGamificationRoute
+  '/dashitecnology/goals': typeof DashitecnologyGoalsRoute
+  '/dashitecnology/habits': typeof DashitecnologyHabitsRoute
+  '/dashitecnology/jobs': typeof DashitecnologyJobsRoute
+  '/dashitecnology/levels': typeof DashitecnologyLevelsRoute
+  '/dashitecnology/ml': typeof DashitecnologyMlRoute
+  '/dashitecnology/notifications': typeof DashitecnologyNotificationsRoute
+  '/dashitecnology/system': typeof DashitecnologySystemRoute
+  '/dashitecnology/telegram': typeof DashitecnologyTelegramRoute
+  '/dashitecnology/tokens': typeof DashitecnologyTokensRoute
+  '/dashitecnology/users': typeof DashitecnologyUsersRouteWithChildren
+  '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
+  '/dashitecnology': typeof DashitecnologyIndexRoute
+  '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/dashitecnology': typeof DashitecnologyRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/goals': typeof AuthenticatedGoalsRoute
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
@@ -95,11 +259,31 @@ export interface FileRoutesById {
   '/_authenticated/mentor': typeof AuthenticatedMentorRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/dashitecnology/agent': typeof DashitecnologyAgentRoute
+  '/dashitecnology/analytics': typeof DashitecnologyAnalyticsRoute
+  '/dashitecnology/charlie': typeof DashitecnologyCharlieRoute
+  '/dashitecnology/checkins': typeof DashitecnologyCheckinsRoute
+  '/dashitecnology/content': typeof DashitecnologyContentRoute
+  '/dashitecnology/gamification': typeof DashitecnologyGamificationRoute
+  '/dashitecnology/goals': typeof DashitecnologyGoalsRoute
+  '/dashitecnology/habits': typeof DashitecnologyHabitsRoute
+  '/dashitecnology/jobs': typeof DashitecnologyJobsRoute
+  '/dashitecnology/levels': typeof DashitecnologyLevelsRoute
+  '/dashitecnology/ml': typeof DashitecnologyMlRoute
+  '/dashitecnology/notifications': typeof DashitecnologyNotificationsRoute
+  '/dashitecnology/system': typeof DashitecnologySystemRoute
+  '/dashitecnology/telegram': typeof DashitecnologyTelegramRoute
+  '/dashitecnology/tokens': typeof DashitecnologyTokensRoute
+  '/dashitecnology/users': typeof DashitecnologyUsersRouteWithChildren
+  '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
+  '/dashitecnology/': typeof DashitecnologyIndexRoute
+  '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/dashitecnology'
     | '/auth'
     | '/goals'
     | '/habits'
@@ -107,6 +291,25 @@ export interface FileRouteTypes {
     | '/mentor'
     | '/onboarding'
     | '/profile'
+    | '/dashitecnology/agent'
+    | '/dashitecnology/analytics'
+    | '/dashitecnology/charlie'
+    | '/dashitecnology/checkins'
+    | '/dashitecnology/content'
+    | '/dashitecnology/gamification'
+    | '/dashitecnology/goals'
+    | '/dashitecnology/habits'
+    | '/dashitecnology/jobs'
+    | '/dashitecnology/levels'
+    | '/dashitecnology/ml'
+    | '/dashitecnology/notifications'
+    | '/dashitecnology/system'
+    | '/dashitecnology/telegram'
+    | '/dashitecnology/tokens'
+    | '/dashitecnology/users'
+    | '/dashitecnology/wallpapers'
+    | '/dashitecnology/'
+    | '/dashitecnology/users/$userId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -117,10 +320,30 @@ export interface FileRouteTypes {
     | '/mentor'
     | '/onboarding'
     | '/profile'
+    | '/dashitecnology/agent'
+    | '/dashitecnology/analytics'
+    | '/dashitecnology/charlie'
+    | '/dashitecnology/checkins'
+    | '/dashitecnology/content'
+    | '/dashitecnology/gamification'
+    | '/dashitecnology/goals'
+    | '/dashitecnology/habits'
+    | '/dashitecnology/jobs'
+    | '/dashitecnology/levels'
+    | '/dashitecnology/ml'
+    | '/dashitecnology/notifications'
+    | '/dashitecnology/system'
+    | '/dashitecnology/telegram'
+    | '/dashitecnology/tokens'
+    | '/dashitecnology/users'
+    | '/dashitecnology/wallpapers'
+    | '/dashitecnology'
+    | '/dashitecnology/users/$userId'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/dashitecnology'
     | '/auth'
     | '/_authenticated/goals'
     | '/_authenticated/habits'
@@ -128,11 +351,31 @@ export interface FileRouteTypes {
     | '/_authenticated/mentor'
     | '/_authenticated/onboarding'
     | '/_authenticated/profile'
+    | '/dashitecnology/agent'
+    | '/dashitecnology/analytics'
+    | '/dashitecnology/charlie'
+    | '/dashitecnology/checkins'
+    | '/dashitecnology/content'
+    | '/dashitecnology/gamification'
+    | '/dashitecnology/goals'
+    | '/dashitecnology/habits'
+    | '/dashitecnology/jobs'
+    | '/dashitecnology/levels'
+    | '/dashitecnology/ml'
+    | '/dashitecnology/notifications'
+    | '/dashitecnology/system'
+    | '/dashitecnology/telegram'
+    | '/dashitecnology/tokens'
+    | '/dashitecnology/users'
+    | '/dashitecnology/wallpapers'
+    | '/dashitecnology/'
+    | '/dashitecnology/users/$userId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  DashitecnologyRouteRoute: typeof DashitecnologyRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
 }
 
@@ -143,6 +386,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashitecnology': {
+      id: '/dashitecnology'
+      path: '/dashitecnology'
+      fullPath: '/dashitecnology'
+      preLoaderRoute: typeof DashitecnologyRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -158,6 +408,132 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/dashitecnology/': {
+      id: '/dashitecnology/'
+      path: '/'
+      fullPath: '/dashitecnology/'
+      preLoaderRoute: typeof DashitecnologyIndexRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/wallpapers': {
+      id: '/dashitecnology/wallpapers'
+      path: '/wallpapers'
+      fullPath: '/dashitecnology/wallpapers'
+      preLoaderRoute: typeof DashitecnologyWallpapersRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/users': {
+      id: '/dashitecnology/users'
+      path: '/users'
+      fullPath: '/dashitecnology/users'
+      preLoaderRoute: typeof DashitecnologyUsersRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/tokens': {
+      id: '/dashitecnology/tokens'
+      path: '/tokens'
+      fullPath: '/dashitecnology/tokens'
+      preLoaderRoute: typeof DashitecnologyTokensRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/telegram': {
+      id: '/dashitecnology/telegram'
+      path: '/telegram'
+      fullPath: '/dashitecnology/telegram'
+      preLoaderRoute: typeof DashitecnologyTelegramRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/system': {
+      id: '/dashitecnology/system'
+      path: '/system'
+      fullPath: '/dashitecnology/system'
+      preLoaderRoute: typeof DashitecnologySystemRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/notifications': {
+      id: '/dashitecnology/notifications'
+      path: '/notifications'
+      fullPath: '/dashitecnology/notifications'
+      preLoaderRoute: typeof DashitecnologyNotificationsRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/ml': {
+      id: '/dashitecnology/ml'
+      path: '/ml'
+      fullPath: '/dashitecnology/ml'
+      preLoaderRoute: typeof DashitecnologyMlRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/levels': {
+      id: '/dashitecnology/levels'
+      path: '/levels'
+      fullPath: '/dashitecnology/levels'
+      preLoaderRoute: typeof DashitecnologyLevelsRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/jobs': {
+      id: '/dashitecnology/jobs'
+      path: '/jobs'
+      fullPath: '/dashitecnology/jobs'
+      preLoaderRoute: typeof DashitecnologyJobsRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/habits': {
+      id: '/dashitecnology/habits'
+      path: '/habits'
+      fullPath: '/dashitecnology/habits'
+      preLoaderRoute: typeof DashitecnologyHabitsRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/goals': {
+      id: '/dashitecnology/goals'
+      path: '/goals'
+      fullPath: '/dashitecnology/goals'
+      preLoaderRoute: typeof DashitecnologyGoalsRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/gamification': {
+      id: '/dashitecnology/gamification'
+      path: '/gamification'
+      fullPath: '/dashitecnology/gamification'
+      preLoaderRoute: typeof DashitecnologyGamificationRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/content': {
+      id: '/dashitecnology/content'
+      path: '/content'
+      fullPath: '/dashitecnology/content'
+      preLoaderRoute: typeof DashitecnologyContentRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/checkins': {
+      id: '/dashitecnology/checkins'
+      path: '/checkins'
+      fullPath: '/dashitecnology/checkins'
+      preLoaderRoute: typeof DashitecnologyCheckinsRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/charlie': {
+      id: '/dashitecnology/charlie'
+      path: '/charlie'
+      fullPath: '/dashitecnology/charlie'
+      preLoaderRoute: typeof DashitecnologyCharlieRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/analytics': {
+      id: '/dashitecnology/analytics'
+      path: '/analytics'
+      fullPath: '/dashitecnology/analytics'
+      preLoaderRoute: typeof DashitecnologyAnalyticsRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/agent': {
+      id: '/dashitecnology/agent'
+      path: '/agent'
+      fullPath: '/dashitecnology/agent'
+      preLoaderRoute: typeof DashitecnologyAgentRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
     }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
@@ -201,6 +577,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGoalsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/dashitecnology/users/$userId': {
+      id: '/dashitecnology/users/$userId'
+      path: '/$userId'
+      fullPath: '/dashitecnology/users/$userId'
+      preLoaderRoute: typeof DashitecnologyUsersUserIdRouteImport
+      parentRoute: typeof DashitecnologyUsersRoute
+    }
   }
 }
 
@@ -225,9 +608,66 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface DashitecnologyUsersRouteChildren {
+  DashitecnologyUsersUserIdRoute: typeof DashitecnologyUsersUserIdRoute
+}
+
+const DashitecnologyUsersRouteChildren: DashitecnologyUsersRouteChildren = {
+  DashitecnologyUsersUserIdRoute: DashitecnologyUsersUserIdRoute,
+}
+
+const DashitecnologyUsersRouteWithChildren =
+  DashitecnologyUsersRoute._addFileChildren(DashitecnologyUsersRouteChildren)
+
+interface DashitecnologyRouteRouteChildren {
+  DashitecnologyAgentRoute: typeof DashitecnologyAgentRoute
+  DashitecnologyAnalyticsRoute: typeof DashitecnologyAnalyticsRoute
+  DashitecnologyCharlieRoute: typeof DashitecnologyCharlieRoute
+  DashitecnologyCheckinsRoute: typeof DashitecnologyCheckinsRoute
+  DashitecnologyContentRoute: typeof DashitecnologyContentRoute
+  DashitecnologyGamificationRoute: typeof DashitecnologyGamificationRoute
+  DashitecnologyGoalsRoute: typeof DashitecnologyGoalsRoute
+  DashitecnologyHabitsRoute: typeof DashitecnologyHabitsRoute
+  DashitecnologyJobsRoute: typeof DashitecnologyJobsRoute
+  DashitecnologyLevelsRoute: typeof DashitecnologyLevelsRoute
+  DashitecnologyMlRoute: typeof DashitecnologyMlRoute
+  DashitecnologyNotificationsRoute: typeof DashitecnologyNotificationsRoute
+  DashitecnologySystemRoute: typeof DashitecnologySystemRoute
+  DashitecnologyTelegramRoute: typeof DashitecnologyTelegramRoute
+  DashitecnologyTokensRoute: typeof DashitecnologyTokensRoute
+  DashitecnologyUsersRoute: typeof DashitecnologyUsersRouteWithChildren
+  DashitecnologyWallpapersRoute: typeof DashitecnologyWallpapersRoute
+  DashitecnologyIndexRoute: typeof DashitecnologyIndexRoute
+}
+
+const DashitecnologyRouteRouteChildren: DashitecnologyRouteRouteChildren = {
+  DashitecnologyAgentRoute: DashitecnologyAgentRoute,
+  DashitecnologyAnalyticsRoute: DashitecnologyAnalyticsRoute,
+  DashitecnologyCharlieRoute: DashitecnologyCharlieRoute,
+  DashitecnologyCheckinsRoute: DashitecnologyCheckinsRoute,
+  DashitecnologyContentRoute: DashitecnologyContentRoute,
+  DashitecnologyGamificationRoute: DashitecnologyGamificationRoute,
+  DashitecnologyGoalsRoute: DashitecnologyGoalsRoute,
+  DashitecnologyHabitsRoute: DashitecnologyHabitsRoute,
+  DashitecnologyJobsRoute: DashitecnologyJobsRoute,
+  DashitecnologyLevelsRoute: DashitecnologyLevelsRoute,
+  DashitecnologyMlRoute: DashitecnologyMlRoute,
+  DashitecnologyNotificationsRoute: DashitecnologyNotificationsRoute,
+  DashitecnologySystemRoute: DashitecnologySystemRoute,
+  DashitecnologyTelegramRoute: DashitecnologyTelegramRoute,
+  DashitecnologyTokensRoute: DashitecnologyTokensRoute,
+  DashitecnologyUsersRoute: DashitecnologyUsersRouteWithChildren,
+  DashitecnologyWallpapersRoute: DashitecnologyWallpapersRoute,
+  DashitecnologyIndexRoute: DashitecnologyIndexRoute,
+}
+
+const DashitecnologyRouteRouteWithChildren =
+  DashitecnologyRouteRoute._addFileChildren(DashitecnologyRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  DashitecnologyRouteRoute: DashitecnologyRouteRouteWithChildren,
   AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport

@@ -3,24 +3,17 @@ import type { Database, Json } from "@/integrations/supabase/types";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { createNotification, type NotificationTipo } from "@/notifications/create";
 import { decideReminders, scoresFromMlRow } from "@/lib/ml/adaptive";
+import { hojeISO, isQuietHoursInTz, zonedDayBoundsUtcIso } from "@/lib/datetime";
 
 type Admin = SupabaseClient<Database>;
 
-/** Quiet hours em UTC ≈ 23:00–06:59 horário de Brasília (UTC−3 → 02:00–09:59 UTC). */
+/** Quiet hours ≈ 23:00–06:59 America/Sao_Paulo. */
 export function isQuietHoursUtc(date = new Date()): boolean {
-  const h = date.getUTCHours();
-  return h >= 2 && h < 10;
+  return isQuietHoursInTz(date);
 }
 
-function hojeUtcISO(date = new Date()): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function dayBoundsUtc(dia: string) {
-  return {
-    start: `${dia}T00:00:00.000Z`,
-    end: `${dia}T23:59:59.999Z`,
-  };
+function dayBounds(dia: string) {
+  return zonedDayBoundsUtcIso(dia);
 }
 
 /** Insert com anti-spam diário para tipos de reminder (respeita índice único). */
@@ -32,8 +25,8 @@ export async function createNotificationOncePerDay(input: {
   metadata?: Record<string, Json | undefined>;
   dia?: string;
 }) {
-  const dia = input.dia ?? hojeUtcISO();
-  const { start, end } = dayBoundsUtc(dia);
+  const dia = input.dia ?? hojeISO();
+  const { start, end } = dayBounds(dia);
 
   const { count, error: countErr } = await supabaseAdmin
     .from("notifications")
@@ -93,7 +86,7 @@ export async function runProductNotificationJobs(opts?: {
   const now = opts?.now ?? new Date();
   const forced = Boolean(opts?.force);
   const quietHours = isQuietHoursUtc(now);
-  const hoje = hojeUtcISO(now);
+  const hoje = hojeISO(now);
 
   const challengesExpired = await expireAllOverdueChallengesAndNotify(supabaseAdmin, now);
 
