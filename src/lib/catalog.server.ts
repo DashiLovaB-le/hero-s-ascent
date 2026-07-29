@@ -4,7 +4,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { LEVELS, type LevelInfo } from "@/lib/journey";
 import {
-  WALLAPERS_FALLBACK as WALLPAPERS,
+  WALLPAPERS_FALLBACK as WALLPAPERS,
   type WallpaperDef,
   type WallpaperUnlock,
 } from "@/lib/wallpapers";
