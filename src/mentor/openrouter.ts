@@ -33,7 +33,6 @@ export type OpenRouterResult = {
 };
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const DEFAULT_MODEL = "anthropic/claude-sonnet-4";
 
 export async function chatCompletion(opts: OpenRouterOptions): Promise<OpenRouterResult> {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -41,7 +40,8 @@ export async function chatCompletion(opts: OpenRouterOptions): Promise<OpenRoute
     throw new Error("OPENROUTER_API_KEY ausente. Configure a chave no .env do servidor.");
   }
 
-  const model = process.env.OPENROUTER_MODEL?.trim() || DEFAULT_MODEL;
+  const { resolveOpenRouterModel } = await import("@/lib/openrouter-model.server");
+  const model = await resolveOpenRouterModel();
   const siteUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://v-project.app";
 
   const body: Record<string, unknown> = {

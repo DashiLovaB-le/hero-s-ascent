@@ -503,6 +503,7 @@ export type Database = {
           location_lat: number | null
           location_lon: number | null
           location_timezone: string | null
+          charlie_personality: string
         }
         Insert: {
           avatar_url?: string | null
@@ -526,6 +527,7 @@ export type Database = {
           location_lat?: number | null
           location_lon?: number | null
           location_timezone?: string | null
+          charlie_personality?: string
         }
         Update: {
           avatar_url?: string | null
@@ -549,6 +551,7 @@ export type Database = {
           location_lat?: number | null
           location_lon?: number | null
           location_timezone?: string | null
+          charlie_personality?: string
         }
         Relationships: []
       }
@@ -1034,6 +1037,27 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          key: string
+          value: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          key: string
+          value: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          key?: string
+          value?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       mentor_settings: {
         Row: {
           key: string
@@ -1050,6 +1074,42 @@ export type Database = {
         Update: {
           key?: string
           value?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      mentor_personalities: {
+        Row: {
+          slug: string
+          name: string
+          tagline: string
+          description: string
+          system_prompt: string
+          is_active: boolean
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          slug: string
+          name: string
+          tagline?: string
+          description?: string
+          system_prompt: string
+          is_active?: boolean
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          slug?: string
+          name?: string
+          tagline?: string
+          description?: string
+          system_prompt?: string
+          is_active?: boolean
+          sort_order?: number
           updated_at?: string
           updated_by?: string | null
         }

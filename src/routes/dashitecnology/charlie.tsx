@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   adminCharlieOverview,
-  adminResetCharliePrompt,
-  adminSaveCharliePrompt,
+  adminResetCharliePersonality,
+  adminSaveCharliePersonality,
+  adminSeedCharliePersonalities,
 } from "@/admin/functions";
 import {
   AdminError,
@@ -19,6 +20,7 @@ import {
   shortId,
 } from "@/admin/ui";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { runQueryFn } from "@/lib/safe-query";
 
 export const Route = createFileRoute("/dashitecnology/charlie")({
@@ -36,104 +38,226 @@ export const Route = createFileRoute("/dashitecnology/charlie")({
 
 function CharlieAdminPage() {
   const qc = useQueryClient();
-  const saveFn = useServerFn(adminSaveCharliePrompt);
-  const resetFn = useServerFn(adminResetCharliePrompt);
+  const saveFn = useServerFn(adminSaveCharliePersonality);
+  const resetFn = useServerFn(adminResetCharliePersonality);
+  const seedFn = useServerFn(adminSeedCharliePersonalities);
 
   const { data } = useSuspenseQuery({
     queryKey: ["admin", "charlie"],
     queryFn: () => runQueryFn(() => adminCharlieOverview(), "Falha Charlie."),
   });
 
-  const [prompt, setPrompt] = useState(data.systemPrompt);
+  const personalities = data.personalities;
+  const [selectedSlug, setSelectedSlug] = useState(personalities[0]?.slug ?? "classico");
+
+  const selected = useMemo(
+    () => personalities.find((p) => p.slug === selectedSlug) ?? personalities[0],
+    [personalities, selectedSlug],
+  );
+
+  const [name, setName] = useState(selected?.name ?? "");
+  const [tagline, setTagline] = useState(selected?.tagline ?? "");
+  const [description, setDescription] = useState(selected?.description ?? "");
+  const [prompt, setPrompt] = useState(selected?.system_prompt ?? "");
+  const [active, setActive] = useState(selected?.is_active ?? true);
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
-    setPrompt(data.systemPrompt);
+    if (!selected) return;
+    setName(selected.name);
+    setTagline(selected.tagline);
+    setDescription(selected.description);
+    setPrompt(selected.system_prompt);
+    setActive(selected.is_active);
     setDirty(false);
-  }, [data.systemPrompt]);
+  }, [selected]);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["admin", "charlie"] });
 
   const save = useMutation({
-    mutationFn: () => saveFn({ data: { prompt } }),
+    mutationFn: () =>
+      saveFn({
+        data: {
+          slug: selected.slug,
+          name,
+          tagline,
+          description,
+          system_prompt: prompt,
+          is_active: active,
+        },
+      }),
     onSuccess: () => {
-      toast.success("Prompt do Charlie salvo. Já vale nas próximas mensagens.");
-      void qc.invalidateQueries({ queryKey: ["admin", "charlie"] });
+      toast.success(`Personalidade ${selected.name} salva.`);
       setDirty(false);
+      void invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const reset = useMutation({
-    mutationFn: () => resetFn(),
+    mutationFn: () => resetFn({ data: { slug: selected.slug } }),
     onSuccess: () => {
-      toast.success("Voltou ao prompt padrão do código.");
-      void qc.invalidateQueries({ queryKey: ["admin", "charlie"] });
+      toast.success("Prompt restaurado ao seed do código.");
+      void invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const seed = useMutation({
+    mutationFn: (forceOverwrite: boolean) => seedFn({ data: { forceOverwrite } }),
+    onSuccess: (r) => {
+      toast.success(
+        r.upserted
+          ? `Seeds aplicados (${r.upserted}).`
+          : "Catálogo já estava completo.",
+      );
+      void invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (!selected) {
+    return (
+      <AdminShell title="Charlie" subtitle="Nenhuma personalidade no catálogo.">
+        <Button onClick={() => seed.mutate(true)}>Semear personalidades</Button>
+      </AdminShell>
+    );
+  }
+
   return (
     <AdminShell
       title="Charlie"
-      subtitle="Desafios, mensagens e system prompt (sem editar código)."
+      subtitle="Personalidades, prompts e desafios — sem editar código."
     >
       <StatGrid>
         <StatCard label="Mensagens (7d)" value={data.messagesWeek} />
         <StatCard label="Desafios (7d)" value={data.challenges.length} />
+        <StatCard label="Personalidades" value={personalities.length} />
         <StatCard
-          label="Por status"
-          value={Object.keys(data.byStatus).length}
-          hint={Object.entries(data.byStatus)
+          label="Ativas"
+          value={personalities.filter((p) => p.is_active).length}
+          hint={Object.entries(
+            personalities.reduce<Record<string, number>>((acc, p) => {
+              acc[p.slug] = p.usage;
+              return acc;
+            }, {}),
+          )
             .map(([k, v]) => `${k}:${v}`)
             .join(" · ")}
         />
-        <StatCard
-          label="Prompt"
-          value={data.promptSource === "database" ? "banco" : "código"}
-          hint={
-            data.promptUpdatedAt
-              ? `atualizado ${data.promptUpdatedAt.slice(0, 16)}`
-              : "usando default do repositório"
-          }
-        />
       </StatGrid>
 
-      <Panel className="mt-6" title="System prompt">
-        <p className="mb-3 text-sm text-white/50">
-          Este texto é a identidade do Charlie (mensagem <code className="text-[#FC6E20]">system</code>
-          ). Alterações aqui sobrescrevem o default do código até você restaurar.
+      <Panel className="mt-6" title="Personalidades">
+        <div className="mb-4 flex flex-wrap gap-2">
+          {personalities.map((p) => (
+            <button
+              key={p.slug}
+              type="button"
+              onClick={() => setSelectedSlug(p.slug)}
+              className={`rounded-md border px-3 py-1.5 text-sm ${
+                p.slug === selected.slug
+                  ? "border-[#FC6E20]/60 bg-[#FC6E20]/15 text-white"
+                  : "border-white/10 text-white/70 hover:border-white/25"
+              }`}
+            >
+              {p.name}
+              {!p.is_active ? " (off)" : ""}
+              <span className="ml-2 text-xs text-white/35">{p.usage}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="mb-3 grid gap-3 sm:grid-cols-2">
+          <label className="block text-xs text-white/50">
+            Nome
+            <Input
+              className="mt-1"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setDirty(true);
+              }}
+            />
+          </label>
+          <label className="block text-xs text-white/50">
+            Tagline
+            <Input
+              className="mt-1"
+              value={tagline}
+              onChange={(e) => {
+                setTagline(e.target.value);
+                setDirty(true);
+              }}
+            />
+          </label>
+          <label className="block text-xs text-white/50 sm:col-span-2">
+            Descrição
+            <Input
+              className="mt-1"
+              value={description}
+              onChange={(e) => {
+                setDescription(e.target.value);
+                setDirty(true);
+              }}
+            />
+          </label>
+        </div>
+
+        <label className="mb-3 flex items-center gap-2 text-sm text-white/70">
+          <input
+            type="checkbox"
+            checked={active}
+            onChange={(e) => {
+              setActive(e.target.checked);
+              setDirty(true);
+            }}
+          />
+          Ativa (visível para usuários)
+        </label>
+
+        <p className="mb-2 text-xs text-white/40">
+          slug <code className="text-[#FC6E20]">{selected.slug}</code>
+          {selected.updated_at
+            ? ` · atualizado ${selected.updated_at.slice(0, 16)}`
+            : ""}
         </p>
+
         <textarea
           value={prompt}
           onChange={(e) => {
             setPrompt(e.target.value);
             setDirty(true);
           }}
-          rows={22}
+          rows={20}
           className="w-full resize-y rounded-md border border-white/10 bg-black/40 px-3 py-3 font-mono text-xs leading-relaxed text-white/85 outline-none focus:border-[#FC6E20]/50"
           spellCheck={false}
         />
+
         <div className="mt-3 flex flex-wrap gap-2">
           <Button
             disabled={save.isPending || !dirty}
             className="bg-[#FC6E20] text-black hover:bg-[#FC6E20]/90"
             onClick={() => save.mutate()}
           >
-            {save.isPending ? "Salvando…" : "Salvar prompt"}
+            {save.isPending ? "Salvando…" : "Salvar personalidade"}
           </Button>
           <Button
             variant="outline"
-            disabled={reset.isPending || data.promptSource === "code"}
+            disabled={reset.isPending}
             onClick={() => {
-              if (
-                confirm(
-                  "Remover o prompt do banco e voltar ao texto padrão versionado no código?",
-                )
-              ) {
+              if (confirm(`Restaurar seed do código para ${selected.name}?`)) {
                 reset.mutate();
               }
             }}
           >
-            Restaurar default do código
+            Restaurar seed
+          </Button>
+          <Button
+            variant="outline"
+            disabled={seed.isPending}
+            onClick={() => seed.mutate(false)}
+          >
+            Completar seeds faltantes
           </Button>
           <span className="self-center text-xs text-white/35">
             {prompt.length.toLocaleString("pt-BR")} caracteres

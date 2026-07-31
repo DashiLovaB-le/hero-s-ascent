@@ -23,5 +23,6 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { to: "/dashitecnology/checkins", label: "Check-ins" },
   { to: "/dashitecnology/content", label: "Conteúdo" },
   { to: "/dashitecnology/system", label: "Sistema" },
+  { to: "/dashitecnology/maintenance", label: "Manutenção" },
   { to: "/dashitecnology/analytics", label: "Analytics" },
 ];

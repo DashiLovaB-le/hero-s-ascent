@@ -15,8 +15,9 @@ import {
   ensureChapterMissions,
   grantMissionRewards,
 } from "@/lib/missions-core";
-import { hojeISO, ontemISO } from "@/lib/datetime";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loadLevelsFromDb, loadWallpapersFromDb } from "@/lib/catalog.server";
+import { hojeISO, ontemISO } from "@/lib/datetime";
 
 type Client = SupabaseClient<Database>;
 
@@ -214,7 +215,7 @@ export const completeHabit = createServerFn({ method: "POST" })
     const novoXpTotal = prof.xp_total + xp;
     const attrKey = habit.atributo;
 
-    const { error: cErr } = await supabase.from("habit_completions").insert({
+    const { error: cErr } = await supabaseAdmin.from("habit_completions").insert({
       user_id: userId,
       habit_id: data.habitId,
       dia: hoje,
@@ -239,7 +240,7 @@ export const completeHabit = createServerFn({ method: "POST" })
     const firstHabitEver = (priorCountRes.count ?? 0) === 0;
 
     await Promise.all([
-      supabase
+      supabaseAdmin
         .from("profiles")
         .update({
           xp_total: novoXpTotal,
@@ -249,9 +250,9 @@ export const completeHabit = createServerFn({ method: "POST" })
         })
         .eq("id", userId),
       Object.keys(attrPatch).length
-        ? supabase.from("attributes").update(attrPatch as never).eq("user_id", userId)
+        ? supabaseAdmin.from("attributes").update(attrPatch as never).eq("user_id", userId)
         : Promise.resolve(),
-      supabase.from("activity_history").insert({
+      supabaseAdmin.from("activity_history").insert({
         user_id: userId,
         tipo: "habit_complete",
         descricao: `Concluiu: ${habit.titulo}`,
@@ -338,7 +339,7 @@ export const createHabit = createServerFn({ method: "POST" })
       .object({
         titulo: z.string().trim().min(2).max(80),
         descricao: z.string().trim().max(280).optional(),
-        xp_recompensa: z.number().int().min(5).max(200).default(10),
+        xp_recompensa: z.number().int().min(5).max(50).default(10),
         atributo: z.enum([
           "forca",
           "disciplina",
@@ -376,7 +377,7 @@ export const updateHabit = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         titulo: z.string().trim().min(2).max(80),
         descricao: z.string().trim().max(280).optional(),
-        xp_recompensa: z.number().int().min(5).max(200),
+        xp_recompensa: z.number().int().min(5).max(50),
         atributo: z.enum([
           "forca",
           "disciplina",
@@ -506,7 +507,10 @@ export const setGoals = createServerFn({ method: "POST" })
     if (data.goals.length) {
       await supabase.from("goals").insert(data.goals.map((g) => ({ ...g, user_id: userId })));
     }
-    await supabase.from("profiles").update({ onboarding_completo: true }).eq("id", userId);
+    await supabaseAdmin
+      .from("profiles")
+      .update({ onboarding_completo: true })
+      .eq("id", userId);
 
     const { data: profile } = await supabase
       .from("profiles")

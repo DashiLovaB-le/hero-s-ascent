@@ -211,12 +211,30 @@ export const adminListUsers = createServerFn({ method: "GET" })
     return { users };
   });
 
-export const adminUserDetail = createServerFn({ method: "GET" })
+export const adminUserDetail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((i: unknown) => z.object({ userId: z.string().uuid() }).parse(i))
   .handler(async ({ context, data }) => {
     await withAdmin(context.userId);
     const uid = data.userId;
+
+    async function safe<T>(
+      label: string,
+      run: () => PromiseLike<{ data: T; error: { message: string } | null }>,
+      fallback: T,
+    ): Promise<T> {
+      try {
+        const res = await run();
+        if (res.error) {
+          console.warn(`[adminUserDetail] ${label}:`, res.error.message);
+          return fallback;
+        }
+        return (res.data ?? fallback) as T;
+      } catch (e) {
+        console.warn(`[adminUserDetail] ${label} threw:`, e);
+        return fallback;
+      }
+    }
 
     const [
       profile,
@@ -232,59 +250,124 @@ export const adminUserDetail = createServerFn({ method: "GET" })
       notifs,
       challenges,
     ] = await Promise.all([
-      supabaseAdmin.from("profiles").select("*").eq("id", uid).maybeSingle(),
-      supabaseAdmin.from("attributes").select("*").eq("user_id", uid).maybeSingle(),
-      supabaseAdmin.from("habits").select("*").eq("user_id", uid).order("created_at", { ascending: false }),
-      supabaseAdmin.from("goals").select("*").eq("user_id", uid).order("created_at", { ascending: false }),
-      supabaseAdmin.from("user_ml_scores").select("*").eq("user_id", uid).maybeSingle(),
-      supabaseAdmin.from("user_features").select("*").eq("user_id", uid).maybeSingle(),
-      supabaseAdmin
-        .from("user_ml_scores_shadow")
-        .select("*")
-        .eq("user_id", uid)
-        .order("computed_at", { ascending: false })
-        .limit(5),
-      supabaseAdmin
-        .from("agent_initiatives")
-        .select("*")
-        .eq("user_id", uid)
-        .order("created_at", { ascending: false })
-        .limit(20),
-      supabaseAdmin
-        .from("user_checkins")
-        .select("*")
-        .eq("user_id", uid)
-        .order("created_at", { ascending: false })
-        .limit(20),
-      supabaseAdmin.from("user_roles").select("role").eq("user_id", uid),
-      supabaseAdmin
-        .from("notifications")
-        .select("id, tipo, titulo, corpo, lido_em, created_at")
-        .eq("user_id", uid)
-        .order("created_at", { ascending: false })
-        .limit(30),
-      supabaseAdmin
-        .from("mentor_challenges")
-        .select("id, titulo, status, xp_recompensa, created_at, completed_at, ends_at")
-        .eq("user_id", uid)
-        .order("created_at", { ascending: false })
-        .limit(20),
+      safe(
+        "profile",
+        () => supabaseAdmin.from("profiles").select("*").eq("id", uid).maybeSingle(),
+        null,
+      ),
+      safe(
+        "attributes",
+        () => supabaseAdmin.from("attributes").select("*").eq("user_id", uid).maybeSingle(),
+        null,
+      ),
+      safe(
+        "habits",
+        () =>
+          supabaseAdmin
+            .from("habits")
+            .select("id, titulo, atributo, ativo, created_at, xp_recompensa")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false })
+            .limit(50),
+        [],
+      ),
+      safe(
+        "goals",
+        () =>
+          supabaseAdmin
+            .from("goals")
+            .select("id, titulo, categoria, ativo, created_at")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false })
+            .limit(50),
+        [],
+      ),
+      safe(
+        "ml_scores",
+        () => supabaseAdmin.from("user_ml_scores").select("*").eq("user_id", uid).maybeSingle(),
+        null,
+      ),
+      safe(
+        "features",
+        () => supabaseAdmin.from("user_features").select("*").eq("user_id", uid).maybeSingle(),
+        null,
+      ),
+      safe(
+        "shadow",
+        () =>
+          supabaseAdmin
+            .from("user_ml_scores_shadow")
+            .select("*")
+            .eq("user_id", uid)
+            .order("computed_at", { ascending: false })
+            .limit(5),
+        [],
+      ),
+      safe(
+        "initiatives",
+        () =>
+          supabaseAdmin
+            .from("agent_initiatives")
+            .select("*")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false })
+            .limit(20),
+        [],
+      ),
+      safe(
+        "checkins",
+        () =>
+          supabaseAdmin
+            .from("user_checkins")
+            .select("*")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false })
+            .limit(20),
+        [],
+      ),
+      safe(
+        "roles",
+        () => supabaseAdmin.from("user_roles").select("role").eq("user_id", uid),
+        [],
+      ),
+      safe(
+        "notifications",
+        () =>
+          supabaseAdmin
+            .from("notifications")
+            .select("id, tipo, titulo, corpo, lido_em, created_at")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false })
+            .limit(30),
+        [],
+      ),
+      safe(
+        "challenges",
+        () =>
+          supabaseAdmin
+            .from("mentor_challenges")
+            .select("id, titulo, status, xp_recompensa, created_at, completed_at, ends_at")
+            .eq("user_id", uid)
+            .order("created_at", { ascending: false })
+            .limit(20),
+        [],
+      ),
     ]);
 
     return {
-      profile: profile.data,
-      attributes: attrs.data,
-      habits: habits.data ?? [],
-      goals: goals.data ?? [],
-      mlScore: scores.data,
-      features: features.data,
-      shadowScores: shadow.data ?? [],
-      initiatives: initiatives.data ?? [],
-      checkins: checkins.data ?? [],
-      roles: (roles.data ?? []).map((r) => r.role),
-      recentNotifications: notifs.data ?? [],
-      challenges: challenges.data ?? [],
-      profileError: profile.error?.message ?? null,
+      profile,
+      attributes: attrs,
+      habits: habits ?? [],
+      goals: goals ?? [],
+      mlScore: scores,
+      features,
+      shadowScores: shadow ?? [],
+      initiatives: initiatives ?? [],
+      checkins: checkins ?? [],
+      roles: (roles ?? []).map((r: { role: string }) => r.role),
+      recentNotifications: notifs ?? [],
+      challenges: challenges ?? [],
+      profileError: profile ? null : "Perfil não encontrado.",
     };
   });
 
@@ -347,6 +430,122 @@ export const adminAdjustXp = createServerFn({ method: "POST" })
       .eq("id", data.userId);
     if (upErr) throw new Error(upErr.message);
     return { xpTotal: next };
+  });
+
+/**
+ * Apaga o histórico do herói (chat, conclusões, missões, ML, notificações…)
+ * Mantém conta, perfil (nome/bio/wallpaper), hábitos/metas cadastrados e roles.
+ * Zera XP / streak / capítulo.
+ */
+export const adminClearUserHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((i: unknown) =>
+    z
+      .object({
+        userId: z.string().uuid(),
+        confirm: z.literal("LIMPAR"),
+      })
+      .parse(i),
+  )
+  .handler(async ({ context, data }) => {
+    await withAdmin(context.userId);
+    const uid = data.userId;
+
+    const { data: profile, error: pErr } = await supabaseAdmin
+      .from("profiles")
+      .select("id, nome")
+      .eq("id", uid)
+      .maybeSingle();
+    if (pErr) throw new Error(pErr.message);
+    if (!profile) throw new Error("Perfil não encontrado.");
+
+    async function del(table: string) {
+      const { error, count } = await supabaseAdmin
+        .from(table as "mentor_messages")
+        .delete({ count: "exact" })
+        .eq("user_id", uid);
+      if (error) {
+        // Tabelas opcionais / migration ausente — não bloqueia
+        if (/does not exist|schema cache/i.test(error.message)) {
+          return { table, deleted: 0, skipped: true as const };
+        }
+        throw new Error(`${table}: ${error.message}`);
+      }
+      return { table, deleted: count ?? 0, skipped: false as const };
+    }
+
+    const tables = [
+      "mentor_messages",
+      "mentor_memories",
+      "mentor_challenges",
+      "mentor_objectives",
+      "habit_completions",
+      "activity_history",
+      "user_checkins",
+      "notifications",
+      "missions",
+      "user_achievements",
+      "agent_initiatives",
+      "user_features",
+      "user_ml_scores",
+      "user_ml_scores_shadow",
+      "user_cf_recommendations",
+      "ai_usage_events",
+      "telegram_link_codes",
+    ] as const;
+
+    const results: Array<{ table: string; deleted: number; skipped: boolean }> = [];
+    for (const table of tables) {
+      results.push(await del(table));
+    }
+
+    const { error: resetErr } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        xp_total: 0,
+        streak_atual: 0,
+        streak_maximo: 0,
+        ultimo_dia_completo: null,
+        capitulo_atual: 1,
+      })
+      .eq("id", uid);
+    if (resetErr) throw new Error(resetErr.message);
+
+    const ATTR_RESET = {
+      forca: 1,
+      disciplina: 1,
+      sabedoria: 1,
+      espirito: 1,
+      testosterona: 1,
+      prosperidade: 1,
+      conhecimento: 1,
+      lideranca: 1,
+    } as const;
+
+    const { error: attrErr } = await supabaseAdmin
+      .from("attributes")
+      .upsert(
+        { user_id: uid, ...ATTR_RESET },
+        { onConflict: "user_id" },
+      );
+    if (attrErr) throw new Error(`attributes: ${attrErr.message}`);
+
+    await supabaseAdmin.from("activity_history").insert({
+      user_id: uid,
+      tipo: "admin_clear_history",
+      descricao: `Histórico limpo por admin (${context.userId.slice(0, 8)}…)`,
+      xp_delta: 0,
+      metadata: { admin_id: context.userId, results, attributesReset: true },
+    });
+
+    return {
+      ok: true as const,
+      userId: uid,
+      nome: profile.nome,
+      results,
+      attributesReset: true as const,
+      totalDeleted: results.reduce((s, r) => s + r.deleted, 0),
+    };
   });
 
 export const adminListHabits = createServerFn({ method: "GET" })
@@ -458,32 +657,102 @@ export const adminCharlieOverview = createServerFn({ method: "GET" })
       .select("id", { count: "exact", head: true })
       .gte("created_at", since);
 
-    const { getMentorSystemPrompt } = await import("@/mentor/prompt.server");
-    const promptMeta = await getMentorSystemPrompt();
+    const {
+      listCharliePersonalities,
+      ensureCharliePersonalitySeeds,
+    } = await import("@/mentor/prompt.server");
+    await ensureCharliePersonalitySeeds();
+    const personalities = await listCharliePersonalities({ includeInactive: true });
+
+    const { data: usageRows } = await supabaseAdmin
+      .from("profiles")
+      .select("charlie_personality");
+    const usageBySlug: Record<string, number> = {};
+    for (const row of usageRows ?? []) {
+      const slug = (row as { charlie_personality?: string }).charlie_personality ?? "classico";
+      usageBySlug[slug] = (usageBySlug[slug] ?? 0) + 1;
+    }
 
     return {
       challenges: challenges ?? [],
       byStatus,
       messagesWeek: messagesWeek ?? 0,
-      systemPrompt: promptMeta.prompt,
-      promptSource: promptMeta.source,
-      promptUpdatedAt: promptMeta.updatedAt,
+      personalities: personalities.map((p) => ({
+        slug: p.slug,
+        name: p.name,
+        tagline: p.tagline,
+        description: p.description,
+        system_prompt: p.system_prompt,
+        is_active: p.is_active,
+        sort_order: p.sort_order,
+        updated_at: p.updated_at,
+        usage: usageBySlug[p.slug] ?? 0,
+      })),
     };
   });
 
+export const adminSaveCharliePersonality = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((i: unknown) =>
+    z
+      .object({
+        slug: z.string().trim().min(2).max(40),
+        name: z.string().trim().min(2).max(80).optional(),
+        tagline: z.string().trim().max(200).optional(),
+        description: z.string().trim().max(500).optional(),
+        system_prompt: z.string().min(80).max(100_000).optional(),
+        is_active: z.boolean().optional(),
+        sort_order: z.number().int().min(0).max(9999).optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ context, data }) => {
+    await withAdmin(context.userId);
+    const { savePersonalityPrompt } = await import("@/mentor/prompt.server");
+    const { slug, ...patch } = data;
+    await savePersonalityPrompt(slug, patch, context.userId);
+    return { ok: true as const };
+  });
+
+export const adminResetCharliePersonality = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((i: unknown) => z.object({ slug: z.string().trim().min(2).max(40) }).parse(i))
+  .handler(async ({ context, data }) => {
+    await withAdmin(context.userId);
+    const { resetPersonalityToSeed } = await import("@/mentor/prompt.server");
+    await resetPersonalityToSeed(data.slug, context.userId);
+    return { ok: true as const };
+  });
+
+export const adminSeedCharliePersonalities = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((i: unknown) =>
+    z.object({ forceOverwrite: z.boolean().optional() }).optional().parse(i),
+  )
+  .handler(async ({ context, data }) => {
+    await withAdmin(context.userId);
+    const { ensureCharliePersonalitySeeds } = await import("@/mentor/prompt.server");
+    const result = await ensureCharliePersonalitySeeds({
+      forceOverwrite: Boolean(data?.forceOverwrite),
+    });
+    return { ok: true as const, ...result };
+  });
+
+/** @deprecated — use adminSaveCharliePersonality no slug classico */
 export const adminGetCharliePrompt = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await withAdmin(context.userId);
-    const { getMentorSystemPrompt } = await import("@/mentor/prompt.server");
+    const { getPersonalityBySlug } = await import("@/mentor/prompt.server");
     const { MENTOR_SYSTEM_PROMPT_DEFAULT } = await import("@/mentor/context");
-    const meta = await getMentorSystemPrompt();
+    const meta = await getPersonalityBySlug("classico");
     return {
       ...meta,
       codeDefault: MENTOR_SYSTEM_PROMPT_DEFAULT,
     };
   });
 
+/** @deprecated */
 export const adminSaveCharliePrompt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((i: unknown) => z.object({ prompt: z.string().min(80).max(100_000) }).parse(i))
@@ -494,6 +763,7 @@ export const adminSaveCharliePrompt = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+/** @deprecated */
 export const adminResetCharliePrompt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

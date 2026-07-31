@@ -9,6 +9,7 @@ import {
   grantMissionRewards,
   type MissionRow,
 } from "@/lib/missions-core";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 type Client = SupabaseClient<Database>;
 
@@ -81,7 +82,7 @@ export const completeMission = createServerFn({ method: "POST" })
       .maybeSingle();
     if (pErr || !profile) throw new Error("Perfil não encontrado");
 
-    const { data: updated, error: uErr } = await supabase
+    const { data: updated, error: uErr } = await supabaseAdmin
       .from("missions")
       .update({
         status: "concluida",

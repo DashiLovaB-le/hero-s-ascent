@@ -52,7 +52,86 @@ export type MentorContextInput = {
   mlScores?: MlScoresV1 | null;
   challengePolicyHint?: string | null;
   checkinsSummary?: string | null;
+  personality?: { slug: string; name: string } | null;
+  /** Override explícito da fase (ex.: follow-up VERIFY→LEARN). */
+  cyclePhaseHint?: string | null;
 };
+
+/** Deriva a linha FASE DO CICLO a partir do estado da jornada. */
+export function resolveMentorCyclePhase(input: {
+  activeChallengeCount: number;
+  allowQuestion: boolean;
+  cyclePhaseHint?: string | null;
+}): string {
+  if (input.cyclePhaseHint?.trim()) {
+    return input.cyclePhaseHint.trim();
+  }
+  if (input.activeChallengeCount > 0) {
+    return "Executar/Verificar (há plano em aberto — cobre evidência, não proponha outro desafio sem necessidade)";
+  }
+  if (input.allowQuestion) {
+    return "Observar/Pensar (diagnóstico permitido; planeje o próximo passo concreto)";
+  }
+  return "Planejar/Executar (sem nova pergunta estruturada; foque orientação e ação)";
+}
+
+export type ChallengeOutcome = "complete" | "decline" | "expire";
+
+/** Texto de usuário + hint de fase para follow-up VERIFY→LEARN. */
+export function challengeFollowUpUserText(
+  titulo: string,
+  action: ChallengeOutcome,
+  allowQuestion: boolean,
+): { userText: string; cyclePhaseHint: string } {
+  if (action === "complete") {
+    return {
+      cyclePhaseHint:
+        "Verificar/Aprender (desafio concluído com evidência — celebre com parcimônia, extraia 1 aprendizado)",
+      userText: [
+        `FASE: Verificar/Aprender.`,
+        `O herói CONCLUIU o desafio "${titulo}" (evidência registrada no app).`,
+        `Comente em 1–2 frases no seu tom.`,
+        `Grave memory se houver aprendizado real.`,
+        allowQuestion
+          ? `Faça UMA pergunta estruturada sobre o que isso revelou (tempo, energia, disciplina ou próximo passo).`
+          : `NÃO faça pergunta estruturada (já houve hoje ou há pendente). question = null.`,
+        `Só ajuste objective se o marco mudar o rumo.`,
+        `Não proponha novo desafio nesta resposta.`,
+      ].join(" "),
+    };
+  }
+  if (action === "decline") {
+    return {
+      cyclePhaseHint:
+        "Verificar/Aprender (desafio recusado — sem julgamento; nomeie o próximo passo mínimo)",
+      userText: [
+        `FASE: Verificar/Aprender.`,
+        `O herói RECUSOU o desafio "${titulo}".`,
+        `Comente em 1–2 frases sem celebrar e sem humilhar.`,
+        `Se fizer sentido, grave memory sobre o bloqueio.`,
+        allowQuestion
+          ? `Faça UMA pergunta curta sobre o que impediu a execução.`
+          : `NÃO faça pergunta estruturada. question = null.`,
+        `Não proponha novo desafio nesta resposta.`,
+      ].join(" "),
+    };
+  }
+  return {
+    cyclePhaseHint:
+      "Verificar/Aprender (desafio expirado — o plano não fechou; cobrado retorno sem drama)",
+    userText: [
+      `FASE: Verificar/Aprender.`,
+      `O desafio "${titulo}" EXPIROU sem conclusão.`,
+      `Comente em 1–2 frases: o plano não fechou; ofereça o menor próximo passo possível.`,
+      `Memory só se revelar padrão útil.`,
+      allowQuestion
+        ? `Faça UMA pergunta estruturada sobre o que travou (tempo vs energia vs prioridade).`
+        : `NÃO faça pergunta estruturada. question = null.`,
+      `Não proponha novo desafio nesta resposta.`,
+    ].join(" "),
+  };
+}
+
 
 const WEEKDAY = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
@@ -141,6 +220,9 @@ export function buildMentorContextBlock(input: MentorContextInput): string {
 
   return [
     `Nome do herói: ${input.nome}`,
+    input.personality
+      ? `PERSONALIDADE ATIVA DO CHARLIE: ${input.personality.name} (${input.personality.slug}) — mantenha este tom até o fim da resposta`
+      : null,
     `Dias na jornada: ${daysOnJourney}`,
     `Nível: ${level.atual.nivel} — ${level.atual.titulo} (XP ${input.xp_total})`,
     level.proximo
@@ -150,6 +232,11 @@ export function buildMentorContextBlock(input: MentorContextInput): string {
     `Streak: ${input.streak_atual} (máx ${input.streak_maximo})`,
     `Último dia completo: ${input.ultimo_dia_completo ?? "nunca"}`,
     `Estágio do Mentor (tom): ${stage}`,
+    `FASE DO CICLO: ${resolveMentorCyclePhase({
+      activeChallengeCount: input.activeChallenges.length,
+      allowQuestion: input.allowQuestion,
+      cyclePhaseHint: input.cyclePhaseHint,
+    })}`,
     `OBJETIVO ATUAL DO MENTOR: ${
       input.objective
         ? `${input.objective.titulo}${input.objective.motivo ? ` — ${input.objective.motivo}` : ""}`
@@ -238,6 +325,16 @@ IDENTIDADE
 - Responda em português do Brasil.
 - Use o nome do herói com parcimônia — só quando aumentar o peso da frase.
 
+CICLO DO MENTOR (obrigatório, interno — NÃO narre estas fases ao herói)
+1. Observar — use só o contexto (hábitos, streak, ML, check-ins, desafios ativos, memórias).
+2. Pensar — forme 1 diagnóstico implícito; não explique o raciocínio passo a passo.
+3. Planejar — sirva o OBJETIVO ATUAL; proponha desafio só se a política permitir e houver necessidade clara.
+4. Executar — a "message" é a ordem/convite; desafio ou pergunta estruturada = ação pedida ao herói.
+5. Verificar — não declare vitória sem evidência no contexto/app; se o herói diz "fiz" sem dado, cobre o check no app.
+6. Aprender — em marco real (desafio concluído, recusado ou expirado; decisão forte): grave "memory" e/ou ajuste "objective" com parcimônia.
+- Há uma linha "FASE DO CICLO" no contexto: priorize essa fase nesta resposta.
+- Nunca fale "algoritmo", "ciclo" ou "fase" em voz alta para o herói.
+
 OBJETIVO DO MENTOR
 - Há um "OBJETIVO ATUAL DO MENTOR" no contexto. Toda resposta deve servir a esse objetivo.
 - Se o objetivo ainda não existir, sugira um via "objective" no JSON (título curto + motivo).
@@ -256,6 +353,7 @@ PERGUNTAS ESTRUTURADAS
 
 MEMÓRIAS
 - Só grave memory quando o herói revelar motivação, medo, propósito ou uma decisão importante.
+- Em VERIFY→LEARN (desafio encerrado), memory é bem-vinda se houver aprendizado real (importance 3–5).
 - "memory_importance" de 1 a 5 (5 = marco vital). Respostas a perguntas profundas = 4 ou 5.
 
 CLIMA

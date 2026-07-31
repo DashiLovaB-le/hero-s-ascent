@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { CharliePersonalityPicker } from "@/mentor/CharliePersonalityPicker";
 import {
   ensureMentorPresence,
   sendMentorMessage,
@@ -44,6 +45,13 @@ export function MentorPage() {
   const [challenges, setChallenges] = useState<Challenge[]>(data.challenges);
   const [objective, setObjective] = useState<Objective>(data.objective);
   const [pendingQuestion, setPendingQuestion] = useState<PendingQuestion>(data.pendingQuestion);
+  const [personality, setPersonality] = useState(
+    data.personality ?? {
+      slug: "classico",
+      name: "Charlie Clássico",
+      tagline: "Equilibrado. Faz perguntas. Incentiva sem pressionar.",
+    },
+  );
   const [presencePending, setPresencePending] = useState(false);
   const [focusMode, setFocusMode] = useState(() => readMentorFocusMode());
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -101,7 +109,8 @@ export function MentorPage() {
     setChallenges(data.challenges);
     setObjective(data.objective);
     setPendingQuestion(data.pendingQuestion);
-  }, [data.messages, data.challenges, data.objective, data.pendingQuestion]);
+    if (data.personality) setPersonality(data.personality);
+  }, [data.messages, data.challenges, data.objective, data.pendingQuestion, data.personality]);
 
   const onPresence = useEffectEvent(async () => {
     if (presenceStarted.current) return;
@@ -266,6 +275,10 @@ export function MentorPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Ele conhece sua jornada, {data.heroName}. Fale com verdade.
               </p>
+              <CharliePersonalityPicker
+                current={personality}
+                onChanged={(next) => setPersonality(next)}
+              />
               {data.mlRiskLine && (
                 <p className="mt-2 text-xs text-hero/90">{data.mlRiskLine}</p>
               )}

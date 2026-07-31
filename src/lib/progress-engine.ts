@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { calcularNivel } from "@/lib/journey";
 import { chapterName, resolveChapter } from "@/lib/chapters";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 type Client = SupabaseClient<Database>;
 
@@ -60,6 +61,7 @@ export async function evaluateProgress(
   const unlockedAchievements: UnlockedAchievement[] = [];
   let xpBonusTotal = 0;
   let state: ProgressSnapshot = { ...after };
+  const db = supabaseAdmin;
 
   const { data: catalog, error: catErr } = await supabase
     .from("achievements")
@@ -96,7 +98,7 @@ export async function evaluateProgress(
     if (!batch.length) break;
 
     for (const ach of batch) {
-      const { error: insErr } = await supabase.from("user_achievements").insert({
+      const { error: insErr } = await db.from("user_achievements").insert({
         user_id: userId,
         achievement_id: ach.id,
       });
@@ -115,7 +117,7 @@ export async function evaluateProgress(
         state = { ...state, xp_total: state.xp_total + ach.xp_bonus };
       }
 
-      await supabase.from("activity_history").insert({
+      await db.from("activity_history").insert({
         user_id: userId,
         tipo: "achievement",
         descricao: `Conquista: ${ach.titulo}`,
@@ -147,7 +149,7 @@ export async function evaluateProgress(
 
   if (targetChapter > state.capitulo_atual) {
     const from = state.capitulo_atual;
-    const { error: chErr } = await supabase
+    const { error: chErr } = await db
       .from("profiles")
       .update({
         xp_total: state.xp_total,
@@ -164,7 +166,7 @@ export async function evaluateProgress(
         nome: chapterName(targetChapter),
       };
 
-      await supabase.from("activity_history").insert({
+      await db.from("activity_history").insert({
         user_id: userId,
         tipo: "chapter_up",
         descricao: `Avançou para o capítulo ${targetChapter} — ${chapterName(targetChapter)}`,
@@ -187,7 +189,7 @@ export async function evaluateProgress(
 
       try {
         const { ensureChapterMissions } = await import("@/lib/missions-core");
-        await ensureChapterMissions(supabase, userId, targetChapter, {
+        await ensureChapterMissions(db as Client, userId, targetChapter, {
           abandonPrevious: true,
         });
       } catch (e) {
@@ -195,7 +197,7 @@ export async function evaluateProgress(
       }
     }
   } else if (xpBonusTotal > 0) {
-    const { error: xpErr } = await supabase
+    const { error: xpErr } = await db
       .from("profiles")
       .update({ xp_total: state.xp_total })
       .eq("id", userId);

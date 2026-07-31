@@ -403,7 +403,7 @@ function HabitForm({
         <Input
           type="number"
           min={5}
-          max={200}
+          max={50}
           value={xp}
           onChange={(e) => setXp(Number(e.target.value))}
         />

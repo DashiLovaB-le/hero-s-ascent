@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { missionTemplatesForChapter } from "@/lib/mission-templates";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 type Client = SupabaseClient<Database>;
 
@@ -28,11 +29,12 @@ export type MissionRow = {
  * Garante missões do capítulo. Se abandonPrevious, arquiva ativas de outros capítulos.
  */
 export async function ensureChapterMissions(
-  supabase: Client,
+  _supabase: Client,
   userId: string,
   capitulo: number,
   opts: { abandonPrevious?: boolean } = {},
 ): Promise<MissionRow[]> {
+  const supabase = supabaseAdmin;
   if (opts.abandonPrevious) {
     await supabase
       .from("missions")
@@ -94,10 +96,11 @@ export type MissionCompletionGrant = {
  * Retorna missões que acabaram de completar (ainda sem XP aplicado).
  */
 export async function bumpMissionsOnHabitComplete(
-  supabase: Client,
+  _supabase: Client,
   userId: string,
   habitId: string,
 ): Promise<MissionCompletionGrant[]> {
+  const supabase = supabaseAdmin;
   const { data: active, error } = await supabase
     .from("missions")
     .select(MISSION_COLS)
@@ -146,7 +149,7 @@ export async function bumpMissionsOnHabitComplete(
 
 /** Aplica XP de missões concluídas + activity + notificação + progress engine. */
 export async function grantMissionRewards(
-  supabase: Client,
+  _supabase: Client,
   userId: string,
   grants: MissionCompletionGrant[],
   before: {
@@ -156,6 +159,7 @@ export async function grantMissionRewards(
     capitulo_atual: number;
   },
 ) {
+  const supabase = supabaseAdmin;
   if (!grants.length) {
     return {
       xp_total: before.xp_total,

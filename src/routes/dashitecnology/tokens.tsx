@@ -1,9 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { adminAiUsageOverview, adminUpsertAiRate } from "@/admin/catalog.functions";
+import {
+  adminAiUsageOverview,
+  adminSetOpenRouterModel,
+  adminUpsertAiRate,
+} from "@/admin/catalog.functions";
 import {
   AdminError,
   AdminLoading,
@@ -35,23 +39,44 @@ function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 4 });
 }
 
+function sourceLabel(source: "db" | "env" | "default") {
+  if (source === "db") return "salvo no control room";
+  if (source === "env") return "variável OPENROUTER_MODEL";
+  return "padrão do código";
+}
+
 function TokensAdminPage() {
   const qc = useQueryClient();
   const rateFn = useServerFn(adminUpsertAiRate);
+  const setModelFn = useServerFn(adminSetOpenRouterModel);
   const { data } = useSuspenseQuery({
     queryKey: ["admin", "tokens"],
     queryFn: () => runQueryFn(() => adminAiUsageOverview(), "Falha tokens."),
   });
 
-  const [model, setModel] = useState("anthropic/claude-sonnet-4");
+  const [activeModel, setActiveModel] = useState(data.openRouterModel.model);
+  const [rateModel, setRateModel] = useState("anthropic/claude-sonnet-4");
   const [inp, setInp] = useState("3");
   const [out, setOut] = useState("15");
+
+  useEffect(() => {
+    setActiveModel(data.openRouterModel.model);
+  }, [data.openRouterModel.model]);
+
+  const saveModel = useMutation({
+    mutationFn: () => setModelFn({ data: { model: activeModel.trim() } }),
+    onSuccess: (res) => {
+      toast.success(`Modelo ativo: ${res.model}`);
+      void qc.invalidateQueries({ queryKey: ["admin", "tokens"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const saveRate = useMutation({
     mutationFn: () =>
       rateFn({
         data: {
-          model: model.trim(),
+          model: rateModel.trim(),
           input_usd_per_1m: Number(inp) || 0,
           output_usd_per_1m: Number(out) || 0,
         },
@@ -69,25 +94,58 @@ function TokensAdminPage() {
   return (
     <AdminShell
       title="Tokens IA"
-      subtitle="Uso real do Charlie (OpenRouter) + estimativa de custo para dimensionar investimento."
+      subtitle="Modelo OpenRouter do Charlie, uso real e estimativa de custo."
     >
-      <StatGrid>
-        <StatCard label="Calls 7d" value={data.last7d.calls} />
-        <StatCard label="Tokens 7d" value={data.last7d.total.toLocaleString("pt-BR")} />
-        <StatCard label="Custo est. 7d" value={money(data.last7d.cost)} />
-        <StatCard
-          label="Projeção / mês"
-          value={money(data.projectedMonthUsd)}
-          hint="(média diária dos últimos 7d) × 30"
-        />
-        <StatCard label="Calls 30d" value={data.last30d.calls} />
-        <StatCard label="Custo est. 30d" value={money(data.last30d.cost)} />
-        <StatCard label="Custo médio / call (7d)" value={money(avgCostPerCall7)} />
-        <StatCard
-          label="Prompt / completion 7d"
-          value={`${data.last7d.prompt.toLocaleString("pt-BR")} / ${data.last7d.completion.toLocaleString("pt-BR")}`}
-        />
-      </StatGrid>
+      <Panel title="Modelo OpenRouter (Charlie)">
+        <p className="mb-3 text-sm text-white/55">
+          Id do modelo na OpenRouter (ex.:{" "}
+          <code className="text-[#FC6E20]">anthropic/claude-sonnet-4</code>,{" "}
+          <code className="text-[#FC6E20]">openai/gpt-4o-mini</code>). Vale para o chat do mentor
+          sem novo deploy. Fonte atual:{" "}
+          <strong className="text-white/80">{sourceLabel(data.openRouterModel.source)}</strong>.
+        </p>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="min-w-[16rem] flex-1 text-xs text-white/50">
+            Modelo ativo
+            <Input
+              value={activeModel}
+              onChange={(e) => setActiveModel(e.target.value)}
+              placeholder="provider/model-id"
+              className="mt-1 border-white/10 bg-black/30 font-mono text-sm"
+            />
+          </label>
+          <Button
+            disabled={saveModel.isPending || !activeModel.trim()}
+            onClick={() => saveModel.mutate()}
+          >
+            Salvar modelo
+          </Button>
+        </div>
+        <p className="mt-3 text-xs text-white/40">
+          Fallback: env <code className="text-white/60">OPENROUTER_MODEL</code> → padrão do código.
+          Cache ~30s no servidor após salvar.
+        </p>
+      </Panel>
+
+      <div className="mt-6">
+        <StatGrid>
+          <StatCard label="Calls 7d" value={data.last7d.calls} />
+          <StatCard label="Tokens 7d" value={data.last7d.total.toLocaleString("pt-BR")} />
+          <StatCard label="Custo est. 7d" value={money(data.last7d.cost)} />
+          <StatCard
+            label="Projeção / mês"
+            value={money(data.projectedMonthUsd)}
+            hint="(média diária dos últimos 7d) × 30"
+          />
+          <StatCard label="Calls 30d" value={data.last30d.calls} />
+          <StatCard label="Custo est. 30d" value={money(data.last30d.cost)} />
+          <StatCard label="Custo médio / call (7d)" value={money(avgCostPerCall7)} />
+          <StatCard
+            label="Prompt / completion 7d"
+            value={`${data.last7d.prompt.toLocaleString("pt-BR")} / ${data.last7d.completion.toLocaleString("pt-BR")}`}
+          />
+        </StatGrid>
+      </div>
 
       {(data.errors.ev7 || data.errors.ev30) && (
         <p className="mt-3 text-sm text-amber-300">
@@ -111,8 +169,8 @@ function TokensAdminPage() {
             <label className="text-xs text-white/50">
               Modelo
               <Input
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
+                value={rateModel}
+                onChange={(e) => setRateModel(e.target.value)}
                 className="mt-1 w-56 border-white/10 bg-black/30"
               />
             </label>
@@ -137,8 +195,8 @@ function TokensAdminPage() {
             </Button>
           </div>
           <p className="mt-3 text-xs text-white/40">
-            Ajuste as tarifas conforme a fatura OpenRouter. A projeção mensal ajuda a decidir budget
-            de IA por usuário ativo.
+            Tarifas só para estimativa de custo — não escolhem o LLM. Use o painel acima para o
+            modelo ativo.
           </p>
         </Panel>
 
@@ -157,7 +215,9 @@ function TokensAdminPage() {
             </li>
             <li>
               Regra prática:{" "}
-              <strong className="text-white">custo mensal ≈ usuários ativos × calls/dia × custo/call × 30</strong>
+              <strong className="text-white">
+                custo mensal ≈ usuários ativos × calls/dia × custo/call × 30
+              </strong>
               .
             </li>
           </ul>

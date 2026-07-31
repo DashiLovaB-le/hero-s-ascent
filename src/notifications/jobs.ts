@@ -164,7 +164,7 @@ export async function expireUserOverdueChallengesAndNotify(
   client: SupabaseClient<Database>,
   userId: string,
   now = new Date(),
-): Promise<number> {
+): Promise<{ notified: number; expired: Array<{ id: string; titulo: string }> }> {
   const nowIso = now.toISOString();
   const { data: overdue, error } = await client
     .from("mentor_challenges")
@@ -174,10 +174,10 @@ export async function expireUserOverdueChallengesAndNotify(
     .not("ends_at", "is", null)
     .lt("ends_at", nowIso);
 
-  if (error || !overdue?.length) return 0;
+  if (error || !overdue?.length) return { notified: 0, expired: [] };
 
   const ids = overdue.map((c) => c.id);
-  const { error: updErr } = await client
+  const { error: updErr } = await supabaseAdmin
     .from("mentor_challenges")
     .update({ status: "expirado" })
     .eq("user_id", userId)
@@ -186,7 +186,7 @@ export async function expireUserOverdueChallengesAndNotify(
 
   if (updErr) {
     console.error("[notifications] expire user", updErr.message);
-    return 0;
+    return { notified: 0, expired: [] };
   }
 
   let notified = 0;
@@ -203,7 +203,7 @@ export async function expireUserOverdueChallengesAndNotify(
     });
     if (res.ok) notified += 1;
   }
-  return notified;
+  return { notified, expired: overdue.map((c) => ({ id: c.id, titulo: c.titulo })) };
 }
 
 async function sendDailyProductReminders(admin: Admin, hoje: string) {

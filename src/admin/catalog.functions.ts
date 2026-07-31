@@ -221,7 +221,7 @@ export const adminAiUsageOverview = createServerFn({ method: "GET" })
     const since7 = new Date(Date.now() - 7 * 86400000).toISOString();
     const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
 
-    const [ev7, ev30, rates, recent] = await Promise.all([
+    const [ev7, ev30, rates, recent, activeModel] = await Promise.all([
       supabaseAdmin
         .from("ai_usage_events")
         .select("prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd")
@@ -238,6 +238,7 @@ export const adminAiUsageOverview = createServerFn({ method: "GET" })
         )
         .order("created_at", { ascending: false })
         .limit(80),
+      import("@/lib/openrouter-model.server").then((m) => m.getStoredOpenRouterModel()),
     ]);
 
     function sum(rows: typeof ev7.data) {
@@ -266,12 +267,24 @@ export const adminAiUsageOverview = createServerFn({ method: "GET" })
       projectedMonthUsd,
       rates: rates.data ?? [],
       recent: recent.data ?? [],
+      openRouterModel: activeModel,
       errors: {
         ev7: ev7.error?.message ?? null,
         ev30: ev30.error?.message ?? null,
       },
       role: DASHI_ROLE,
     };
+  });
+
+export const adminSetOpenRouterModel = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((i: unknown) =>
+    z.object({ model: z.string().trim().min(1).max(120) }).parse(i),
+  )
+  .handler(async ({ context, data }) => {
+    await withDashi(context.userId);
+    const { setOpenRouterModel } = await import("@/lib/openrouter-model.server");
+    return setOpenRouterModel(data.model, context.userId);
   });
 
 export const adminUpsertAiRate = createServerFn({ method: "POST" })

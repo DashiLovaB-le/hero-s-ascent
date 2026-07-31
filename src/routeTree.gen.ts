@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DashitecnologyRouteRouteImport } from './routes/dashitecnology/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
@@ -21,6 +22,7 @@ import { Route as DashitecnologyTelegramRouteImport } from './routes/dashitecnol
 import { Route as DashitecnologySystemRouteImport } from './routes/dashitecnology/system'
 import { Route as DashitecnologyNotificationsRouteImport } from './routes/dashitecnology/notifications'
 import { Route as DashitecnologyMlRouteImport } from './routes/dashitecnology/ml'
+import { Route as DashitecnologyMaintenanceRouteImport } from './routes/dashitecnology/maintenance'
 import { Route as DashitecnologyLevelsRouteImport } from './routes/dashitecnology/levels'
 import { Route as DashitecnologyJobsRouteImport } from './routes/dashitecnology/jobs'
 import { Route as DashitecnologyHabitsRouteImport } from './routes/dashitecnology/habits'
@@ -37,8 +39,14 @@ import { Route as AuthenticatedMentorRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedJourneyRouteImport } from './routes/_authenticated/journey'
 import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated/habits'
 import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
+import { Route as DashitecnologyUsersIndexRouteImport } from './routes/dashitecnology/users.index'
 import { Route as DashitecnologyUsersUserIdRouteImport } from './routes/dashitecnology/users.$userId'
 
+const MaintenanceRoute = MaintenanceRouteImport.update({
+  id: '/maintenance',
+  path: '/maintenance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -100,6 +108,12 @@ const DashitecnologyMlRoute = DashitecnologyMlRouteImport.update({
   path: '/ml',
   getParentRoute: () => DashitecnologyRouteRoute,
 } as any)
+const DashitecnologyMaintenanceRoute =
+  DashitecnologyMaintenanceRouteImport.update({
+    id: '/maintenance',
+    path: '/maintenance',
+    getParentRoute: () => DashitecnologyRouteRoute,
+  } as any)
 const DashitecnologyLevelsRoute = DashitecnologyLevelsRouteImport.update({
   id: '/levels',
   path: '/levels',
@@ -181,6 +195,12 @@ const AuthenticatedGoalsRoute = AuthenticatedGoalsRouteImport.update({
   path: '/goals',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const DashitecnologyUsersIndexRoute =
+  DashitecnologyUsersIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => DashitecnologyUsersRoute,
+  } as any)
 const DashitecnologyUsersUserIdRoute =
   DashitecnologyUsersUserIdRouteImport.update({
     id: '/$userId',
@@ -192,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashitecnology': typeof DashitecnologyRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/maintenance': typeof MaintenanceRoute
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/journey': typeof AuthenticatedJourneyRoute
@@ -208,6 +229,7 @@ export interface FileRoutesByFullPath {
   '/dashitecnology/habits': typeof DashitecnologyHabitsRoute
   '/dashitecnology/jobs': typeof DashitecnologyJobsRoute
   '/dashitecnology/levels': typeof DashitecnologyLevelsRoute
+  '/dashitecnology/maintenance': typeof DashitecnologyMaintenanceRoute
   '/dashitecnology/ml': typeof DashitecnologyMlRoute
   '/dashitecnology/notifications': typeof DashitecnologyNotificationsRoute
   '/dashitecnology/system': typeof DashitecnologySystemRoute
@@ -217,10 +239,12 @@ export interface FileRoutesByFullPath {
   '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
   '/dashitecnology/': typeof DashitecnologyIndexRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
+  '/dashitecnology/users/': typeof DashitecnologyUsersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/maintenance': typeof MaintenanceRoute
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/journey': typeof AuthenticatedJourneyRoute
@@ -237,15 +261,16 @@ export interface FileRoutesByTo {
   '/dashitecnology/habits': typeof DashitecnologyHabitsRoute
   '/dashitecnology/jobs': typeof DashitecnologyJobsRoute
   '/dashitecnology/levels': typeof DashitecnologyLevelsRoute
+  '/dashitecnology/maintenance': typeof DashitecnologyMaintenanceRoute
   '/dashitecnology/ml': typeof DashitecnologyMlRoute
   '/dashitecnology/notifications': typeof DashitecnologyNotificationsRoute
   '/dashitecnology/system': typeof DashitecnologySystemRoute
   '/dashitecnology/telegram': typeof DashitecnologyTelegramRoute
   '/dashitecnology/tokens': typeof DashitecnologyTokensRoute
-  '/dashitecnology/users': typeof DashitecnologyUsersRouteWithChildren
   '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
   '/dashitecnology': typeof DashitecnologyIndexRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
+  '/dashitecnology/users': typeof DashitecnologyUsersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -253,6 +278,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/dashitecnology': typeof DashitecnologyRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/maintenance': typeof MaintenanceRoute
   '/_authenticated/goals': typeof AuthenticatedGoalsRoute
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/journey': typeof AuthenticatedJourneyRoute
@@ -269,6 +295,7 @@ export interface FileRoutesById {
   '/dashitecnology/habits': typeof DashitecnologyHabitsRoute
   '/dashitecnology/jobs': typeof DashitecnologyJobsRoute
   '/dashitecnology/levels': typeof DashitecnologyLevelsRoute
+  '/dashitecnology/maintenance': typeof DashitecnologyMaintenanceRoute
   '/dashitecnology/ml': typeof DashitecnologyMlRoute
   '/dashitecnology/notifications': typeof DashitecnologyNotificationsRoute
   '/dashitecnology/system': typeof DashitecnologySystemRoute
@@ -278,6 +305,7 @@ export interface FileRoutesById {
   '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
   '/dashitecnology/': typeof DashitecnologyIndexRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
+  '/dashitecnology/users/': typeof DashitecnologyUsersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -285,6 +313,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dashitecnology'
     | '/auth'
+    | '/maintenance'
     | '/goals'
     | '/habits'
     | '/journey'
@@ -301,6 +330,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/habits'
     | '/dashitecnology/jobs'
     | '/dashitecnology/levels'
+    | '/dashitecnology/maintenance'
     | '/dashitecnology/ml'
     | '/dashitecnology/notifications'
     | '/dashitecnology/system'
@@ -310,10 +340,12 @@ export interface FileRouteTypes {
     | '/dashitecnology/wallpapers'
     | '/dashitecnology/'
     | '/dashitecnology/users/$userId'
+    | '/dashitecnology/users/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/maintenance'
     | '/goals'
     | '/habits'
     | '/journey'
@@ -330,21 +362,23 @@ export interface FileRouteTypes {
     | '/dashitecnology/habits'
     | '/dashitecnology/jobs'
     | '/dashitecnology/levels'
+    | '/dashitecnology/maintenance'
     | '/dashitecnology/ml'
     | '/dashitecnology/notifications'
     | '/dashitecnology/system'
     | '/dashitecnology/telegram'
     | '/dashitecnology/tokens'
-    | '/dashitecnology/users'
     | '/dashitecnology/wallpapers'
     | '/dashitecnology'
     | '/dashitecnology/users/$userId'
+    | '/dashitecnology/users'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/dashitecnology'
     | '/auth'
+    | '/maintenance'
     | '/_authenticated/goals'
     | '/_authenticated/habits'
     | '/_authenticated/journey'
@@ -361,6 +395,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/habits'
     | '/dashitecnology/jobs'
     | '/dashitecnology/levels'
+    | '/dashitecnology/maintenance'
     | '/dashitecnology/ml'
     | '/dashitecnology/notifications'
     | '/dashitecnology/system'
@@ -370,6 +405,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/wallpapers'
     | '/dashitecnology/'
     | '/dashitecnology/users/$userId'
+    | '/dashitecnology/users/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -377,10 +413,18 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   DashitecnologyRouteRoute: typeof DashitecnologyRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  MaintenanceRoute: typeof MaintenanceRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/maintenance': {
+      id: '/maintenance'
+      path: '/maintenance'
+      fullPath: '/maintenance'
+      preLoaderRoute: typeof MaintenanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -463,6 +507,13 @@ declare module '@tanstack/react-router' {
       path: '/ml'
       fullPath: '/dashitecnology/ml'
       preLoaderRoute: typeof DashitecnologyMlRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/maintenance': {
+      id: '/dashitecnology/maintenance'
+      path: '/maintenance'
+      fullPath: '/dashitecnology/maintenance'
+      preLoaderRoute: typeof DashitecnologyMaintenanceRouteImport
       parentRoute: typeof DashitecnologyRouteRoute
     }
     '/dashitecnology/levels': {
@@ -577,6 +628,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGoalsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/dashitecnology/users/': {
+      id: '/dashitecnology/users/'
+      path: '/'
+      fullPath: '/dashitecnology/users/'
+      preLoaderRoute: typeof DashitecnologyUsersIndexRouteImport
+      parentRoute: typeof DashitecnologyUsersRoute
+    }
     '/dashitecnology/users/$userId': {
       id: '/dashitecnology/users/$userId'
       path: '/$userId'
@@ -610,10 +668,12 @@ const AuthenticatedRouteRouteWithChildren =
 
 interface DashitecnologyUsersRouteChildren {
   DashitecnologyUsersUserIdRoute: typeof DashitecnologyUsersUserIdRoute
+  DashitecnologyUsersIndexRoute: typeof DashitecnologyUsersIndexRoute
 }
 
 const DashitecnologyUsersRouteChildren: DashitecnologyUsersRouteChildren = {
   DashitecnologyUsersUserIdRoute: DashitecnologyUsersUserIdRoute,
+  DashitecnologyUsersIndexRoute: DashitecnologyUsersIndexRoute,
 }
 
 const DashitecnologyUsersRouteWithChildren =
@@ -630,6 +690,7 @@ interface DashitecnologyRouteRouteChildren {
   DashitecnologyHabitsRoute: typeof DashitecnologyHabitsRoute
   DashitecnologyJobsRoute: typeof DashitecnologyJobsRoute
   DashitecnologyLevelsRoute: typeof DashitecnologyLevelsRoute
+  DashitecnologyMaintenanceRoute: typeof DashitecnologyMaintenanceRoute
   DashitecnologyMlRoute: typeof DashitecnologyMlRoute
   DashitecnologyNotificationsRoute: typeof DashitecnologyNotificationsRoute
   DashitecnologySystemRoute: typeof DashitecnologySystemRoute
@@ -651,6 +712,7 @@ const DashitecnologyRouteRouteChildren: DashitecnologyRouteRouteChildren = {
   DashitecnologyHabitsRoute: DashitecnologyHabitsRoute,
   DashitecnologyJobsRoute: DashitecnologyJobsRoute,
   DashitecnologyLevelsRoute: DashitecnologyLevelsRoute,
+  DashitecnologyMaintenanceRoute: DashitecnologyMaintenanceRoute,
   DashitecnologyMlRoute: DashitecnologyMlRoute,
   DashitecnologyNotificationsRoute: DashitecnologyNotificationsRoute,
   DashitecnologySystemRoute: DashitecnologySystemRoute,
@@ -669,6 +731,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   DashitecnologyRouteRoute: DashitecnologyRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  MaintenanceRoute: MaintenanceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

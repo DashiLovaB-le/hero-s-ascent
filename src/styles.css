@@ -316,6 +316,364 @@
   }
 }
 
+/* ── Landing page — recortes / HUD (estilo cyberpunk angular) ── */
+@utility lp-slash-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--hero);
+
+  &::before {
+    content: "";
+    width: 1.75rem;
+    height: 2px;
+    background: var(--hero);
+    flex-shrink: 0;
+  }
+}
+
+@utility lp-corner-marks {
+  position: relative;
+
+  &::before,
+  &::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    opacity: 0.85;
+  }
+
+  &::before {
+    top: 10px;
+    left: 10px;
+    border-top: 2px solid var(--hero);
+    border-left: 2px solid var(--hero);
+  }
+
+  &::after {
+    right: 10px;
+    bottom: 10px;
+    border-right: 2px solid var(--hero);
+    border-bottom: 2px solid var(--hero);
+  }
+}
+
+@utility lp-hud-frame {
+  position: relative;
+  border-radius: 0;
+  clip-path: polygon(
+    0 28px,
+    28px 0,
+    calc(100% - 48px) 0,
+    100% 48px,
+    100% calc(100% - 28px),
+    calc(100% - 28px) 100%,
+    48px 100%,
+    0 calc(100% - 48px)
+  );
+  filter:
+    drop-shadow(0 0 0.8px color-mix(in srgb, var(--hero) 55%, var(--border)))
+    drop-shadow(0 16px 48px color-mix(in srgb, #1B1B1B 75%, transparent));
+}
+
+@utility lp-cut-br {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 36px), calc(100% - 72px) 100%, 0 100%);
+}
+
+@utility lp-cut-bl {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 72px 100%, 0 calc(100% - 36px));
+}
+
+/* Vale central no topo (estilo Valorant) + chanfro inferior direito */
+@utility lp-canyon {
+  clip-path: polygon(
+    0% 0%,
+    30% 0%,
+    34.5% 11%,
+    55.5% 11%,
+    60% 0%,
+    100% 0%,
+    100% calc(100% - 52px),
+    calc(100% - 96px) 100%,
+    0% 100%
+  );
+}
+
+/* Painel ISO — chanfros + notch no topo + recorte em L no BR */
+@utility lp-iso {
+  clip-path: polygon(
+    0% 3.5%,
+    2.2% 0%,
+    40% 0%,
+    43.5% 7%,
+    56.5% 7%,
+    60% 0%,
+    100% 0%,
+    100% 78%,
+    86% 78%,
+    86% 100%,
+    2.8% 100%,
+    0% 96%
+  );
+  filter:
+    drop-shadow(0 0 0.8px color-mix(in srgb, #FFE7D0 55%, transparent))
+    drop-shadow(0 0 0.8px color-mix(in srgb, #FC6E20 40%, transparent))
+    drop-shadow(0 18px 50px color-mix(in srgb, #1B1B1B 70%, transparent));
+}
+
+.lp-canyon-edge {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+}
+
+.lp-iso-edge {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+}
+
+.lp-canyon-pip {
+  position: absolute;
+  z-index: 3;
+  width: 10px;
+  height: 3px;
+  background: var(--hero);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--hero) 55%, transparent);
+}
+
+
+@utility lp-tile {
+  --cp-cut: 12px;
+  position: relative;
+  border-radius: 0;
+  clip-path: polygon(
+    var(--cp-cut) 0,
+    100% 0,
+    100% calc(100% - var(--cp-cut)),
+    calc(100% - var(--cp-cut)) 100%,
+    0 100%,
+    0 var(--cp-cut)
+  );
+  background: color-mix(in srgb, var(--surface-elevated) 92%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 80%, var(--hero) 20%);
+}
+
+/* Card landing — mesmo DNA dos painéis do app + grid HUD */
+@utility lp-card {
+  --cp-cut: 12px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0;
+  clip-path: polygon(
+    var(--cp-cut) 0,
+    100% 0,
+    100% calc(100% - var(--cp-cut)),
+    calc(100% - var(--cp-cut)) 100%,
+    0 100%,
+    0 var(--cp-cut)
+  );
+  background: color-mix(in srgb, #1B1B1B 92%, #323232);
+  filter:
+    drop-shadow(0 0 0.7px var(--cp-stroke))
+    drop-shadow(0 0 0.7px color-mix(in srgb, var(--hero) 35%, transparent));
+
+  &::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    opacity: 0.35;
+    background-image:
+      linear-gradient(color-mix(in srgb, #FFE7D0 8%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, #FFE7D0 8%, transparent) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: radial-gradient(ellipse at 30% 20%, #000 20%, transparent 75%);
+  }
+
+  & > * {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+@utility lp-card-sm {
+  --cp-cut: 10px;
+}
+
+/* Botão landing — cantos chanfrados (formato do asset) */
+@utility lp-btn {
+  --lp-btn-cut: 9px;
+  position: relative;
+  isolation: isolate;
+  border-radius: 0 !important;
+  clip-path: polygon(
+    var(--lp-btn-cut) 0%,
+    calc(100% - var(--lp-btn-cut)) 0%,
+    100% var(--lp-btn-cut),
+    100% calc(100% - var(--lp-btn-cut)),
+    calc(100% - var(--lp-btn-cut)) 100%,
+    var(--lp-btn-cut) 100%,
+    0% calc(100% - var(--lp-btn-cut)),
+    0% var(--lp-btn-cut)
+  );
+  filter:
+    drop-shadow(0 0 0.65px color-mix(in srgb, #FFE7D0 35%, var(--hero)))
+    drop-shadow(0 6px 16px color-mix(in srgb, #FC6E20 28%, transparent));
+}
+
+@utility lp-btn-sm {
+  --lp-btn-cut: 7px;
+}
+
+@utility lp-cta-ghost {
+  position: relative;
+  isolation: isolate;
+
+  &::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 5px -5px -5px 5px;
+    z-index: -1;
+    clip-path: polygon(
+      9px 0%,
+      calc(100% - 9px) 0%,
+      100% 9px,
+      100% calc(100% - 9px),
+      calc(100% - 9px) 100%,
+      9px 100%,
+      0% calc(100% - 9px),
+      0% 9px
+    );
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hero) 45%, transparent);
+    opacity: 0;
+    transition: opacity 180ms ease, inset 180ms ease;
+  }
+
+  &:hover::after,
+  &:focus-visible::after {
+    opacity: 1;
+    inset: 7px -7px -7px 7px;
+  }
+}
+
+.lp-divider {
+  display: block;
+  width: 100%;
+  height: clamp(22px, 3.6vw, 44px);
+  line-height: 0;
+  color: currentColor;
+}
+
+.lp-divider svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.lp-grid-bg {
+  background-image:
+    linear-gradient(color-mix(in srgb, #FFE7D0 6%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, #FFE7D0 6%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+}
+
+.lp-plus {
+  position: relative;
+}
+
+.lp-plus::before,
+.lp-plus::after {
+  content: "";
+  position: absolute;
+  background: var(--hero);
+  opacity: 0.7;
+}
+
+.lp-plus::before {
+  width: 10px;
+  height: 2px;
+  top: 0;
+  left: 0;
+}
+
+.lp-plus::after {
+  width: 2px;
+  height: 10px;
+  top: -4px;
+  left: 4px;
+}
+
+@media (max-width: 640px) {
+  .lp-hud-frame {
+    clip-path: polygon(
+      0 16px,
+      16px 0,
+      calc(100% - 24px) 0,
+      100% 24px,
+      100% calc(100% - 16px),
+      calc(100% - 16px) 100%,
+      24px 100%,
+      0 calc(100% - 24px)
+    ) !important;
+  }
+
+  .lp-cut-br {
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 40px) 100%, 0 100%) !important;
+  }
+
+  .lp-cut-bl {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 40px 100%, 0 calc(100% - 20px)) !important;
+  }
+
+  .lp-canyon {
+    clip-path: polygon(
+      0% 0%,
+      26% 0%,
+      32% 9%,
+      58% 9%,
+      64% 0%,
+      100% 0%,
+      100% calc(100% - 28px),
+      calc(100% - 56px) 100%,
+      0% 100%
+    ) !important;
+  }
+
+  .lp-iso {
+    clip-path: polygon(
+      0% 2.5%,
+      3.5% 0%,
+      36% 0%,
+      41% 6%,
+      56% 6%,
+      61% 0%,
+      100% 0%,
+      100% 82%,
+      82% 82%,
+      82% 100%,
+      4% 100%,
+      0% 95%
+    ) !important;
+  }
+}
+
 /* Ícone ativo na navbar — contorno laranja luminoso */
 @utility nav-icon-glow {
   color: var(--hero);

@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  redirect,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -13,6 +14,11 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
+import {
+  getMaintenanceStatus,
+  canBypassMaintenance,
+  isMaintenanceAllowlistedPath,
+} from "@/lib/maintenance";
 
 function NotFoundComponent() {
   return (
@@ -69,6 +75,40 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  beforeLoad: async ({ location }) => {
+    const path = location.pathname;
+
+    let status: Awaited<ReturnType<typeof getMaintenanceStatus>>;
+    try {
+      status = await getMaintenanceStatus();
+    } catch {
+      return {};
+    }
+
+    if (!status.enabled) {
+      if (path === "/maintenance") {
+        throw redirect({ to: "/" });
+      }
+      return {};
+    }
+
+    if (isMaintenanceAllowlistedPath(path)) return {};
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.access_token) {
+      try {
+        const gate = await canBypassMaintenance();
+        if (gate.bypass) return {};
+      } catch {
+        // não-dashi / sem auth no server fn
+      }
+    }
+
+    throw redirect({ to: "/maintenance" });
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },

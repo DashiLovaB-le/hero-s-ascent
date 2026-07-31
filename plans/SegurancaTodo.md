@@ -7,9 +7,9 @@ Marque `[x]` conforme concluir. Base: panorama de segurança (jul/2026).
 
 ## P0 — Bloqueantes (antes de abrir o teste)
 
-- [ ] **1.** Criar trigger em `profiles` que impeça o client de alterar: `xp_total`, `streak_atual`, `streak_maximo`, `capitulo_atual`, `onboarding_completo`, `ultimo_dia_completo` (e reforçar Telegram) — só service role / caminhos server
-- [ ] **2.** Restringir RLS/grants: client não deve INSERT/UPDATE livremente `habit_completions`, `user_achievements`, conclusões de `mentor_challenges`, progresso/status de `missions`, nem maxar `attributes` sem passar por server fn / RPC
-- [ ] **3.** Adicionar `CHECK` no banco em `habits.xp_recompensa` (ex.: `BETWEEN 5 AND 50`) alinhado à API
+- [x] **1.** Criar trigger em `profiles` que impeça o client de alterar: `xp_total`, `streak_atual`, `streak_maximo`, `capitulo_atual`, `onboarding_completo`, `ultimo_dia_completo` (e reforçar Telegram) — só service role / caminhos server
+- [x] **2.** Restringir RLS/grants: client não deve INSERT/UPDATE livremente `habit_completions`, `user_achievements`, conclusões de `mentor_challenges`, progresso/status de `missions`, nem maxar `attributes` sem passar por server fn / RPC
+- [x] **3.** Adicionar `CHECK` no banco em `habits.xp_recompensa` (ex.: `BETWEEN 5 AND 50`) alinhado à API
 - [ ] **4.** (Opcional P0+) `REVOKE`/`GRANT` por coluna nas sensíveis de `profiles` se o time preferir grants em vez de só trigger
 - [ ] **5.** Conferir env na **Vercel Production**: `VITE_SUPABASE_*` = público; `SUPABASE_SERVICE_ROLE_KEY`, `OPENROUTER_*`, `CRON_SECRET`, Telegram **sem** prefixo `VITE_`
 - [ ] **6.** Alinhar `VITE_SUPABASE_*` e `SUPABASE_*` ao **mesmo** projeto Supabase
@@ -35,11 +35,11 @@ Marque `[x]` conforme concluir. Base: panorama de segurança (jul/2026).
 
 ## P2 — Médio / endurecimento do produto
 
-- [ ] **19.** Baixar teto de XP de hábito na API (`createHabit` / `updateHabit`) para alinhar ao CHECK do DB (ex. 10–30)
+- [x] **19.** Baixar teto de XP de hábito na API (`createHabit` / `updateHabit`) para alinhar ao CHECK do DB (ex. 10–30)
 - [ ] **20.** Impedir INSERT client de `mentor_messages` com `role = 'assistant'` (só server/service role)
 - [ ] **21.** Sanitizar / allowlist `image_url` de wallpapers (rejeitar `"`, schemes estranhos, hosts não confiáveis)
 - [ ] **22.** Revisar race do código Telegram (`used_at`) — update atômico / unique parcial
-- [ ] **23.** Revisar RLS de `activity_history` e demais tabelas “só write server”
+- [x] **23.** Revisar RLS de `activity_history` e demais tabelas “só write server”
 - [ ] **24.** Cap de payload/timeout em server fns e chamadas OpenRouter
 - [ ] **25.** Logging/alerta de abuso: picos de XP, picos OpenRouter, falhas repetidas de secret
 - [ ] **26.** (Opcional) ocultar UI `/dashitecnology` de não-dashi (API já deve bloquear)
@@ -73,6 +73,14 @@ Marque `[x]` conforme concluir. Base: panorama de segurança (jul/2026).
 - [ ] Itens **1–3** e **5–9** concluídos  
 - [ ] Pelo menos **11**, **13** e **15** em andamento ou feitos  
 - [ ] Smoke: conta tester não consegue mudar `xp_total` via REST com JWT próprio
+
+### Notas (2026-07-29)
+
+- Migration aplicada no remoto: `20260729164910_harden_progression_rls.sql` (via `db query --linked`; `db push` completo falha por histórico dessincronizado / `auth.users`).
+- Server fns de progresso/missões/mentor usam `supabaseAdmin` para writes sensíveis.
+- API + UI de hábitos: `xp_recompensa` max **50**.
+- Item **20** (`mentor_messages` role) ficou de propósito fora do P0 (quebraria Charlie no JWT user).
+- **Rotacionar** o token `sbp_` usado neste deploy (item 10).
 
 ---
 

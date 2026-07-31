@@ -1,16 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   adminAdjustXp,
+  adminClearUserHistory,
   adminRecomputeUserMl,
   adminSetUserRole,
   adminUserDetail,
 } from "@/admin/functions";
 import {
-  AdminError,
-  AdminLoading,
   AdminShell,
   AdminTable,
   Panel,
@@ -21,20 +20,33 @@ import {
 import { runQueryFn } from "@/lib/safe-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useState } from "react";
 
 export const Route = createFileRoute("/dashitecnology/users/$userId")({
-  loader: ({ context, params }) =>
-    context.queryClient.ensureQueryData({
-      queryKey: ["admin", "user", params.userId],
-      queryFn: () =>
-        runQueryFn(
-          () => adminUserDetail({ data: { userId: params.userId } }),
-          "Falha ao carregar herói.",
-        ),
-    }),
-  pendingComponent: AdminLoading,
-  errorComponent: ({ error }) => <AdminError error={error instanceof Error ? error : new Error(String(error))} />,
+  ssr: false,
+  beforeLoad: ({ params }) => {
+    if (!/^[0-9a-f-]{36}$/i.test(params.userId)) {
+      throw new Error("ID de herói inválido.");
+    }
+  },
+  errorComponent: ({ error }) => (
+    <AdminShell title="Erro">
+      <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+        {error instanceof Error ? error.message : String(error)}
+      </div>
+    </AdminShell>
+  ),
   component: UserDetailPage,
 });
 
@@ -42,16 +54,21 @@ function UserDetailPage() {
   const { userId } = Route.useParams();
   const qc = useQueryClient();
   const [xpDelta, setXpDelta] = useState("100");
+  const [clearConfirm, setClearConfirm] = useState("");
+  const [clearOpen, setClearOpen] = useState(false);
 
-  const { data } = useSuspenseQuery({
-    queryKey: ["admin", "user", userId],
-    queryFn: () =>
-      runQueryFn(() => adminUserDetail({ data: { userId } }), "Falha ao carregar herói."),
-  });
-
+  const detailFn = useServerFn(adminUserDetail);
   const roleFn = useServerFn(adminSetUserRole);
   const xpFn = useServerFn(adminAdjustXp);
   const mlFn = useServerFn(adminRecomputeUserMl);
+  const clearFn = useServerFn(adminClearUserHistory);
+
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ["admin", "user", userId],
+    queryFn: () =>
+      runQueryFn(() => detailFn({ data: { userId } }), "Falha ao carregar herói."),
+    staleTime: 15_000,
+  });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["admin", "user", userId] });
 
@@ -91,16 +108,56 @@ function UserDetailPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const p = data.profile;
-  if (!p) {
+  const clearHistory = useMutation({
+    mutationFn: () => clearFn({ data: { userId, confirm: "LIMPAR" as const } }),
+    onSuccess: (r) => {
+      toast.success(`Histórico limpo · ${r.totalDeleted} registros removidos`);
+      setClearOpen(false);
+      setClearConfirm("");
+      void invalidate();
+      void qc.invalidateQueries({ queryKey: ["admin", "users"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (isLoading) {
     return (
-      <AdminShell title="Herói">
-        <p className="text-sm text-white/50">Perfil não encontrado. {data.profileError}</p>
+      <AdminShell title="Herói" subtitle={userId}>
+        <div className="animate-pulse space-y-3">
+          <div className="h-24 rounded-xl bg-white/5" />
+          <div className="h-48 rounded-xl bg-white/5" />
+        </div>
       </AdminShell>
     );
   }
 
-  const isAdmin = data.roles.includes("dashi");
+  if (isError || !data) {
+    return (
+      <AdminShell title="Herói" subtitle={userId}>
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+          {error instanceof Error ? error.message : "Falha ao carregar herói."}
+        </div>
+        <Button className="mt-4" variant="outline" onClick={() => void refetch()}>
+          Tentar de novo
+        </Button>
+      </AdminShell>
+    );
+  }
+
+  const p = data.profile;
+  if (!p) {
+    return (
+      <AdminShell title="Herói" subtitle={userId}>
+        <p className="text-sm text-white/50">Perfil não encontrado. {data.profileError}</p>
+        <Link to="/dashitecnology/users" className="mt-4 inline-block text-sm text-[#FC6E20]">
+          ← Voltar à lista
+        </Link>
+      </AdminShell>
+    );
+  }
+
+  const isAdminUser = data.roles.includes("dashi");
+  const canConfirmClear = clearConfirm.trim().toUpperCase() === "LIMPAR";
 
   return (
     <AdminShell
@@ -126,8 +183,12 @@ function UserDetailPage() {
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Panel title="Ações">
           <div className="flex flex-wrap gap-2">
-            {isAdmin ? (
-              <Button variant="outline" onClick={() => revokeAdmin.mutate()} disabled={revokeAdmin.isPending}>
+            {isAdminUser ? (
+              <Button
+                variant="outline"
+                onClick={() => revokeAdmin.mutate()}
+                disabled={revokeAdmin.isPending}
+              >
                 Remover dashi
               </Button>
             ) : (
@@ -135,7 +196,11 @@ function UserDetailPage() {
                 Tornar dashi
               </Button>
             )}
-            <Button variant="outline" onClick={() => recompute.mutate()} disabled={recompute.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => recompute.mutate()}
+              disabled={recompute.isPending}
+            >
               Recomputar ML
             </Button>
           </div>
@@ -173,6 +238,57 @@ function UserDetailPage() {
           )}
         </Panel>
       </div>
+
+      <Panel className="mt-4 border-destructive/30" title="Zona de risco">
+        <p className="mb-3 text-sm text-white/55">
+          Apaga o histórico deste herói: chat do Charlie, memórias, desafios, conclusões de hábitos,
+          check-ins, missões, notificações, scores ML e uso de IA. Zera XP, streak, capítulo e
+          atributos (volta tudo para 1). Mantém conta, nome, hábitos/metas cadastrados e roles.
+        </p>
+        <AlertDialog
+          open={clearOpen}
+          onOpenChange={(open) => {
+            setClearOpen(open);
+            if (!open) setClearConfirm("");
+          }}
+        >
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" disabled={clearHistory.isPending}>
+              Limpar histórico completo
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent className="border-destructive/40 bg-card">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Limpar histórico de {p.nome || "herói"}?</AlertDialogTitle>
+              <AlertDialogDescription className="text-muted-foreground">
+                Ação irreversível. Digite <strong className="text-foreground">LIMPAR</strong> para
+                confirmar.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <Input
+              value={clearConfirm}
+              onChange={(e) => setClearConfirm(e.target.value)}
+              placeholder="LIMPAR"
+              className="border-white/10 bg-black/30 font-mono uppercase tracking-wider"
+              autoComplete="off"
+            />
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={!canConfirmClear || clearHistory.isPending}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (!canConfirmClear) return;
+                  clearHistory.mutate();
+                }}
+              >
+                {clearHistory.isPending ? "Limpando…" : "Confirmar limpeza"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </Panel>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Panel title={`Hábitos (${data.habits.length})`}>

@@ -6,13 +6,15 @@ import type { Database, Json } from "@/integrations/supabase/types";
 import { chatCompletion } from "@/mentor/openrouter";
 import {
   buildMentorContextBlock,
+  challengeFollowUpUserText,
   defaultObjectiveForHero,
   detectPresenceKind,
   parseMentorAiPayload,
   presenceUserPrompt,
+  type ChallengeOutcome,
   type MentorPresenceKind,
 } from "@/mentor/context";
-import { getMentorSystemPrompt } from "@/mentor/prompt.server";
+import { getMentorSystemPromptForUser } from "@/mentor/prompt.server";
 import { fetchWeatherForCoords, formatWeatherForMentor } from "@/lib/weather";
 import { mlScoresFromRow, recomputeUserMl } from "@/lib/ml/recompute";
 import {
@@ -22,6 +24,7 @@ import {
 } from "@/lib/ml/adaptive";
 import { loadCheckinsForMentor } from "@/lib/checkins.functions";
 import { addDaysToDateKey, calendarDateInTz, hourInTz, hojeISO } from "@/lib/datetime";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 type Client = SupabaseClient<Database>;
 
@@ -36,9 +39,13 @@ function daysBetween(isoA: string, isoB: string) {
   return Math.floor(Math.abs(b - a) / (1000 * 60 * 60 * 24));
 }
 
-async function expireOverdueChallenges(supabase: Client, userId: string) {
+async function expireOverdueChallenges(
+  _supabase: Client,
+  userId: string,
+): Promise<Array<{ id: string; titulo: string }>> {
   const { expireUserOverdueChallengesAndNotify } = await import("@/notifications/jobs");
-  await expireUserOverdueChallengesAndNotify(supabase, userId);
+  const result = await expireUserOverdueChallengesAndNotify(supabaseAdmin, userId);
+  return result.expired;
 }
 
 async function pruneMemories(supabase: Client, userId: string) {
@@ -184,10 +191,20 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
   let profileRes = await supabase
     .from("profiles")
     .select(
-      "id, nome, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, created_at, location_label, location_lat, location_lon, location_timezone",
+      "id, nome, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, created_at, location_label, location_lat, location_lon, location_timezone, charlie_personality",
     )
     .eq("id", userId)
     .maybeSingle();
+
+  if (profileRes.error && /charlie_personality/i.test(profileRes.error.message)) {
+    profileRes = await supabase
+      .from("profiles")
+      .select(
+        "id, nome, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, created_at, location_label, location_lat, location_lon, location_timezone",
+      )
+      .eq("id", userId)
+      .maybeSingle();
+  }
 
   if (profileRes.error && /location_/i.test(profileRes.error.message)) {
     profileRes = await supabase
@@ -369,6 +386,8 @@ async function callMentor(
     kind: Exclude<MentorPresenceKind, null> | "chat" | "challenge" | "insight";
     userText: string;
     history: Array<{ role: "user" | "assistant"; content: string }>;
+    cyclePhaseHint?: string | null;
+    challengeOutcome?: ChallengeOutcome | null;
   },
 ) {
   const snap = await loadJourneySnapshot(supabase, userId);
@@ -398,6 +417,8 @@ async function callMentor(
     challengesCreatedLast48h: created48h ?? 0,
   });
 
+  const promptMeta = await getMentorSystemPromptForUser(userId);
+
   const contextBlock = buildMentorContextBlock({
     nome: snap.profile.nome,
     xp_total: snap.profile.xp_total,
@@ -423,9 +444,11 @@ async function callMentor(
     mlScores: snap.mlScores,
     challengePolicyHint: challengePolicy.promptHint,
     checkinsSummary: snap.checkinsSummary,
+    personality: { slug: promptMeta.slug, name: promptMeta.name },
+    cyclePhaseHint: opts.cyclePhaseHint ?? null,
   });
 
-  const systemPrompt = (await getMentorSystemPrompt()).prompt;
+  const systemPrompt = promptMeta.prompt;
 
   const messages = [
     { role: "system" as const, content: systemPrompt },
@@ -481,6 +504,10 @@ async function callMentor(
     kind: opts.kind,
     has_challenge: Boolean(payload.challenge),
   };
+  if (opts.challengeOutcome) {
+    metadata.cycle = "verify_learn";
+    metadata.challenge_outcome = opts.challengeOutcome;
+  }
 
   // Objective update from AI (only if none or AI proposes and we allow replace when source system)
   if (payload.objective?.titulo) {
@@ -520,7 +547,7 @@ async function callMentor(
 
       const ends = new Date();
       ends.setDate(ends.getDate() + guarded.duracao_dias);
-      const { data: chal, error: chalErr } = await supabase
+      const { data: chal, error: chalErr } = await supabaseAdmin
         .from("mentor_challenges")
         .insert({
           user_id: userId,
@@ -617,7 +644,8 @@ export const getMentorThread = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
 
-    await expireOverdueChallenges(supabase, userId);
+    const expired = await expireOverdueChallenges(supabase, userId);
+    const expireFollowUp = await maybeExpireCycleFollowUpOnVisit(supabase, userId, expired);
 
     const [msgsRes, chalRes, profileRes, objRes, mlRes] = await Promise.all([
       supabase
@@ -635,7 +663,7 @@ export const getMentorThread = createServerFn({ method: "POST" })
         .limit(5),
       supabase
         .from("profiles")
-        .select("nome, onboarding_completo, xp_total")
+        .select("nome, onboarding_completo, xp_total, charlie_personality")
         .eq("id", userId)
         .maybeSingle(),
       supabase
@@ -651,24 +679,40 @@ export const getMentorThread = createServerFn({ method: "POST" })
         .maybeSingle(),
     ]);
 
+    let profileData = profileRes.data;
+    if (profileRes.error && /charlie_personality/i.test(profileRes.error.message)) {
+      const fallback = await supabase
+        .from("profiles")
+        .select("nome, onboarding_completo, xp_total")
+        .eq("id", userId)
+        .maybeSingle();
+      if (fallback.error) throw new Error(fallback.error.message);
+      profileData = fallback.data as typeof profileData;
+    } else if (profileRes.error) {
+      throw new Error(profileRes.error.message);
+    }
+
     if (msgsRes.error) throw new Error(msgsRes.error.message);
     if (chalRes.error) throw new Error(chalRes.error.message);
-    if (profileRes.error) throw new Error(profileRes.error.message);
 
     let objective = objRes.data
       ? { titulo: objRes.data.titulo, motivo: objRes.data.motivo }
       : null;
 
-    if (!objective && profileRes.data) {
+    if (!objective && profileData) {
       objective = await ensureObjective(
         supabase,
         userId,
-        profileRes.data.nome,
-        profileRes.data.xp_total ?? 0,
+        profileData.nome,
+        profileData.xp_total ?? 0,
       );
     }
 
-    const pendingQuestion = await findPendingQuestionFromDb(supabase, userId);
+    let pendingQuestion = await findPendingQuestionFromDb(supabase, userId);
+    if (expireFollowUp.pendingQuestion) {
+      pendingQuestion = expireFollowUp.pendingQuestion;
+    }
+
     const challengesEnriched = await enrichChallenges(supabase, userId, chalRes.data ?? []);
 
     const ml = mlRes.error ? null : mlScoresFromRow(mlRes.data as never);
@@ -683,14 +727,24 @@ export const getMentorThread = createServerFn({ method: "POST" })
       mlRiskLine = `Risco de perder streak: moderado (${Math.round(ml.risco_streak * 100)}%)`;
     }
 
+    const { getMentorSystemPromptForUser } = await import("@/mentor/prompt.server");
+    const promptMeta = await getMentorSystemPromptForUser(userId);
+
     return {
       messages: msgsRes.data ?? [],
       challenges: challengesEnriched,
-      heroName: profileRes.data?.nome ?? "Herói",
-      onboardingCompleto: profileRes.data?.onboarding_completo ?? false,
+      heroName: profileData?.nome ?? "Herói",
+      onboardingCompleto: profileData?.onboarding_completo ?? false,
       objective,
       pendingQuestion,
       mlRiskLine,
+      personality: {
+        slug: promptMeta.slug,
+        name: promptMeta.name,
+        tagline: promptMeta.tagline,
+      },
+      expiredChallengesJustNow: expired.length,
+      expireFollowUpCreated: Boolean(expireFollowUp.message),
     };
   });
 
@@ -897,7 +951,7 @@ export const updateMentorChallenge = createServerFn({ method: "POST" })
     if (chal.status !== "ativo") throw new Error("Este desafio já foi encerrado.");
 
     if (data.action === "decline") {
-      const { data: updated, error: uErr } = await supabase
+      const { data: updated, error: uErr } = await supabaseAdmin
         .from("mentor_challenges")
         .update({ status: "recusado" })
         .eq("id", data.id)
@@ -932,7 +986,7 @@ export const updateMentorChallenge = createServerFn({ method: "POST" })
       }
     }
 
-    const { data: updated, error: uErr } = await supabase
+    const { data: updated, error: uErr } = await supabaseAdmin
       .from("mentor_challenges")
       .update({ status: "concluido", completed_at: new Date().toISOString() })
       .eq("id", data.id)
@@ -955,13 +1009,13 @@ export const updateMentorChallenge = createServerFn({ method: "POST" })
       capitulo_atual: profile.capitulo_atual ?? 1,
     };
     const novoXp = before.xp_total + chal.xp_recompensa;
-    const { error: xpErr } = await supabase
+    const { error: xpErr } = await supabaseAdmin
       .from("profiles")
       .update({ xp_total: novoXp })
       .eq("id", userId);
     if (xpErr) throw new Error(xpErr.message);
 
-    await supabase.from("activity_history").insert({
+    await supabaseAdmin.from("activity_history").insert({
       user_id: userId,
       tipo: "mentor_challenge",
       descricao: `Desafio do Mentor concluído: ${chal.titulo}`,
@@ -1003,16 +1057,32 @@ export const updateMentorChallenge = createServerFn({ method: "POST" })
     };
   });
 
+async function hadExpireCycleFollowUpToday(supabase: Client, userId: string): Promise<boolean> {
+  const today = hojeISO();
+  const { data } = await supabase
+    .from("mentor_messages")
+    .select("id, metadata, created_at")
+    .eq("user_id", userId)
+    .eq("role", "assistant")
+    .eq("kind", "challenge")
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  return (data ?? []).some((m) => {
+    if (calendarDateInTz(new Date(m.created_at)) !== today) return false;
+    const meta = (m.metadata ?? {}) as Record<string, unknown>;
+    return meta.cycle === "verify_learn" && meta.challenge_outcome === "expire";
+  });
+}
+
 async function maybeChallengeFollowUp(
   supabase: Client,
   userId: string,
-  info: { titulo: string; action: "complete" | "decline" },
+  info: { titulo: string; action: ChallengeOutcome },
 ) {
   const pending = await findPendingQuestionFromDb(supabase, userId);
   const askedToday = await hadStructuredQuestionToday(supabase, userId);
-  if (pending || askedToday) {
-    return { message: null as null, pendingQuestion: null as null };
-  }
+  const allowQuestion = !pending && !askedToday;
 
   const { data: recent } = await supabase
     .from("mentor_messages")
@@ -1025,12 +1095,19 @@ async function maybeChallengeFollowUp(
     .reverse()
     .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
-  const verb = info.action === "complete" ? "concluiu" : "adiou";
+  const { userText, cyclePhaseHint } = challengeFollowUpUserText(
+    info.titulo,
+    info.action,
+    allowQuestion,
+  );
+
   try {
     const result = await callMentor(supabase, userId, {
       kind: "challenge",
-      userText: `O herói ${verb} o desafio "${info.titulo}". Comente em 1–2 frases e faça UMA pergunta estruturada sobre o que isso revelou (tempo, energia, disciplina ou próximo passo).`,
+      userText,
       history,
+      cyclePhaseHint,
+      challengeOutcome: info.action,
     });
     return {
       message: result.assistantMsg,
@@ -1040,6 +1117,24 @@ async function maybeChallengeFollowUp(
     console.error("[mentor] challenge follow-up", e);
     return { message: null as null, pendingQuestion: null as null };
   }
+}
+
+/** No máximo 1 follow-up de expiração por dia ao abrir o Mentor. */
+async function maybeExpireCycleFollowUpOnVisit(
+  supabase: Client,
+  userId: string,
+  expired: Array<{ id: string; titulo: string }>,
+) {
+  if (!expired.length) {
+    return { message: null as null, pendingQuestion: null as null };
+  }
+  if (await hadExpireCycleFollowUpToday(supabase, userId)) {
+    return { message: null as null, pendingQuestion: null as null };
+  }
+  return maybeChallengeFollowUp(supabase, userId, {
+    titulo: expired[0]!.titulo,
+    action: "expire",
+  });
 }
 
 export const listCompletedMentorChallenges = createServerFn({ method: "POST" })
@@ -1054,4 +1149,45 @@ export const listCompletedMentorChallenges = createServerFn({ method: "POST" })
       .limit(20);
     if (error) throw new Error(error.message);
     return data ?? [];
+  });
+
+export const listCharliePersonalities = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const { listCharliePersonalities: list } = await import("@/mentor/prompt.server");
+    const rows = await list({ includeInactive: false });
+    return {
+      personalities: rows.map((r) => ({
+        slug: r.slug,
+        name: r.name,
+        tagline: r.tagline,
+        description: r.description,
+        sort_order: r.sort_order,
+      })),
+    };
+  });
+
+export const setCharliePersonality = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((i: unknown) => z.object({ slug: z.string().trim().min(2).max(40) }).parse(i))
+  .handler(async ({ context, data }) => {
+    const { listCharliePersonalities: list } = await import("@/mentor/prompt.server");
+    const rows = await list({ includeInactive: false });
+    const found = rows.find((r) => r.slug === data.slug);
+    if (!found) throw new Error("Personalidade inválida ou inativa.");
+
+    const { error } = await context.supabase
+      .from("profiles")
+      .update({ charlie_personality: data.slug })
+      .eq("id", context.userId);
+    if (error) throw new Error(error.message);
+
+    return {
+      ok: true as const,
+      personality: {
+        slug: found.slug,
+        name: found.name,
+        tagline: found.tagline,
+      },
+    };
   });
