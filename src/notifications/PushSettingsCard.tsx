@@ -13,6 +13,7 @@ import {
   upsertNotificationSettings,
 } from "@/notifications/push.functions";
 import {
+  clientVapidPublicKeyFromEnv,
   getPushEnvironmentIssue,
   isWebPushSupported,
   subscribeBrowserPush,
@@ -30,6 +31,10 @@ export function PushSettingsCard() {
 
   const supported = typeof window !== "undefined" && isWebPushSupported();
   const envIssue = typeof window !== "undefined" ? getPushEnvironmentIssue() : null;
+  const isProdHttps =
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:" &&
+    !["localhost", "127.0.0.1"].includes(window.location.hostname);
 
   const { data, isLoading } = useQuery({
     queryKey: ["notification-settings"] as const,
@@ -46,12 +51,19 @@ export function PushSettingsCard() {
       if (!supported) {
         throw new Error("Seu navegador não suporta Web Push.");
       }
-      const { publicKey } = await vapidFn();
+
+      const fromServer = await vapidFn({ data: undefined as unknown as never });
+      const publicKey =
+        (fromServer.valid ? fromServer.publicKey : null) || clientVapidPublicKeyFromEnv();
+
       if (!publicKey) {
         throw new Error(
-          "Push não configurado no servidor. Defina VITE_VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY.",
+          fromServer.keyLength === 0
+            ? "Push não configurado no servidor. Defina VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY no Vercel (Production) e redeploy."
+            : `Chave VAPID inválida no servidor (len=${fromServer.keyLength}, bytes=${fromServer.byteLength}). Gere um par novo com npx web-push generate-vapid-keys e atualize as duas vars.`,
         );
       }
+
       const sub = await subscribeBrowserPush(publicKey);
       const keys = subscriptionToKeys(sub);
       await saveSubFn({ data: keys });
@@ -109,6 +121,7 @@ export function PushSettingsCard() {
   const s = data.settings;
   const pushOn = Boolean(s.push_enabled && data.subscriptionCount > 0);
   const busy = enablePush.isPending || disablePush.isPending || patchSettings.isPending;
+  const vapidOk = data.vapid?.valid ?? data.vapidConfigured;
 
   return (
     <div className="space-y-4">
@@ -124,11 +137,15 @@ export function PushSettingsCard() {
         <p className="text-sm text-amber-200/80">{envIssue}</p>
       ) : !supported ? (
         <p className="text-sm text-amber-200/80">
-          Este navegador não suporta Web Push. Use Chrome, Edge ou Firefox em HTTPS (ou localhost).
+          Este navegador não suporta Web Push. Use Chrome ou Edge (no Brave, ative Google services
+          for push messaging).
         </p>
-      ) : !data.vapidConfigured ? (
+      ) : !vapidOk ? (
         <p className="text-sm text-amber-200/80">
-          Push ainda não está configurado no servidor (chaves VAPID ausentes).
+          Chave VAPID ausente ou inválida no servidor. No Vercel:{" "}
+          <code className="text-hero">VAPID_PUBLIC_KEY</code> +{" "}
+          <code className="text-hero">VAPID_PRIVATE_KEY</code> (mesmo par) em Production, depois
+          Redeploy.
         </p>
       ) : (
         <div className="flex flex-wrap items-center gap-3">
@@ -160,10 +177,16 @@ export function PushSettingsCard() {
         </div>
       )}
 
-      <p className="text-xs text-muted-foreground">
-        No local, use <code className="text-hero">http://localhost:8080</code> — abrir pelo IP da
-        rede (192.168.x.x) faz o Chrome falhar com “push service error”.
-      </p>
+      {!isProdHttps ? (
+        <p className="text-xs text-muted-foreground">
+          Local: use <code className="text-hero">http://localhost:8080</code> (não o IP da rede).
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Produção HTTPS pronta para push. Prefer Chrome/Edge; no Brave ative Google services for
+          push messaging.
+        </p>
+      )}
 
       <div className="space-y-3 border-t border-border pt-4">
         <p className="text-xs uppercase tracking-wider text-muted-foreground">Tipos</p>

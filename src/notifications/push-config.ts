@@ -23,6 +23,57 @@ export type NotificationSettingsRow = {
   notify_agent: boolean;
 };
 
+/** Remove aspas/whitespace que o painel da Vercel às vezes inclui. */
+export function sanitizeVapidKey(raw: string | undefined | null): string | undefined {
+  if (!raw) return undefined;
+  const cleaned = raw
+    .trim()
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/\s+/g, "");
+  return cleaned || undefined;
+}
+
+export function decodeVapidPublicKey(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const output = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) output[i] = raw.charCodeAt(i);
+  return output;
+}
+
+export function analyzeVapidPublicKey(raw: string | undefined | null): {
+  configured: boolean;
+  valid: boolean;
+  keyLength: number;
+  byteLength: number;
+  publicKey: string | null;
+} {
+  const key = sanitizeVapidKey(raw) ?? null;
+  if (!key) {
+    return { configured: false, valid: false, keyLength: 0, byteLength: 0, publicKey: null };
+  }
+  try {
+    const bytes = decodeVapidPublicKey(key);
+    const valid = bytes.length === 65 && bytes[0] === 0x04;
+    return {
+      configured: true,
+      valid,
+      keyLength: key.length,
+      byteLength: bytes.length,
+      publicKey: valid ? key : null,
+    };
+  } catch {
+    return {
+      configured: true,
+      valid: false,
+      keyLength: key.length,
+      byteLength: -1,
+      publicKey: null,
+    };
+  }
+}
+
 export function tipoAllowedBySettings(
   tipo: string,
   settings: Pick<
@@ -72,20 +123,34 @@ export function buildPushPayload(input: {
   };
 }
 
+function readEnv(name: string): string | undefined {
+  // Server (Node / Nitro) — runtime Vercel
+  if (typeof process !== "undefined" && process.env?.[name]) {
+    return process.env[name];
+  }
+  return undefined;
+}
+
 export function getVapidPublicKey(): string | undefined {
-  return (
-    process.env.VITE_VAPID_PUBLIC_KEY?.trim() ||
-    process.env.VAPID_PUBLIC_KEY?.trim() ||
-    undefined
+  // Preferir chave sem prefixo VITE_ no server (runtime). VITE_ também funciona se injetada.
+  const analyzed = analyzeVapidPublicKey(
+    readEnv("VAPID_PUBLIC_KEY") || readEnv("VITE_VAPID_PUBLIC_KEY"),
   );
+  return analyzed.publicKey ?? undefined;
 }
 
 export function getVapidPrivateKey(): string | undefined {
-  return process.env.VAPID_PRIVATE_KEY?.trim() || undefined;
+  return sanitizeVapidKey(readEnv("VAPID_PRIVATE_KEY"));
 }
 
 export function getVapidSubject(): string {
-  const url = process.env.APP_PUBLIC_URL?.trim();
-  if (url?.startsWith("http")) return `mailto:admin@${new URL(url).hostname}`;
+  const url = readEnv("APP_PUBLIC_URL")?.trim();
+  if (url?.startsWith("http")) {
+    try {
+      return `mailto:admin@${new URL(url).hostname}`;
+    } catch {
+      /* fallthrough */
+    }
+  }
   return "mailto:admin@v-project.app";
 }

@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getVapidPublicKey } from "@/notifications/push-config";
+import { analyzeVapidPublicKey, getVapidPublicKey } from "@/notifications/push-config";
 
 const settingsSchema = z.object({
   push_enabled: z.boolean().optional(),
@@ -24,10 +24,18 @@ const DEFAULT_SETTINGS = {
 const SETTINGS_COLS =
   "user_id, push_enabled, notify_habit_reminder, notify_streak_risk, notify_mentor, notify_achievement, notify_agent";
 
-export const getVapidPublicKeyFn = createServerFn({ method: "GET" }).handler(async () => {
-  const key = getVapidPublicKey();
-  return { publicKey: key ?? null };
-});
+export const getVapidPublicKeyFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const key = getVapidPublicKey();
+    const info = analyzeVapidPublicKey(key);
+    return {
+      publicKey: info.publicKey,
+      valid: info.valid,
+      keyLength: info.keyLength,
+      byteLength: info.byteLength,
+    };
+  });
 
 export const getNotificationSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -49,6 +57,7 @@ export const getNotificationSettings = createServerFn({ method: "POST" })
       settings: data ?? { user_id: context.userId, ...DEFAULT_SETTINGS },
       subscriptionCount: count ?? 0,
       vapidConfigured: Boolean(getVapidPublicKey()),
+      vapid: analyzeVapidPublicKey(getVapidPublicKey()),
     };
   });
 
