@@ -34,6 +34,7 @@ import { calcularNivel, ATRIBUTO_LABELS, CATEGORIAS } from "@/lib/journey";
 import { readStoredWallpaperId } from "@/lib/wallpaper-storage";
 import { WallpaperSettings } from "@/components/WallpaperSettings";
 import { TelegramSettingsCard } from "@/notifications/TelegramSettingsCard";
+import { PushSettingsCard } from "@/notifications/PushSettingsCard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -425,6 +426,10 @@ function ProfilePage() {
           </h3>
           <ActivityHistorySection />
         </section>
+      </Card>
+
+      <Card className="border-transparent p-6">
+        <PushSettingsCard />
       </Card>
 
       <Card className="border-transparent p-6">

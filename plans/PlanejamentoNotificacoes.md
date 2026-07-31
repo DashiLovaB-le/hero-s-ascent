@@ -84,24 +84,27 @@ Objetivo: notificações que puxam o loop (streak, hábitos, Charlie), sem spam.
 
 Objetivo: avisar fora do app, **só depois** do in-app estável.
 
-- [ ] Preferências do usuário
-  - [ ] Tabela `notification_settings` **ou** colunas em `profiles`
-  - [ ] Toggles por canal: in-app (sempre on), push, e-mail
-  - [ ] Toggles por tipo: reminder, streak, mentor, conquistas
-  - [ ] Tela em `/profile` (“Notificações”)
-- [ ] Web Push
-  - [ ] Service worker + VAPID keys
-  - [ ] Tabela `push_subscriptions` (`user_id`, `endpoint`, `keys`, `created_at`)
-  - [ ] Opt-in explícito (prompt do browser só após ação do usuário)
-  - [ ] Envio espelhando rows de `notifications` (mesma fonte da verdade)
+- [x] Preferências do usuário
+  - [x] Tabela `notification_settings`
+  - [x] Toggles por canal: push (+ in-app sempre on)
+  - [x] Toggles por tipo: reminder, streak, mentor, conquistas, agent
+  - [x] Tela em `/profile` (“Notificações push”)
+- [x] Web Push
+  - [x] Service worker + VAPID keys
+  - [x] Tabela `push_subscriptions` (`user_id`, `endpoint`, `keys`, `created_at`)
+  - [x] Opt-in explícito (prompt do browser só após ação do usuário)
+  - [x] Envio espelhando rows de `notifications` (mesma fonte da verdade)
 - [ ] E-mail (alternativa ou complemento)
   - [ ] Provider (Resend / outro) + templates PT-BR
   - [ ] Só tipos de alto valor (streak risk, desafio novo) — não cada hábito
-- [ ] Respeito a preferências em todos os jobs da fase 2
-- [ ] Fallback: se push falhar, notificação in-app continua existindo
-- [ ] Privacidade / LGPD: texto claro no opt-in; como desativar
+- [x] Respeito a preferências no fan-out push
+- [x] Fallback: se push falhar, notificação in-app continua existindo
+- [x] Privacidade / LGPD: texto claro no opt-in; como desativar
 
-**Critério de pronto (Fase 3):** usuário controla canais; push ou e-mail chega para pelo menos 1 tipo; in-app permanece a fonte da verdade.
+**Critério de pronto (Fase 3):** usuário controla canais; push chega para pelo menos 1 tipo; in-app permanece a fonte da verdade.
+
+> Migration: `20260731182821_web_push_notifications.sql`.  
+> Env: `VITE_VAPID_PUBLIC_KEY` / `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` (`npx web-push generate-vapid-keys`).
 
 ---
 
@@ -121,7 +124,7 @@ Não fazer nestas fases:
 1. [x] **Fase 1** — schema + RLS + listar/marcar + sino + wire Charlie
 2. [x] **Fase 2** — tipos de produto + cron + deep links + anti-spam
 3. [ ] Validar uso (usuário abre o sino? age nos reminders?)
-4. [ ] **Fase 3** — settings + push e/ou e-mail
+4. [x] **Fase 3** — settings + Web Push (e-mail ainda pendente)
 
 ---
 

@@ -480,6 +480,75 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_settings: {
+        Row: {
+          user_id: string
+          push_enabled: boolean
+          notify_habit_reminder: boolean
+          notify_streak_risk: boolean
+          notify_mentor: boolean
+          notify_achievement: boolean
+          notify_agent: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          push_enabled?: boolean
+          notify_habit_reminder?: boolean
+          notify_streak_risk?: boolean
+          notify_mentor?: boolean
+          notify_achievement?: boolean
+          notify_agent?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          push_enabled?: boolean
+          notify_habit_reminder?: boolean
+          notify_streak_risk?: boolean
+          notify_mentor?: boolean
+          notify_achievement?: boolean
+          notify_agent?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          user_agent: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          user_agent?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          endpoint?: string
+          p256dh?: string
+          auth?: string
+          user_agent?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
