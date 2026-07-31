@@ -48,6 +48,10 @@ export type MentorContextInput = {
   objective: ObjectiveRow;
   pendingQuestionToday: boolean;
   allowQuestion: boolean;
+  /** Já há sugestão de hábito aguardando aceite no /mentor. */
+  pendingHabitSuggestion: boolean;
+  /** Pode propor habit_suggestion nesta resposta. */
+  allowHabitSuggestion: boolean;
   weather: MentorWeatherContext;
   mlScores?: MlScoresV1 | null;
   challengePolicyHint?: string | null;
@@ -56,6 +60,29 @@ export type MentorContextInput = {
   /** Override explícito da fase (ex.: follow-up VERIFY→LEARN). */
   cyclePhaseHint?: string | null;
 };
+
+export const MENTOR_HABIT_ATRIBUTOS = [
+  "forca",
+  "disciplina",
+  "sabedoria",
+  "espirito",
+  "testosterona",
+  "prosperidade",
+  "conhecimento",
+  "lideranca",
+] as const;
+
+export const MENTOR_HABIT_CATEGORIAS = [
+  "corpo",
+  "mente",
+  "espirito",
+  "prosperidade",
+  "relacionamentos",
+  "proposito",
+] as const;
+
+export type MentorHabitAtributo = (typeof MENTOR_HABIT_ATRIBUTOS)[number];
+export type MentorHabitCategoria = (typeof MENTOR_HABIT_CATEGORIAS)[number];
 
 /** Deriva a linha FASE DO CICLO a partir do estado da jornada. */
 export function resolveMentorCyclePhase(input: {
@@ -252,6 +279,7 @@ export function buildMentorContextBlock(input: MentorContextInput): string {
         : "nenhuma"
     }`,
     `Hábitos ativos (use id se vincular desafio): ${habitsWithIds || "nenhum"}`,
+    `Contagem de hábitos ativos: ${input.habits.length}`,
     `Concluídos hoje (${feitosHoje.length}/${input.habits.length}): ${feitosHoje.join("; ") || "nenhum"}`,
     `Pendentes hoje: ${pendentesHoje.join("; ") || "nenhum"}`,
     `Padrões observados: ${patterns.length ? patterns.join(" | ") : "ainda poucos dados"}`,
@@ -265,6 +293,13 @@ export function buildMentorContextBlock(input: MentorContextInput): string {
         ? input.activeChallenges.map((c) => `${c.titulo}: ${c.descricao}`).join(" | ")
         : "nenhum"
     }`,
+    `Sugestão de hábito pendente de aceite: ${input.pendingHabitSuggestion ? "SIM — habit_suggestion deve ser null" : "não"}`,
+    `Pode propor habit_suggestion nesta resposta: ${input.allowHabitSuggestion ? "SIM (no máximo uma)" : "NÃO"}`,
+    `PROPOSTAS (máx. UMA por resposta — NUNCA challenge e habit_suggestion juntos):
+- challenge = missão COM PRAZO (dias/semana), pontual ou sprint; pode usar habit_id de hábito JÁ listado.
+- habit_suggestion = rotina NOVA recorrente (todo dia / toda manhã / permanente) que ainda NÃO está na lista; o herói ACEITA no /mentor para criar o hábito.
+- Se soa como rotina permanente → habit_suggestion. Se soa como prazo curto → challenge.
+- Não sugira título quase igual a um hábito já listado. atributo ∈ ${MENTOR_HABIT_ATRIBUTOS.join("|")}; xp 5–50; categoria opcional ∈ ${MENTOR_HABIT_CATEGORIAS.join("|")}.`,
     input.weather
       ? input.weather.summaryLine
       : "Clima: região não cadastrada (herói pode definir a cidade no Perfil). Não invente o tempo.",
@@ -328,10 +363,10 @@ IDENTIDADE
 CICLO DO MENTOR (obrigatório, interno — NÃO narre estas fases ao herói)
 1. Observar — use só o contexto (hábitos, streak, ML, check-ins, desafios ativos, memórias).
 2. Pensar — forme 1 diagnóstico implícito; não explique o raciocínio passo a passo.
-3. Planejar — sirva o OBJETIVO ATUAL; proponha desafio só se a política permitir e houver necessidade clara.
-4. Executar — a "message" é a ordem/convite; desafio ou pergunta estruturada = ação pedida ao herói.
+3. Planejar — sirva o OBJETIVO ATUAL; proponha desafio OU hábito novo (nunca os dois) só se o contexto permitir e houver necessidade clara.
+4. Executar — a "message" é a ordem/convite; desafio, habit_suggestion ou pergunta estruturada = ação pedida ao herói.
 5. Verificar — não declare vitória sem evidência no contexto/app; se o herói diz "fiz" sem dado, cobre o check no app.
-6. Aprender — em marco real (desafio concluído, recusado ou expirado; decisão forte): grave "memory" e/ou ajuste "objective" com parcimônia.
+6. Aprender — em marco real (desafio encerrado, hábito aceito/recusado, decisão forte): grave "memory" e/ou ajuste "objective" com parcimônia.
 - Há uma linha "FASE DO CICLO" no contexto: priorize essa fase nesta resposta.
 - Nunca fale "algoritmo", "ciclo" ou "fase" em voz alta para o herói.
 
@@ -371,12 +406,14 @@ CHECK-INS
 - Se houver bloco CHECK-INS com sono/energia/humor, use no máximo um detalhe quando for relevante (amanhecer, corpo, recuperação).
 - Se CHECK-INS disser ausentes, não invente.
 
-DESAFIOS
-- Só proponha desafio quando fizer sentido narrativo (padrão, estagnação, ou pedido implícito).
-- No máximo um desafio por resposta. Não force.
-- Obedeça a linha "POLÍTICA ADAPTATIVA" no contexto (tetos de duração/XP e se pode propor agora).
-- Se vincular a um hábito, use habit_id EXATO da lista e completions_required (quantas vezes concluir no período).
-- titulo_recompensa é simbólico (título honorífico), nunca invente mecânica inexistente.
+DESAFIOS vs HÁBITOS NOVOS (discernimento obrigatório)
+- challenge = missão COM PRAZO (ex.: "por 3 dias", "até sexta", sprint). Pode vincular habit_id de hábito JÁ existente.
+- habit_suggestion = rotina NOVA recorrente (ex.: "todo dia", "toda manhã", permanente) que o herói ainda não tem.
+- NUNCA emita challenge e habit_suggestion na mesma resposta. Escolha um.
+- Se a ideia for permanente/recorrente → habit_suggestion (não challenge). Se for temporal → challenge.
+- Desafio: só quando fizer sentido narrativo; no máximo um; obedeça a POLÍTICA ADAPTATIVA; habit_id EXATO da lista se vincular; titulo_recompensa é simbólico.
+- Hábito novo: só se "Pode propor habit_suggestion" = SIM; título diferente dos já listados; xp_recompensa entre 5 e 50; atributo válido; categoria opcional.
+- O herói precisa ACEITAR habit_suggestion no app para o hábito entrar na lista — não diga que já foi criado.
 
 FORMATO DE RESPOSTA (obrigatório — JSON válido, sem markdown fora do JSON)
 {
@@ -399,6 +436,13 @@ FORMATO DE RESPOSTA (obrigatório — JSON válido, sem markdown fora do JSON)
     "titulo_recompensa": "opcional",
     "habit_id": null ou "uuid-do-habito",
     "completions_required": 1
+  },
+  "habit_suggestion": null ou {
+    "titulo": "nome curto do hábito",
+    "descricao": "opcional, concreto",
+    "xp_recompensa": 10,
+    "atributo": "disciplina",
+    "categoria": null ou "corpo"
   }
 }
 
@@ -430,7 +474,58 @@ export type MentorAiPayload = {
     habit_id?: string | null;
     completions_required?: number;
   } | null;
+  habit_suggestion: {
+    titulo: string;
+    descricao: string | null;
+    xp_recompensa: number;
+    atributo: MentorHabitAtributo;
+    categoria: MentorHabitCategoria | null;
+  } | null;
 };
+
+export type PendingHabitSuggestion = MentorAiPayload["habit_suggestion"] & {
+  messageId: string;
+};
+
+/** Normalize for near-duplicate habit title checks. */
+export function normalizeHabitTitle(titulo: string): string {
+  return titulo
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function habitTitlesConflict(a: string, b: string): boolean {
+  const na = normalizeHabitTitle(a);
+  const nb = normalizeHabitTitle(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.length >= 4 && nb.length >= 4 && (na.includes(nb) || nb.includes(na))) return true;
+  return false;
+}
+
+export function habitSuggestionFollowUpUserText(
+  titulo: string,
+  action: "accept" | "decline",
+  allowQuestion: boolean,
+): { userText: string; cyclePhaseHint: string } {
+  const ask = allowQuestion
+    ? " Se fizer sentido, uma pergunta estruturada curta."
+    : " Sem pergunta estruturada.";
+  if (action === "accept") {
+    return {
+      cyclePhaseHint: "Verificar/Aprender (hábito aceito — celebre com parcimônia e cobrem o primeiro check)",
+      userText: `O herói ACEITOU sua sugestão de hábito "${titulo}" — o hábito já entrou na lista dele. Reconheça em 1–3 frases. challenge null, habit_suggestion null.${ask}`,
+    };
+  }
+  return {
+    cyclePhaseHint: "Verificar/Aprender (hábito recusado — não pressione; ajuste rumo)",
+    userText: `O herói RECUSOU a sugestão de hábito "${titulo}". Respeite. challenge null, habit_suggestion null.${ask}`,
+  };
+}
 
 /** Remove lixo típico de JSON truncado (ex.: `</</</`). */
 function scrubMentorText(text: string): string {
@@ -511,6 +606,7 @@ export function parseMentorAiPayload(raw: string): MentorAiPayload {
       question: null,
       objective: null,
       challenge: null,
+      habit_suggestion: null,
     };
   }
 
@@ -600,6 +696,40 @@ export function parseMentorAiPayload(raw: string): MentorAiPayload {
     }
   }
 
+  let habit_suggestion: MentorAiPayload["habit_suggestion"] = null;
+  if (obj.habit_suggestion && typeof obj.habit_suggestion === "object") {
+    const h = obj.habit_suggestion as Record<string, unknown>;
+    if (typeof h.titulo === "string" && h.titulo.trim()) {
+      const atributoRaw = typeof h.atributo === "string" ? h.atributo.trim().toLowerCase() : "";
+      const atributo = (MENTOR_HABIT_ATRIBUTOS as readonly string[]).includes(atributoRaw)
+        ? (atributoRaw as MentorHabitAtributo)
+        : "disciplina";
+      const catRaw = typeof h.categoria === "string" ? h.categoria.trim().toLowerCase() : "";
+      const categoria = (MENTOR_HABIT_CATEGORIAS as readonly string[]).includes(catRaw)
+        ? (catRaw as MentorHabitCategoria)
+        : null;
+      habit_suggestion = {
+        titulo: scrubMentorText(h.titulo).slice(0, 80),
+        descricao:
+          typeof h.descricao === "string" && h.descricao.trim()
+            ? scrubMentorText(h.descricao).slice(0, 280)
+            : null,
+        xp_recompensa: Math.min(50, Math.max(5, Number(h.xp_recompensa) || 10)),
+        atributo,
+        categoria,
+      };
+    }
+  }
+
+  // Discernimento server-side: nunca os dois. Preferir hábito novo quando não há vínculo a hábito existente.
+  if (habit_suggestion && challenge) {
+    if (challenge.habit_id) {
+      habit_suggestion = null;
+    } else {
+      challenge = null;
+    }
+  }
+
   return {
     message: safeMessage,
     memory,
@@ -607,6 +737,7 @@ export function parseMentorAiPayload(raw: string): MentorAiPayload {
     question,
     objective,
     challenge,
+    habit_suggestion,
   };
 }
 

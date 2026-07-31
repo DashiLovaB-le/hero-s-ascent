@@ -26,14 +26,17 @@ export {
   parseMentorAiPayload,
   presenceUserPrompt,
   resolveMentorCyclePhase,
+  habitTitlesConflict,
+  habitSuggestionFollowUpUserText,
 } from "./context";
-export type { ChallengeOutcome } from "./context";
+export type { ChallengeOutcome, PendingHabitSuggestion } from "./context";
 export { getMentorSystemPrompt, getMentorSystemPromptForUser } from "./prompt.server";
 export {
   getMentorThread,
   ensureMentorPresence,
   sendMentorMessage,
   updateMentorChallenge,
+  respondMentorHabitSuggestion,
   listCharliePersonalities,
   setCharliePersonality,
 } from "./functions";

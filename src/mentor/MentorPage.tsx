@@ -9,12 +9,14 @@ import {
   Check,
   X,
   Target,
+  Repeat,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { CharliePersonalityPicker } from "@/mentor/CharliePersonalityPicker";
 import {
   ensureMentorPresence,
+  respondMentorHabitSuggestion,
   sendMentorMessage,
   updateMentorChallenge,
 } from "@/mentor/functions";
@@ -25,11 +27,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { ATRIBUTO_LABELS } from "@/lib/journey";
 
 type Msg = MentorThreadData["messages"][number];
 type Challenge = MentorThreadData["challenges"][number];
 type Objective = MentorThreadData["objective"];
 type PendingQuestion = MentorThreadData["pendingQuestion"];
+type PendingHabitSuggestion = MentorThreadData["pendingHabitSuggestion"];
 
 const OPTIMISTIC_PREFIX = "optimistic-";
 
@@ -39,12 +43,16 @@ export function MentorPage() {
   const sendFn = useServerFn(sendMentorMessage);
   const presenceFn = useServerFn(ensureMentorPresence);
   const challengeFn = useServerFn(updateMentorChallenge);
+  const habitSuggestFn = useServerFn(respondMentorHabitSuggestion);
 
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<Msg[]>(data.messages);
   const [challenges, setChallenges] = useState<Challenge[]>(data.challenges);
   const [objective, setObjective] = useState<Objective>(data.objective);
   const [pendingQuestion, setPendingQuestion] = useState<PendingQuestion>(data.pendingQuestion);
+  const [pendingHabitSuggestion, setPendingHabitSuggestion] = useState<PendingHabitSuggestion>(
+    data.pendingHabitSuggestion,
+  );
   const [personality, setPersonality] = useState(
     data.personality ?? {
       slug: "classico",
@@ -109,8 +117,16 @@ export function MentorPage() {
     setChallenges(data.challenges);
     setObjective(data.objective);
     setPendingQuestion(data.pendingQuestion);
+    setPendingHabitSuggestion(data.pendingHabitSuggestion);
     if (data.personality) setPersonality(data.personality);
-  }, [data.messages, data.challenges, data.objective, data.pendingQuestion, data.personality]);
+  }, [
+    data.messages,
+    data.challenges,
+    data.objective,
+    data.pendingQuestion,
+    data.pendingHabitSuggestion,
+    data.personality,
+  ]);
 
   const onPresence = useEffectEvent(async () => {
     if (presenceStarted.current) return;
@@ -129,9 +145,10 @@ export function MentorPage() {
           ]);
         }
         if (res.pendingQuestion) setPendingQuestion(res.pendingQuestion);
+        if (res.pendingHabitSuggestion) setPendingHabitSuggestion(res.pendingHabitSuggestion);
         if (res.objective) setObjective(res.objective);
         void qc.invalidateQueries({ queryKey: ["mentor-thread"] });
-        if (res.challenge) {
+        if (res.challenge || res.pendingHabitSuggestion) {
           void qc.invalidateQueries({ queryKey: ["notifications"] });
           void qc.invalidateQueries({ queryKey: ["notifications-unread-count"] });
         }
@@ -181,11 +198,17 @@ export function MentorPage() {
         ]);
         toast.message("Novo desafio de Charlie", { description: res.challenge.titulo });
       }
+      if (res.pendingHabitSuggestion) {
+        setPendingHabitSuggestion(res.pendingHabitSuggestion);
+        toast.message("Charlie sugeriu um hábito", {
+          description: res.pendingHabitSuggestion.titulo,
+        });
+      }
       if (res.pendingQuestion) setPendingQuestion(res.pendingQuestion);
       else setPendingQuestion(null);
       if (res.objective) setObjective(res.objective);
       void qc.invalidateQueries({ queryKey: ["mentor-thread"] });
-      if (res.challenge) {
+      if (res.challenge || res.pendingHabitSuggestion) {
         void qc.invalidateQueries({ queryKey: ["notifications"] });
         void qc.invalidateQueries({ queryKey: ["notifications-unread-count"] });
       }
@@ -210,6 +233,7 @@ export function MentorPage() {
         );
       }
       if (res.pendingQuestion) setPendingQuestion(res.pendingQuestion);
+      if (res.pendingHabitSuggestion) setPendingHabitSuggestion(res.pendingHabitSuggestion);
       if (res.xpGanho > 0) {
         toast.success(`Desafio concluído · +${res.xpGanho} XP`);
         void qc.invalidateQueries({ queryKey: ["journey"] });
@@ -224,11 +248,37 @@ export function MentorPage() {
     onError: (e) => toast.error(e.message),
   });
 
+  const habitSuggestM = useMutation({
+    mutationFn: (input: { messageId: string; action: "accept" | "decline" }) =>
+      habitSuggestFn({ data: input }),
+    onSuccess: (res) => {
+      setPendingHabitSuggestion(null);
+      if (res.message) {
+        setMessages((prev) =>
+          prev.some((m) => m.id === res.message!.id) ? prev : [...prev, res.message!],
+        );
+      }
+      if (res.pendingQuestion) setPendingQuestion(res.pendingQuestion);
+      if (res.pendingHabitSuggestion) setPendingHabitSuggestion(res.pendingHabitSuggestion);
+      if (res.action === "accept" && res.habit) {
+        toast.success("Hábito adicionado", { description: res.habit.titulo });
+        void qc.invalidateQueries({ queryKey: ["journey"] });
+        void qc.invalidateQueries({ queryKey: ["habits"] });
+      } else {
+        toast.message("Sugestão encerrada.");
+      }
+      void qc.invalidateQueries({ queryKey: ["mentor-thread"] });
+      void qc.invalidateQueries({ queryKey: ["notifications"] });
+      void qc.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const charlieTyping = sendM.isPending || presencePending;
 
   useEffect(() => {
     scrollToLatest("smooth");
-  }, [messages.length, charlieTyping, pendingQuestion]);
+  }, [messages.length, charlieTyping, pendingQuestion, pendingHabitSuggestion]);
 
   if (!data.onboardingCompleto) {
     return (
@@ -300,6 +350,73 @@ export function MentorPage() {
                 )}
               </div>
             </div>
+          )}
+
+          {pendingHabitSuggestion && (
+            <section className="space-y-3">
+              <p className="text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">
+                Sugestão de hábito
+              </p>
+              <div className="cp-panel border border-transparent bg-card/90 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="grid h-9 w-9 place-items-center bg-surface-elevated text-hero">
+                    <Repeat className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">
+                      Novo hábito
+                    </p>
+                    <h2 className="font-display text-lg leading-tight break-words">
+                      {pendingHabitSuggestion.titulo}
+                    </h2>
+                    {pendingHabitSuggestion.descricao && (
+                      <p className="mt-1 text-sm text-muted-foreground break-words">
+                        {pendingHabitSuggestion.descricao}
+                      </p>
+                    )}
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {ATRIBUTO_LABELS[pendingHabitSuggestion.atributo] ??
+                        pendingHabitSuggestion.atributo}{" "}
+                      · +{pendingHabitSuggestion.xp_recompensa} XP
+                      {pendingHabitSuggestion.categoria
+                        ? ` · ${pendingHabitSuggestion.categoria}`
+                        : ""}
+                    </p>
+                    <p className="mt-2 text-xs text-hero/90">
+                      Aceite para adicionar à sua lista de hábitos.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        className="shadow-hero"
+                        disabled={habitSuggestM.isPending}
+                        onClick={() =>
+                          habitSuggestM.mutate({
+                            messageId: pendingHabitSuggestion.messageId,
+                            action: "accept",
+                          })
+                        }
+                      >
+                        <Check className="h-4 w-4" /> Aceitar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={habitSuggestM.isPending}
+                        onClick={() =>
+                          habitSuggestM.mutate({
+                            messageId: pendingHabitSuggestion.messageId,
+                            action: "decline",
+                          })
+                        }
+                      >
+                        <X className="h-4 w-4" /> Agora não
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
           )}
 
           {activeChallenges.length > 0 && (

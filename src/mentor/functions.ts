@@ -9,6 +9,8 @@ import {
   challengeFollowUpUserText,
   defaultObjectiveForHero,
   detectPresenceKind,
+  habitSuggestionFollowUpUserText,
+  habitTitlesConflict,
   parseMentorAiPayload,
   presenceUserPrompt,
   type ChallengeOutcome,
@@ -32,6 +34,8 @@ const MSG_COLS = "id, role, kind, content, metadata, created_at";
 const CHALLENGE_COLS =
   "id, user_id, titulo, descricao, duracao_dias, xp_recompensa, titulo_recompensa, status, starts_at, ends_at, completed_at, created_at, habit_id, completions_required";
 const OBJECTIVE_COLS = "user_id, titulo, motivo, source, ativo, created_at, updated_at";
+const HABIT_COLS = "id, titulo, descricao, xp_recompensa, atributo, categoria, ativo, created_at";
+const MAX_ACTIVE_HABITS_FOR_SUGGESTION = 14;
 
 function daysBetween(isoA: string, isoB: string) {
   const a = new Date(`${isoA}T12:00:00`).getTime();
@@ -162,6 +166,35 @@ async function findPendingQuestionFromDb(supabase: Client, userId: string) {
       }
     }
     break;
+  }
+  return null;
+}
+
+async function findPendingHabitSuggestionFromDb(supabase: Client, userId: string) {
+  const { data: msgs } = await supabase
+    .from("mentor_messages")
+    .select("id, role, metadata, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(24);
+
+  for (const m of msgs ?? []) {
+    if (m.role !== "assistant") continue;
+    const meta = (m.metadata ?? {}) as Record<string, unknown>;
+    if (meta.habit_suggestion_answered) continue;
+    const hs = meta.pending_habit_suggestion;
+    if (!hs || typeof hs !== "object") continue;
+    const h = hs as Record<string, unknown>;
+    if (typeof h.titulo !== "string" || !h.titulo.trim()) continue;
+    if (typeof h.atributo !== "string") continue;
+    return {
+      titulo: h.titulo,
+      descricao: typeof h.descricao === "string" ? h.descricao : null,
+      xp_recompensa: Math.min(50, Math.max(5, Number(h.xp_recompensa) || 10)),
+      atributo: h.atributo,
+      categoria: typeof h.categoria === "string" ? h.categoria : null,
+      messageId: m.id,
+    };
   }
   return null;
 }
@@ -312,6 +345,10 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
   const pending = await findPendingQuestionFromDb(supabase, userId);
   const askedToday = await hadStructuredQuestionToday(supabase, userId);
   const allowQuestion = !pending && !askedToday;
+  const pendingHabit = await findPendingHabitSuggestionFromDb(supabase, userId);
+  const habitsCount = (habitsRes.data ?? []).length;
+  const allowHabitSuggestion =
+    !pendingHabit && habitsCount < MAX_ACTIVE_HABITS_FOR_SUGGESTION;
 
   let weather = null as Awaited<ReturnType<typeof fetchWeatherForCoords>>;
   const profileLoc = profileRes.data as typeof profileRes.data & {
@@ -373,6 +410,8 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
     objective,
     pendingQuestion: pending,
     allowQuestion,
+    pendingHabitSuggestion: Boolean(pendingHabit),
+    allowHabitSuggestion,
     weather,
     mlScores,
     checkinsSummary,
@@ -438,6 +477,8 @@ async function callMentor(
     objective: snap.objective,
     pendingQuestionToday: Boolean(snap.pendingQuestion),
     allowQuestion: snap.allowQuestion,
+    pendingHabitSuggestion: snap.pendingHabitSuggestion,
+    allowHabitSuggestion: snap.allowHabitSuggestion,
     weather: snap.weather
       ? { label: snap.weather.label, summaryLine: weatherLine }
       : null,
@@ -484,7 +525,7 @@ async function callMentor(
         {
           role: "user",
           content:
-            "Sua resposta anterior veio incompleta. Reenvie o JSON completo e curto: message (máx 4 frases), question null ou prompt curto, challenge null.",
+            "Sua resposta anterior veio incompleta. Reenvie o JSON completo e curto: message (máx 4 frases), question null ou prompt curto, challenge null, habit_suggestion null.",
         },
       ],
       jsonMode: true,
@@ -497,12 +538,13 @@ async function callMentor(
     finishReason = retry.finishReason;
   }
 
-  const payload = parseMentorAiPayload(content);
+  let payload = parseMentorAiPayload(content);
 
   const metadata: Record<string, Json> = {
     model,
     kind: opts.kind,
     has_challenge: Boolean(payload.challenge),
+    has_habit_suggestion: Boolean(payload.habit_suggestion),
   };
   if (opts.challengeOutcome) {
     metadata.cycle = "verify_learn";
@@ -524,8 +566,51 @@ async function callMentor(
     );
   }
 
+  let pendingHabitSuggestion: {
+    titulo: string;
+    descricao: string | null;
+    xp_recompensa: number;
+    atributo: string;
+    categoria: string | null;
+    messageId: string;
+  } | null = null;
+
+  if (payload.habit_suggestion) {
+    const suggestion = payload.habit_suggestion;
+    const duplicate = snap.habits.some((h) => habitTitlesConflict(h.titulo, suggestion.titulo));
+    if (!snap.allowHabitSuggestion) {
+      metadata.habit_suggestion_blocked = true;
+      metadata.habit_suggestion_block_reason = snap.pendingHabitSuggestion
+        ? "pending_exists"
+        : "habit_cap";
+    } else if (duplicate) {
+      metadata.habit_suggestion_blocked = true;
+      metadata.habit_suggestion_block_reason = "duplicate_title";
+    } else {
+      metadata.pending_habit_suggestion = {
+        titulo: suggestion.titulo,
+        descricao: suggestion.descricao,
+        xp_recompensa: suggestion.xp_recompensa,
+        atributo: suggestion.atributo,
+        categoria: suggestion.categoria,
+      };
+      // messageId filled after insert
+      pendingHabitSuggestion = {
+        titulo: suggestion.titulo,
+        descricao: suggestion.descricao,
+        xp_recompensa: suggestion.xp_recompensa,
+        atributo: suggestion.atributo,
+        categoria: suggestion.categoria,
+        messageId: "",
+      };
+      // Never also create a challenge in the same turn
+      payload.challenge = null;
+      metadata.has_challenge = false;
+    }
+  }
+
   let challengeRow = null;
-  if (payload.challenge) {
+  if (payload.challenge && !pendingHabitSuggestion) {
     const guarded = applyChallengeGuardrails(
       {
         titulo: payload.challenge.titulo,
@@ -607,6 +692,9 @@ async function callMentor(
     };
   }
 
+  metadata.has_habit_suggestion = Boolean(pendingHabitSuggestion);
+  metadata.has_challenge = Boolean(challengeRow);
+
   const { data: assistantMsg, error: aErr } = await supabase
     .from("mentor_messages")
     .insert({
@@ -623,6 +711,22 @@ async function callMentor(
     throw new Error(`Falha ao salvar resposta do Mentor: ${aErr?.message ?? "desconhecido"}`);
   }
 
+  if (pendingHabitSuggestion) {
+    pendingHabitSuggestion = { ...pendingHabitSuggestion, messageId: assistantMsg.id };
+    const { createNotification } = await import("@/notifications/create");
+    await createNotification({
+      userId,
+      tipo: "mentor_presence",
+      titulo: "Charlie sugeriu um hábito",
+      corpo: pendingHabitSuggestion.titulo,
+      metadata: {
+        habit_suggestion: true,
+        message_id: assistantMsg.id,
+        href: "/mentor",
+      },
+    });
+  }
+
   return {
     assistantMsg,
     challenge: challengeRow,
@@ -636,6 +740,7 @@ async function callMentor(
             messageId: assistantMsg.id,
           }
         : null,
+    pendingHabitSuggestion,
   };
 }
 
@@ -713,6 +818,8 @@ export const getMentorThread = createServerFn({ method: "POST" })
       pendingQuestion = expireFollowUp.pendingQuestion;
     }
 
+    const pendingHabitSuggestion = await findPendingHabitSuggestionFromDb(supabase, userId);
+
     const challengesEnriched = await enrichChallenges(supabase, userId, chalRes.data ?? []);
 
     const ml = mlRes.error ? null : mlScoresFromRow(mlRes.data as never);
@@ -737,6 +844,7 @@ export const getMentorThread = createServerFn({ method: "POST" })
       onboardingCompleto: profileData?.onboarding_completo ?? false,
       objective,
       pendingQuestion,
+      pendingHabitSuggestion,
       mlRiskLine,
       personality: {
         slug: promptMeta.slug,
@@ -804,13 +912,25 @@ export const ensureMentorPresence = createServerFn({ method: "POST" })
     }
 
     if (!kind) {
-      return { created: false as const, message: null, challenge: null, pendingQuestion: null };
+      return {
+        created: false as const,
+        message: null,
+        challenge: null,
+        pendingQuestion: null,
+        pendingHabitSuggestion: null,
+      };
     }
 
     if (kind !== "welcome" && lastAssistant?.kind === kind) {
       const age = Date.now() - new Date(lastAssistant.created_at).getTime();
       if (age < 1000 * 60 * 60 * 6) {
-        return { created: false as const, message: null, challenge: null, pendingQuestion: null };
+        return {
+          created: false as const,
+          message: null,
+          challenge: null,
+          pendingQuestion: null,
+          pendingHabitSuggestion: null,
+        };
       }
     }
 
@@ -833,6 +953,7 @@ export const ensureMentorPresence = createServerFn({ method: "POST" })
       message: result.assistantMsg,
       challenge: result.challenge,
       pendingQuestion: result.pendingQuestion,
+      pendingHabitSuggestion: result.pendingHabitSuggestion,
       objective: result.objective,
     };
   });
@@ -921,6 +1042,7 @@ export const sendMentorMessage = createServerFn({ method: "POST" })
       assistantMessage: result.assistantMsg,
       challenge: result.challenge,
       pendingQuestion: result.pendingQuestion,
+      pendingHabitSuggestion: result.pendingHabitSuggestion,
       objective: result.objective,
     };
   });
@@ -1112,10 +1234,15 @@ async function maybeChallengeFollowUp(
     return {
       message: result.assistantMsg,
       pendingQuestion: result.pendingQuestion,
+      pendingHabitSuggestion: result.pendingHabitSuggestion,
     };
   } catch (e) {
     console.error("[mentor] challenge follow-up", e);
-    return { message: null as null, pendingQuestion: null as null };
+    return {
+      message: null as null,
+      pendingQuestion: null as null,
+      pendingHabitSuggestion: null as null,
+    };
   }
 }
 
@@ -1126,16 +1253,190 @@ async function maybeExpireCycleFollowUpOnVisit(
   expired: Array<{ id: string; titulo: string }>,
 ) {
   if (!expired.length) {
-    return { message: null as null, pendingQuestion: null as null };
+    return {
+      message: null as null,
+      pendingQuestion: null as null,
+      pendingHabitSuggestion: null as null,
+    };
   }
   if (await hadExpireCycleFollowUpToday(supabase, userId)) {
-    return { message: null as null, pendingQuestion: null as null };
+    return {
+      message: null as null,
+      pendingQuestion: null as null,
+      pendingHabitSuggestion: null as null,
+    };
   }
   return maybeChallengeFollowUp(supabase, userId, {
     titulo: expired[0]!.titulo,
     action: "expire",
   });
 }
+
+async function maybeHabitSuggestionFollowUp(
+  supabase: Client,
+  userId: string,
+  info: { titulo: string; action: "accept" | "decline" },
+) {
+  const pending = await findPendingQuestionFromDb(supabase, userId);
+  const askedToday = await hadStructuredQuestionToday(supabase, userId);
+  const allowQuestion = !pending && !askedToday;
+
+  const { data: recent } = await supabase
+    .from("mentor_messages")
+    .select("role, content")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  const history = [...(recent ?? [])]
+    .reverse()
+    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
+  const { userText, cyclePhaseHint } = habitSuggestionFollowUpUserText(
+    info.titulo,
+    info.action,
+    allowQuestion,
+  );
+
+  try {
+    const result = await callMentor(supabase, userId, {
+      kind: "chat",
+      userText,
+      history,
+      cyclePhaseHint,
+    });
+    return {
+      message: result.assistantMsg,
+      pendingQuestion: result.pendingQuestion,
+      pendingHabitSuggestion: result.pendingHabitSuggestion,
+    };
+  } catch (e) {
+    console.error("[mentor] habit suggestion follow-up", e);
+    return {
+      message: null as null,
+      pendingQuestion: null as null,
+      pendingHabitSuggestion: null as null,
+    };
+  }
+}
+
+export const respondMentorHabitSuggestion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z
+      .object({
+        messageId: z.string().uuid(),
+        action: z.enum(["accept", "decline"]),
+      })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+
+    const pending = await findPendingHabitSuggestionFromDb(supabase, userId);
+    if (!pending || pending.messageId !== data.messageId) {
+      throw new Error("Nenhuma sugestão de hábito pendente.");
+    }
+
+    const { data: msg, error: msgErr } = await supabase
+      .from("mentor_messages")
+      .select("id, metadata")
+      .eq("id", data.messageId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (msgErr) throw new Error(msgErr.message);
+    if (!msg) throw new Error("Mensagem não encontrada.");
+
+    const atributoSchema = z.enum([
+      "forca",
+      "disciplina",
+      "sabedoria",
+      "espirito",
+      "testosterona",
+      "prosperidade",
+      "conhecimento",
+      "lideranca",
+    ]);
+    const categoriaSchema = z
+      .enum(["corpo", "mente", "espirito", "prosperidade", "relacionamentos", "proposito"])
+      .nullable();
+
+    const atributoParsed = atributoSchema.safeParse(pending.atributo);
+    const atributo = atributoParsed.success ? atributoParsed.data : "disciplina";
+    const categoriaParsed = categoriaSchema.safeParse(pending.categoria);
+    const categoria = categoriaParsed.success ? categoriaParsed.data : null;
+
+    let habit = null as
+      | {
+          id: string;
+          titulo: string;
+          descricao: string | null;
+          xp_recompensa: number;
+          atributo: string;
+          categoria: string | null;
+          ativo: boolean;
+          created_at: string;
+        }
+      | null;
+
+    if (data.action === "accept") {
+      const { data: existing } = await supabase
+        .from("habits")
+        .select("id, titulo")
+        .eq("user_id", userId)
+        .eq("ativo", true);
+
+      if ((existing ?? []).some((h) => habitTitlesConflict(h.titulo, pending.titulo))) {
+        throw new Error("Você já tem um hábito parecido. Recuse ou ajuste o título.");
+      }
+
+      const { data: row, error: hErr } = await supabase
+        .from("habits")
+        .insert({
+          user_id: userId,
+          titulo: pending.titulo,
+          descricao: pending.descricao ?? undefined,
+          xp_recompensa: pending.xp_recompensa,
+          atributo,
+          categoria: categoria ?? undefined,
+        })
+        .select(HABIT_COLS)
+        .single();
+      if (hErr) throw new Error(hErr.message);
+      habit = row;
+
+      await supabase.from("mentor_memories").insert({
+        user_id: userId,
+        content: `Aceitou hábito sugerido por Charlie: "${pending.titulo}"`.slice(0, 400),
+        importance: 4,
+      });
+      await pruneMemories(supabase, userId);
+    }
+
+    const meta = {
+      ...((msg.metadata ?? {}) as object),
+      habit_suggestion_answered: true,
+      habit_suggestion_outcome: data.action,
+      ...(habit ? { created_habit_id: habit.id } : {}),
+    };
+    const { error: upErr } = await supabase
+      .from("mentor_messages")
+      .update({ metadata: meta as Json })
+      .eq("id", msg.id)
+      .eq("user_id", userId);
+    if (upErr) throw new Error(upErr.message);
+
+    const followUp = await maybeHabitSuggestionFollowUp(supabase, userId, {
+      titulo: pending.titulo,
+      action: data.action,
+    });
+
+    return {
+      habit,
+      action: data.action,
+      ...followUp,
+    };
+  });
 
 export const listCompletedMentorChallenges = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

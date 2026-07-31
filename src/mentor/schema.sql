@@ -9,3 +9,4 @@
 --   mentor_message_role, mentor_message_kind, mentor_challenge_status
 --   mentor_messages, mentor_memories, mentor_challenges, mentor_objectives
 -- Charlie Fase 1: objetivo persistente; habit_id + completions_required nos desafios
+-- Charlie hábitos: sugestões em mentor_messages.metadata.pending_habit_suggestion (aceite via respondMentorHabitSuggestion)
