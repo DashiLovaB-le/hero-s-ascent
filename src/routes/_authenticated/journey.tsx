@@ -19,6 +19,7 @@ import { CheckinCard } from "@/components/CheckinCard";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
+import { showXpGainPopup } from "@/components/XpGainPopup";
 
 function JourneyPending() {
   return (
@@ -103,14 +104,17 @@ function JourneyPage() {
       return { prev };
     },
     onSuccess: (res) => {
-      let msg = `+${res.xpGanho} XP · Streak ${res.streak}🔥`;
+      const detailParts: string[] = [`Streak ${res.streak}`];
       if (res.unlockedAchievements?.length) {
-        msg += ` · ${res.unlockedAchievements.map((a) => a.titulo).join(", ")}`;
+        detailParts.push(res.unlockedAchievements.map((a) => a.titulo).join(", "));
       }
+      showXpGainPopup({
+        xp: res.xpGanho,
+        detail: detailParts.join(" · "),
+      });
       if (res.chapterChanged) {
         toast.success(`Capítulo ${res.chapterChanged.to}: ${res.chapterChanged.nome}`);
       }
-      toast.success(msg);
       queryClient.setQueryData<JourneyData>(["journey"], (old) => patchComplete(old, res));
       void queryClient.invalidateQueries({ queryKey: ["notifications"] });
       void queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });

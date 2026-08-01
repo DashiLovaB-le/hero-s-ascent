@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { showXpGainPopup } from "@/components/XpGainPopup";
 
 export const Route = createFileRoute("/_authenticated/habits")({
   loader: ({ context }) => context.queryClient.ensureQueryData(journeyQueryOptions()),
@@ -126,11 +127,14 @@ function HabitsPage() {
       return { prev };
     },
     onSuccess: (r) => {
-      let msg = `+${r.xpGanho} XP`;
+      const detailParts: string[] = [];
       if (r.unlockedAchievements?.length) {
-        msg += ` · ${r.unlockedAchievements.map((a) => a.titulo).join(", ")}`;
+        detailParts.push(r.unlockedAchievements.map((a) => a.titulo).join(", "));
       }
-      toast.success(msg);
+      showXpGainPopup({
+        xp: r.xpGanho,
+        detail: detailParts.length ? detailParts.join(" · ") : null,
+      });
       if (r.chapterChanged) {
         toast.success(`Capítulo ${r.chapterChanged.to}: ${r.chapterChanged.nome}`);
       }

@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
+import { XpGainPopupHost } from "@/components/XpGainPopup";
 import {
   getMaintenanceStatus,
   canBypassMaintenance,
@@ -198,6 +199,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <Outlet />
       <Toaster richColors position="top-center" />
+      <XpGainPopupHost />
     </QueryClientProvider>
   );
 }
