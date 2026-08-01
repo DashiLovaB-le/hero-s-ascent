@@ -51,7 +51,7 @@ const PROFILE_COLS =
   "id, nome, avatar_url, bio, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, frase_motivacional, onboarding_completo";
 const ATTR_COLS =
   "user_id, forca, disciplina, sabedoria, espirito, testosterona, prosperidade, conhecimento, lideranca";
-const HABIT_COLS = "id, titulo, descricao, xp_recompensa, atributo, categoria, ativo, created_at";
+const HABIT_COLS = "id, titulo, descricao, xp_recompensa, atributo, categoria, ativo, created_at, exercise_type_id";
 
 // ---------- GET JOURNEY (bootstrap embutido + selects enxutos) ----------
 export const getJourney = createServerFn({ method: "POST" })
@@ -195,6 +195,9 @@ export const completeHabit = createServerFn({ method: "POST" })
 
     const habit = habitRes.data;
     if (habitRes.error || !habit) throw new Error("Hábito não encontrado");
+    if ((habit as { exercise_type_id?: string | null }).exercise_type_id) {
+      throw new Error("Este hábito é validado por sessão. Abra Exercícios e inicie uma sessão.");
+    }
     if (existingRes.data) throw new Error("Hábito já concluído hoje");
 
     const prof = profRes.data;

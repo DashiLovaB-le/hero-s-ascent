@@ -20,25 +20,25 @@ To-do por fases. Marque `[x]` conforme concluir.
 
 Objetivo: travar regras de negócio e o contrato mínimo da sessão de flexão.
 
-- [ ] Documentar tipos de hábito
-  - [ ] `declared` — check manual (atual)
-  - [ ] `validated_exercise` — exige sessão
-- [ ] Contrato mínimo da sessão de flexão
-  - [ ] `reps_validas`
-  - [ ] `reps_invalidas`
-  - [ ] `duracao_ms`
-  - [ ] `amplitude_media` (0–100 ou ângulo normalizado)
-  - [ ] `forma_pct` (% de reps consideradas corretas)
-  - [ ] `cadencia_rpm` (opcional no MVP)
-  - [ ] `fatigue_rep_index` (opcional: rep onde amplitude cai)
-- [ ] Regras de XP
-  - [ ] XP base por sessão vs por rep válida (escolher uma e documentar)
-  - [ ] Cap diário / anti-abuso (máx sessões ou reps/dia)
-  - [ ] Sessão inválida / cancelada → sem XP
-- [ ] Privacidade / UX legal
-  - [ ] Consentimento explícito da câmera antes da 1ª sessão
-  - [ ] Copy: “estimativa de execução, não avaliação médica”
-  - [ ] Texto: vídeo processado só em tempo real no device; nada é gravado
+- [x] Documentar tipos de hábito
+  - [x] `declared` — check manual (atual)
+  - [x] `validated_exercise` — exige sessão (`habits.exercise_type_id`)
+- [x] Contrato mínimo da sessão de flexão
+  - [x] `reps_validas`
+  - [x] `reps_invalidas`
+  - [x] `duracao_ms`
+  - [x] `amplitude_media` (0–100 ou ângulo normalizado)
+  - [x] `forma_pct` (% de reps consideradas corretas)
+  - [x] `cadencia_rpm` (opcional no MVP)
+  - [x] `fatigue_rep_index` (opcional: rep onde amplitude cai)
+- [x] Regras de XP
+  - [x] **Híbrido**: `xp_base + xp_por_rep_valida * reps` × fator forma (0.5–1.0), teto `xp_sessao_max`
+  - [x] Cap diário: `sessoes_por_dia_max` (seed flexão = 3)
+  - [x] Sessão inválida / cancelada / 0 reps → sem XP
+- [x] Privacidade / UX legal
+  - [x] Consentimento explícito da câmera antes da 1ª sessão (checkbox na página)
+  - [x] Copy: “estimativa de execução, não avaliação médica”
+  - [x] Texto: vídeo processado só em tempo real no device; nada é gravado
 - [ ] Critérios de “rep válida” (flexão) — v0
   - [ ] Ângulos de cotovelo (descida / subida)
   - [ ] Histerese para evitar double-count
@@ -50,32 +50,31 @@ Objetivo: travar regras de negócio e o contrato mínimo da sessão de flexão.
 
 Objetivo: persistir sessões e amarrar ao hábito/XP, com fluxo stub.
 
-- [ ] Migration Supabase
-  - [ ] `exercise_types` (seed: `pushup` / flexão)
-  - [ ] `exercise_sessions`
-    - [ ] `id`, `user_id`, `exercise_type`, `habit_id` (nullable)
-    - [ ] `status` (`active` | `completed` | `cancelled` | `rejected`)
-    - [ ] `started_at`, `ended_at`
-    - [ ] `client_meta` (JSONB: userAgent, permissão câmera)
-    - [ ] `consent_version`
-  - [ ] `exercise_session_metrics`
-    - [ ] FK `session_id`
-    - [ ] colunas do contrato mínimo
-  - [ ] Índices `(user_id, started_at DESC)`, `(habit_id, started_at DESC)`
-  - [ ] RLS: usuário só lê as próprias; INSERT/UPDATE de métricas via server fn / service role conforme padrão do app
-- [ ] Tipos gerados / Zod no app
-- [ ] Server functions
-  - [ ] `startExerciseSession`
-  - [ ] `completeExerciseSession` (recebe métricas; valida; grava; libera XP se ok)
-  - [ ] `cancelExerciseSession`
-  - [ ] `listExerciseSessions` (histórico recente)
-- [ ] Integração com hábitos
-  - [ ] Campo/flag no hábito: `validation_mode = validated_exercise` + `exercise_type = pushup`
-  - [ ] Bloquear `completeHabit` direto quando modo validado
-  - [ ] Criar/editar hábito de flexão validada (UI mínima ou seed)
-- [ ] Stub de UI “Iniciar sessão”
-  - [ ] Sem pose ainda: botão → sessão → formulário manual de reps (só para testar XP/pipeline)
-  - [ ] Remover stub quando a Fase 2 estiver estável
+- [x] Migration Supabase
+  - [x] `exercise_types` (seed: `pushup` / flexão)
+  - [x] `exercise_sessions`
+  - [x] `exercise_session_metrics`
+  - [x] `habits.exercise_type_id` + unique (user, type) ativo
+  - [x] RLS / grants (SELECT own; writes via service role)
+- [x] Tipos gerados / Zod no app
+- [x] Server functions
+  - [x] `startExerciseSession`
+  - [x] `completeExerciseSession`
+  - [x] `cancelExerciseSession`
+  - [x] `listRecentExerciseSessions` / `ensureValidatedExerciseHabit`
+- [x] Integração com hábitos
+  - [x] Flag via `exercise_type_id`
+  - [x] Bloquear `completeHabit` direto quando validado
+  - [x] Auto-criar hábito de flexão na 1ª visita à página
+- [x] Stub de UI
+  - [x] Card em `/habits` → `/exercises/pushup`
+  - [x] Página dedicada com stub de métricas manuais (até Fase 2)
+- [ ] Remover stub quando a Fase 2 estiver estável
+
+**Decisões travadas (2026-08-01)**
+1. XP híbrido
+2. Card em Hábitos → rota `/exercises/$slug`
+3. Tipo global em `exercise_types` (igual para todos); hábito por usuário ligado ao tipo
 
 ---
 
@@ -83,30 +82,31 @@ Objetivo: persistir sessões e amarrar ao hábito/XP, com fluxo stub.
 
 Objetivo: primeira sessão real sem gravar vídeo.
 
-- [ ] Tela `/habits/.../session` ou modal full-screen “Sessão de flexão”
-  - [ ] Setup: como posicionar o celular (diagrama simples)
-  - [ ] Pedido de permissão de câmera
-  - [ ] Preview espelhado
-  - [ ] Controles: Iniciar / Pausar / Encerrar
-- [ ] Pipeline on-device
-  - [ ] `getUserMedia` (sem `MediaRecorder`)
-  - [ ] Pose (MediaPipe Pose ou equivalente leve)
-  - [ ] Loop de frames com cap de FPS (ex.: 24–30)
-  - [ ] Garantir: nenhum upload de frame/vídeo
-- [ ] Motor de reps (flexão v0)
-  - [ ] Estados: `idle` → `descending` → `bottom` → `ascending` → `lockout`
-  - [ ] Contador de reps válidas / inválidas
-  - [ ] Amplitude por rep
-  - [ ] HUD: `Flexão #N ✔` / feedback curto de erro
-- [ ] Encerrar sessão
-  - [ ] Montar payload de métricas
-  - [ ] Chamar `completeExerciseSession`
+- [x] Tela `/habits/.../session` ou modal full-screen “Sessão de flexão”
+  - [x] Setup: guia de enquadramento (viewfinder) + copy de posicionamento
+  - [x] Pedido de permissão de câmera
+  - [x] Preview espelhado
+  - [x] Controles: Encerrar / Cancelar / Recalibrar (+ troca frontal/traseira)
+- [x] Pipeline on-device
+  - [x] `getUserMedia` (sem `MediaRecorder`)
+  - [x] Pose (MediaPipe PoseLandmarker lite, GPU→CPU fallback)
+  - [x] Loop rAF com `detectForVideo` (sem overlap de frames)
+  - [x] Garantir: nenhum upload de frame/vídeo
+- [x] Motor de reps (flexão v0) + coaching estilo Push Up Boss
+  - [x] Fluxo: `framing` → `calibrating` (~3s) → `tracking`
+  - [x] Limiares adaptativos ao lockout do herói
+  - [x] Contador de reps válidas / inválidas
+  - [x] Amplitude por rep + barra de profundidade
+  - [x] HUD: contagem + cues de postura + skeleton colorido + flash
+- [x] Encerrar sessão
+  - [x] Montar payload de métricas (auto, sem input manual)
+  - [x] Chamar `completeExerciseSession`
   - [ ] Tela de resumo (reps, amplitude, forma %, tempo, XP)
-  - [ ] Reusar pop-up de XP cyberpunk se aplicável
+  - [x] Reusar pop-up de XP cyberpunk se aplicável
 - [ ] Qualidade / robustez
-  - [ ] Detecção de “corpo incompleto no frame”
-  - [ ] Aviso de pouca luz / pessoa longe
-  - [ ] Cancelamento limpo (sem XP)
+  - [x] Detecção de “corpo incompleto no frame” / fora da guia
+  - [x] Aviso de pessoa longe/perto (shoulder span)
+  - [x] Cancelamento limpo (sem XP)
 - [ ] Testes manuais
   - [ ] Android Chrome
   - [ ] iOS Safari
@@ -118,10 +118,10 @@ Objetivo: primeira sessão real sem gravar vídeo.
 
 Objetivo: feedback durante a série e memória útil para o Charlie.
 
-- [ ] Correções em tempo real (regras v1)
-  - [ ] “Desça um pouco mais”
-  - [ ] “Estenda totalmente os braços”
-  - [ ] “Corpo desalinhado” (quadril/ombro)
+- [x] Correções em tempo real (regras v1)
+  - [x] “Desça um pouco mais”
+  - [x] “Estenda totalmente os braços”
+  - [x] “Corpo desalinhado” (quadril/ombro)
 - [ ] Métricas extras no resumo
   - [ ] Cadência
   - [ ] Índice de fadiga (queda de amplitude)

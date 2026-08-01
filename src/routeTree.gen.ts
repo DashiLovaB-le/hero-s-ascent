@@ -41,6 +41,7 @@ import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
 import { Route as DashitecnologyUsersIndexRouteImport } from './routes/dashitecnology/users.index'
 import { Route as DashitecnologyUsersUserIdRouteImport } from './routes/dashitecnology/users.$userId'
+import { Route as AuthenticatedExercisesSlugRouteImport } from './routes/_authenticated/exercises.$slug'
 
 const MaintenanceRoute = MaintenanceRouteImport.update({
   id: '/maintenance',
@@ -207,6 +208,12 @@ const DashitecnologyUsersUserIdRoute =
     path: '/$userId',
     getParentRoute: () => DashitecnologyUsersRoute,
   } as any)
+const AuthenticatedExercisesSlugRoute =
+  AuthenticatedExercisesSlugRouteImport.update({
+    id: '/exercises/$slug',
+    path: '/exercises/$slug',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -238,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/dashitecnology/users': typeof DashitecnologyUsersRouteWithChildren
   '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
   '/dashitecnology/': typeof DashitecnologyIndexRoute
+  '/exercises/$slug': typeof AuthenticatedExercisesSlugRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
   '/dashitecnology/users/': typeof DashitecnologyUsersIndexRoute
 }
@@ -269,6 +277,7 @@ export interface FileRoutesByTo {
   '/dashitecnology/tokens': typeof DashitecnologyTokensRoute
   '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
   '/dashitecnology': typeof DashitecnologyIndexRoute
+  '/exercises/$slug': typeof AuthenticatedExercisesSlugRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
   '/dashitecnology/users': typeof DashitecnologyUsersIndexRoute
 }
@@ -304,6 +313,7 @@ export interface FileRoutesById {
   '/dashitecnology/users': typeof DashitecnologyUsersRouteWithChildren
   '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
   '/dashitecnology/': typeof DashitecnologyIndexRoute
+  '/_authenticated/exercises/$slug': typeof AuthenticatedExercisesSlugRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
   '/dashitecnology/users/': typeof DashitecnologyUsersIndexRoute
 }
@@ -339,6 +349,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/users'
     | '/dashitecnology/wallpapers'
     | '/dashitecnology/'
+    | '/exercises/$slug'
     | '/dashitecnology/users/$userId'
     | '/dashitecnology/users/'
   fileRoutesByTo: FileRoutesByTo
@@ -370,6 +381,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/tokens'
     | '/dashitecnology/wallpapers'
     | '/dashitecnology'
+    | '/exercises/$slug'
     | '/dashitecnology/users/$userId'
     | '/dashitecnology/users'
   id:
@@ -404,6 +416,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/users'
     | '/dashitecnology/wallpapers'
     | '/dashitecnology/'
+    | '/_authenticated/exercises/$slug'
     | '/dashitecnology/users/$userId'
     | '/dashitecnology/users/'
   fileRoutesById: FileRoutesById
@@ -642,6 +655,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashitecnologyUsersUserIdRouteImport
       parentRoute: typeof DashitecnologyUsersRoute
     }
+    '/_authenticated/exercises/$slug': {
+      id: '/_authenticated/exercises/$slug'
+      path: '/exercises/$slug'
+      fullPath: '/exercises/$slug'
+      preLoaderRoute: typeof AuthenticatedExercisesSlugRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -652,6 +672,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMentorRoute: typeof AuthenticatedMentorRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedExercisesSlugRoute: typeof AuthenticatedExercisesSlugRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -661,6 +682,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMentorRoute: AuthenticatedMentorRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedExercisesSlugRoute: AuthenticatedExercisesSlugRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

@@ -242,8 +242,9 @@ function UserDetailPage() {
       <Panel className="mt-4 border-destructive/30" title="Zona de risco">
         <p className="mb-3 text-sm text-white/55">
           Apaga o histórico deste herói: chat do Charlie, memórias, desafios, conclusões de hábitos,
-          check-ins, missões, notificações, scores ML e uso de IA. Zera XP, streak, capítulo e
-          atributos (volta tudo para 1). Mantém conta, nome, hábitos/metas cadastrados e roles.
+          sessões de exercício validado (flexões e métricas), check-ins, missões, notificações,
+          scores ML e uso de IA. Zera XP, streak, capítulo e atributos (volta tudo para 1). Mantém
+          conta, nome, hábitos/metas cadastrados e roles.
         </p>
         <AlertDialog
           open={clearOpen}

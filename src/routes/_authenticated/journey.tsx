@@ -151,9 +151,12 @@ function JourneyPage() {
     setWallpaperCatalog(data.wallpapers);
   }, [data.wallpapers]);
 
-  const habitsRestantes = data.habits.filter((h) => !data.completedToday.includes(h.id));
-  const totalHoje = data.habits.length;
-  const feitos = data.completedToday.length;
+  const habitsRestantes = data.habits.filter(
+    (h) => !h.exercise_type_id && !data.completedToday.includes(h.id),
+  );
+  const declaredHabits = data.habits.filter((h) => !h.exercise_type_id);
+  const totalHoje = declaredHabits.length;
+  const feitos = declaredHabits.filter((h) => data.completedToday.includes(h.id)).length;
   const activeMissions = missionsData.missions.filter((m) => m.status === "ativa");
   const principal = activeMissions.find((m) => m.kind === "principal");
   const secundarias = activeMissions.filter((m) => m.kind === "secundaria");
@@ -230,7 +233,7 @@ function JourneyPage() {
 
         {totalHoje > 0 && <Progress value={(feitos / totalHoje) * 100} className="mb-4 h-1.5" />}
 
-        {data.habits.length === 0 ? (
+        {declaredHabits.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border py-10 text-center">
             <Target className="mx-auto h-8 w-8 text-muted-foreground" />
             <p className="mt-3 text-sm text-muted-foreground">
@@ -249,7 +252,7 @@ function JourneyPage() {
           </div>
         ) : (
           <ul className="space-y-2">
-            {data.habits.map((h) => {
+            {declaredHabits.map((h) => {
               const done = data.completedToday.includes(h.id);
               return (
                 <li

@@ -203,6 +203,7 @@ export type Database = {
           categoria: Database["public"]["Enums"]["goal_category"] | null
           created_at: string
           descricao: string | null
+          exercise_type_id: string | null
           id: string
           titulo: string
           user_id: string
@@ -214,6 +215,7 @@ export type Database = {
           categoria?: Database["public"]["Enums"]["goal_category"] | null
           created_at?: string
           descricao?: string | null
+          exercise_type_id?: string | null
           id?: string
           titulo: string
           user_id: string
@@ -225,12 +227,170 @@ export type Database = {
           categoria?: Database["public"]["Enums"]["goal_category"] | null
           created_at?: string
           descricao?: string | null
+          exercise_type_id?: string | null
           id?: string
           titulo?: string
           user_id?: string
           xp_recompensa?: number
         }
+        Relationships: [
+          {
+            foreignKeyName: "habits_exercise_type_id_fkey"
+            columns: ["exercise_type_id"]
+            isOneToOne: false
+            referencedRelation: "exercise_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercise_types: {
+        Row: {
+          id: string
+          slug: string
+          nome: string
+          descricao: string | null
+          atributo_padrao: Database["public"]["Enums"]["attribute_type"]
+          categoria_padrao: Database["public"]["Enums"]["goal_category"]
+          xp_base: number
+          xp_por_rep_valida: number
+          xp_sessao_max: number
+          sessoes_por_dia_max: number
+          ativo: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          slug: string
+          nome: string
+          descricao?: string | null
+          atributo_padrao?: Database["public"]["Enums"]["attribute_type"]
+          categoria_padrao?: Database["public"]["Enums"]["goal_category"]
+          xp_base?: number
+          xp_por_rep_valida?: number
+          xp_sessao_max?: number
+          sessoes_por_dia_max?: number
+          ativo?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          slug?: string
+          nome?: string
+          descricao?: string | null
+          atributo_padrao?: Database["public"]["Enums"]["attribute_type"]
+          categoria_padrao?: Database["public"]["Enums"]["goal_category"]
+          xp_base?: number
+          xp_por_rep_valida?: number
+          xp_sessao_max?: number
+          sessoes_por_dia_max?: number
+          ativo?: boolean
+          sort_order?: number
+          created_at?: string
+        }
         Relationships: []
+      }
+      exercise_sessions: {
+        Row: {
+          id: string
+          user_id: string
+          exercise_type_id: string
+          habit_id: string | null
+          status: Database["public"]["Enums"]["exercise_session_status"]
+          started_at: string
+          ended_at: string | null
+          consent_version: string
+          client_meta: Json
+          xp_ganho: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          exercise_type_id: string
+          habit_id?: string | null
+          status?: Database["public"]["Enums"]["exercise_session_status"]
+          started_at?: string
+          ended_at?: string | null
+          consent_version?: string
+          client_meta?: Json
+          xp_ganho?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          exercise_type_id?: string
+          habit_id?: string | null
+          status?: Database["public"]["Enums"]["exercise_session_status"]
+          started_at?: string
+          ended_at?: string | null
+          consent_version?: string
+          client_meta?: Json
+          xp_ganho?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_sessions_exercise_type_id_fkey"
+            columns: ["exercise_type_id"]
+            isOneToOne: false
+            referencedRelation: "exercise_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_sessions_habit_id_fkey"
+            columns: ["habit_id"]
+            isOneToOne: false
+            referencedRelation: "habits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercise_session_metrics: {
+        Row: {
+          session_id: string
+          reps_validas: number
+          reps_invalidas: number
+          duracao_ms: number
+          amplitude_media: number | null
+          forma_pct: number | null
+          cadencia_rpm: number | null
+          fatigue_rep_index: number | null
+          created_at: string
+        }
+        Insert: {
+          session_id: string
+          reps_validas?: number
+          reps_invalidas?: number
+          duracao_ms?: number
+          amplitude_media?: number | null
+          forma_pct?: number | null
+          cadencia_rpm?: number | null
+          fatigue_rep_index?: number | null
+          created_at?: string
+        }
+        Update: {
+          session_id?: string
+          reps_validas?: number
+          reps_invalidas?: number
+          duracao_ms?: number
+          amplitude_media?: number | null
+          forma_pct?: number | null
+          cadencia_rpm?: number | null
+          fatigue_rep_index?: number | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_session_metrics_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "exercise_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       levels: {
         Row: {
@@ -1208,6 +1368,7 @@ export type Database = {
         | "prosperidade"
         | "conhecimento"
         | "lideranca"
+      exercise_session_status: "active" | "completed" | "cancelled" | "rejected"
       goal_category:
         | "corpo"
         | "mente"
@@ -1364,6 +1525,7 @@ export const Constants = {
         "conhecimento",
         "lideranca",
       ],
+      exercise_session_status: ["active", "completed", "cancelled", "rejected"],
       goal_category: [
         "corpo",
         "mente",

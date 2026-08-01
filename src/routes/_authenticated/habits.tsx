@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Plus, Trash2, Flame, Pencil, Sparkles, Check } from "lucide-react";
+import { Plus, Trash2, Flame, Pencil, Sparkles, Check, ChevronsUp, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -202,6 +202,9 @@ function HabitsPage() {
     onError: (e) => toast.error(e.message),
   });
 
+  const declaredHabits = data.habits.filter((h) => !h.exercise_type_id);
+  const validatedHabits = data.habits.filter((h) => Boolean(h.exercise_type_id));
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -301,11 +304,28 @@ function HabitsPage() {
         </DialogContent>
       </Dialog>
 
+      <Link to="/exercises/$slug" params={{ slug: "pushup" }} className="block">
+        <div className="cp-panel flex items-center gap-4 border border-transparent bg-hero-glow p-4 transition-[filter] hover:brightness-110">
+          <div className="grid h-12 w-12 place-items-center bg-hero/20 text-hero">
+            <ChevronsUp className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">Exercício validado</p>
+            <p className="font-display text-lg leading-tight">Flexão</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Sessão com câmera · sem gravar vídeo · XP por evidência
+              {validatedHabits.length > 0 ? " · hábito ativo" : ""}
+            </p>
+          </div>
+          <ArrowRight className="h-4 w-4 shrink-0 text-hero" />
+        </div>
+      </Link>
+
       <Card className="p-4">
-        {data.habits.length === 0 ? (
+        {declaredHabits.length === 0 ? (
           <div className="py-10 text-center">
             <p className="text-sm text-muted-foreground">
-              Sem hábitos ainda. Comece pequeno — ou peça sugestões ao Charlie.
+              Sem hábitos declarados ainda. Comece pequeno — ou peça sugestões ao Charlie.
             </p>
             <Button
               className="mt-4"
@@ -319,7 +339,7 @@ function HabitsPage() {
           </div>
         ) : (
           <ul className="divide-y divide-border">
-            {data.habits.map((h) => {
+            {declaredHabits.map((h) => {
               const done = data.completedToday.includes(h.id);
               return (
                 <li key={h.id} className="flex items-center justify-between gap-3 py-3">
