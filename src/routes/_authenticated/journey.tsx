@@ -16,6 +16,7 @@ import { setWallpaperCatalog } from "@/lib/wallpapers";
 import { chapterName } from "@/lib/chapters";
 import { MentorJourneyCard } from "@/mentor/MentorJourneyCard";
 import { CheckinCard } from "@/components/CheckinCard";
+import { WeatherCard } from "@/components/WeatherCard";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
@@ -305,6 +306,8 @@ function JourneyPage() {
 
       <MentorJourneyCard />
       <CheckinCard />
+
+      <WeatherCard />
 
       <Card className="p-6">
         <h2 className="mb-4 font-display text-lg font-semibold">Atributos</h2>

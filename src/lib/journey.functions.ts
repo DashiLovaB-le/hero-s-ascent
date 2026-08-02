@@ -3,7 +3,8 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { geocodeLocationQuery } from "@/lib/weather";
+import { geocodeLocationQuery, fetchWeatherForCoords } from "@/lib/weather";
+import type { WeatherSnapshot } from "@/lib/weather";
 import {
   DEFAULT_WALLPAPER_ID,
   getWallpaperById,
@@ -160,6 +161,52 @@ export const getJourney = createServerFn({ method: "POST" })
 export const bootstrapUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async () => ({ ok: true as const }));
+
+/** Clima da jornada — Open-Meteo com a região salva no perfil. */
+export const getJourneyWeather = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("location_label, location_lat, location_lon, location_timezone")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      if (/location_/i.test(error.message)) {
+        return { configured: false as const, weather: null, label: null };
+      }
+      throw new Error(error.message);
+    }
+
+    const lat = profile?.location_lat;
+    const lon = profile?.location_lon;
+    const label = profile?.location_label?.trim() || null;
+
+    if (
+      typeof lat !== "number" ||
+      typeof lon !== "number" ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lon)
+    ) {
+      return { configured: false as const, weather: null, label };
+    }
+
+    const weather = await fetchWeatherForCoords({
+      lat,
+      lon,
+      label: label || "sua região",
+      timezone: profile?.location_timezone,
+    });
+
+    return {
+      configured: true as const,
+      weather,
+      label: weather?.label ?? label,
+    };
+  });
 
 // ---------- COMPLETE HABIT (3 RTTs em vez de ~8) ----------
 export const completeHabit = createServerFn({ method: "POST" })
