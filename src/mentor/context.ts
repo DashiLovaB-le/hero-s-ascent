@@ -1,6 +1,10 @@
 import { calcularNivel, ATRIBUTO_LABELS, LEVELS } from "@/lib/journey";
 import { formatMlSignalsForMentor, type MlScoresV1 } from "@/lib/ml/features";
 import { addDaysToDateKey, hojeISO } from "@/lib/datetime";
+import {
+  formatMentorGoalsBlock,
+  type MentorGoalItem,
+} from "@/lib/mentor-goals";
 
 export type MentorPresenceKind = "welcome" | "morning" | "evening" | "return" | "insight" | null;
 
@@ -16,7 +20,6 @@ type AttrRow = {
 };
 
 type HabitRow = { id: string; titulo: string; atributo: string };
-type GoalRow = { titulo: string; categoria: string };
 type CompletionRow = { habit_id: string; dia: string };
 type MemoryRow = { content: string; importance: number };
 type ChallengeRow = { titulo: string; status: string; descricao: string };
@@ -39,7 +42,8 @@ export type MentorContextInput = {
   created_at: string;
   attributes: AttrRow;
   habits: HabitRow[];
-  goals: GoalRow[];
+  /** Metas enriquecidas (progresso, nortes, hábitos ligados). */
+  goals: MentorGoalItem[];
   completionsLast21: CompletionRow[];
   completedTodayIds: string[];
   memories: MemoryRow[];
@@ -273,11 +277,7 @@ export function buildMentorContextBlock(input: MentorContextInput): string {
     `Atributo mais forte: ${strongest}`,
     `Atributo mais fraco: ${weakest}`,
     `Atributos: ${attrs.map((a) => `${a.label}: ${a.value}`).join(", ")}`,
-    `Metas ativas: ${
-      input.goals.length
-        ? input.goals.map((g) => `[${g.categoria}] ${g.titulo}`).join("; ")
-        : "nenhuma"
-    }`,
+    formatMentorGoalsBlock(input.goals),
     `Hábitos ativos (use id se vincular desafio): ${habitsWithIds || "nenhum"}`,
     `Contagem de hábitos ativos: ${input.habits.length}`,
     `Concluídos hoje (${feitosHoje.length}/${input.habits.length}): ${feitosHoje.join("; ") || "nenhum"}`,

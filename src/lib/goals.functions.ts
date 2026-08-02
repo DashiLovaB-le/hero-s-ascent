@@ -443,6 +443,26 @@ export const completeGoal = createServerFn({ method: "POST" })
       metadata: { goal_id: goal.id, categoria: goal.categoria },
     });
 
+    await supabaseAdmin.from("mentor_memories").insert({
+      user_id: userId,
+      content: `Conquistou a meta [${goal.categoria}] "${goal.titulo}"${
+        goal.motivo ? ` — ${goal.motivo.slice(0, 120)}` : ""
+      }.`,
+      importance: 4,
+    });
+
+    // Manter no máx. ~20 memórias
+    const { data: allMem } = await supabaseAdmin
+      .from("mentor_memories")
+      .select("id, importance, created_at")
+      .eq("user_id", userId)
+      .order("importance", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (allMem && allMem.length > 20) {
+      const drop = allMem.slice(0, allMem.length - 20).map((m) => m.id);
+      if (drop.length) await supabaseAdmin.from("mentor_memories").delete().in("id", drop);
+    }
+
     const progress = await evaluateProgress(supabase as Client, userId, before, {
       ...before,
       xp_total: afterXp,

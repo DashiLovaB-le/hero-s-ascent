@@ -27,6 +27,7 @@ import {
 import { loadCheckinsForMentor } from "@/lib/checkins.functions";
 import { addDaysToDateKey, calendarDateInTz, hourInTz, hojeISO } from "@/lib/datetime";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { assembleMentorGoals } from "@/lib/mentor-goals";
 
 type Client = SupabaseClient<Database>;
 
@@ -260,10 +261,18 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
         .maybeSingle(),
       supabase
         .from("habits")
-        .select("id, titulo, atributo")
+        .select("id, titulo, atributo, categoria, goal_id, ativo")
         .eq("user_id", userId)
         .eq("ativo", true),
-      supabase.from("goals").select("titulo, categoria").eq("user_id", userId).eq("status", "ativa"),
+      supabase
+        .from("goals")
+        .select(
+          "id, titulo, categoria, status, is_norte, motivo, prazo, completed_at",
+        )
+        .eq("user_id", userId)
+        .in("status", ["ativa", "pausada", "concluida"])
+        .order("is_norte", { ascending: false })
+        .order("created_at", { ascending: true }),
       supabase.from("habit_completions").select("habit_id").eq("user_id", userId).eq("dia", hoje),
       supabase
         .from("habit_completions")
@@ -397,11 +406,45 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
     checkinsSummary = `CHECK-INS (mais recentes): ${lines.join(" | ")}`;
   }
 
+  const since14 = `${addDaysToDateKey(hoje, -14)}T00:00:00.000Z`;
+  const since7 = addDaysToDateKey(hoje, -6);
+  const goalRows = (goalsRes.data ?? []).filter((g) => {
+    if (g.status === "ativa" || g.status === "pausada") return true;
+    if (g.status === "concluida" && g.completed_at && g.completed_at >= since14) return true;
+    return false;
+  });
+  const comps7d = (compsRes.data ?? []).filter((c) => c.dia >= since7);
+  const mentorGoals = assembleMentorGoals({
+    goals: goalRows.map((g) => ({
+      id: g.id,
+      titulo: g.titulo,
+      categoria: g.categoria,
+      status: g.status as "ativa" | "pausada" | "concluida",
+      is_norte: Boolean(g.is_norte),
+      motivo: g.motivo ?? null,
+      prazo: g.prazo ?? null,
+      completed_at: g.completed_at ?? null,
+    })),
+    habits: (habitsRes.data ?? []).map((h) => ({
+      id: h.id,
+      titulo: h.titulo,
+      categoria: (h as { categoria?: string | null }).categoria ?? null,
+      goal_id: (h as { goal_id?: string | null }).goal_id ?? null,
+      ativo: true,
+    })),
+    completions7d: comps7d,
+    hoje,
+  });
+
   return {
     profile: profileRes.data,
     attributes: attrsRes.data,
-    habits: habitsRes.data ?? [],
-    goals: goalsRes.data ?? [],
+    habits: (habitsRes.data ?? []).map((h) => ({
+      id: h.id,
+      titulo: h.titulo,
+      atributo: h.atributo,
+    })),
+    goals: mentorGoals,
     completedTodayIds: (todayRes.data ?? []).map((r) => r.habit_id),
     completionsLast21: compsRes.data ?? [],
     memories: memRes.data ?? [],
