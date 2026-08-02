@@ -20,6 +20,11 @@ import {
   canBypassMaintenance,
   isMaintenanceAllowlistedPath,
 } from "@/lib/maintenance";
+import {
+  installChunkLoadRecovery,
+  isChunkLoadError,
+  reloadOnceOnChunkError,
+} from "@/lib/chunk-reload";
 
 function NotFoundComponent() {
   return (
@@ -46,7 +51,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     error instanceof Error ? error : new Error(String(error ?? "Erro desconhecido"));
   console.error(safeError);
   const router = useRouter();
+  const chunkError = isChunkLoadError(safeError);
+
   useEffect(() => {
+    if (reloadOnceOnChunkError(safeError)) return;
     reportLovableError(safeError, { boundary: "tanstack_root_error_component" });
   }, [safeError]);
 
@@ -54,19 +62,36 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="max-w-md text-center">
         <h1 className="font-display text-2xl font-semibold text-foreground">
-          Algo interrompeu sua jornada
+          {chunkError ? "Atualização disponível" : "Algo interrompeu sua jornada"}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Tente novamente ou volte para a base.
+          {chunkError
+            ? "O app foi atualizado. Recarregue a página para continuar."
+            : "Tente novamente ou volte para a base."}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <button
-            onClick={() => { router.invalidate(); reset(); }}
-            className="rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          {chunkError ? (
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Recarregar app
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                router.invalidate();
+                reset();
+              }}
+              className="rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Tentar de novo
+            </button>
+          )}
+          <a
+            href="/"
+            className="rounded-md border border-border bg-surface px-5 py-2.5 text-sm font-medium hover:bg-accent"
           >
-            Tentar de novo
-          </button>
-          <a href="/" className="rounded-md border border-border bg-surface px-5 py-2.5 text-sm font-medium hover:bg-accent">
             Início
           </a>
         </div>
@@ -181,6 +206,8 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+
+  useEffect(() => installChunkLoadRecovery(), []);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
