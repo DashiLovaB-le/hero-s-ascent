@@ -7,7 +7,6 @@ import {
   Swords,
   Trophy,
   Target,
-  Flame,
   CalendarDays,
   Pencil,
   MapPin,
@@ -180,7 +179,12 @@ function ProfilePage() {
             </div>
           </div>
           <div className="flex items-center gap-2 border border-strength/30 bg-strength/10 px-3 py-1.5 text-strength">
-            <Flame className="h-4 w-4" />
+            <img
+              src="/animate-icons/flame.gif"
+              alt=""
+              aria-hidden
+              className="h-4 w-4 shrink-0 object-contain"
+            />
             <span className="text-sm font-semibold">{data.profile.streak_atual}</span>
           </div>
         </div>

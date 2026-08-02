@@ -325,10 +325,7 @@ export function MentorPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Ele conhece sua jornada, {data.heroName}. Fale com verdade.
               </p>
-              <CharliePersonalityPicker
-                current={personality}
-                onChanged={(next) => setPersonality(next)}
-              />
+              <CharliePersonalityPicker current={personality} />
               {data.mlRiskLine && (
                 <p className="mt-2 text-xs text-hero/90">{data.mlRiskLine}</p>
               )}

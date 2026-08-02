@@ -1497,10 +1497,26 @@ export const listCompletedMentorChallenges = createServerFn({ method: "POST" })
 
 export const listCharliePersonalities = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
-    const { listCharliePersonalities: list } = await import("@/mentor/prompt.server");
+  .handler(async ({ context }) => {
+    const { listCharliePersonalities: list, DEFAULT_CHARLIE_PERSONALITY } = await import(
+      "@/mentor/prompt.server"
+    );
     const rows = await list({ includeInactive: false });
+
+    const { data: profile } = await context.supabase
+      .from("profiles")
+      .select("charlie_personality")
+      .eq("id", context.userId)
+      .maybeSingle();
+
+    const currentSlug =
+      profile?.charlie_personality &&
+      rows.some((r) => r.slug === profile.charlie_personality)
+        ? profile.charlie_personality
+        : DEFAULT_CHARLIE_PERSONALITY;
+
     return {
+      currentSlug,
       personalities: rows.map((r) => ({
         slug: r.slug,
         name: r.name,

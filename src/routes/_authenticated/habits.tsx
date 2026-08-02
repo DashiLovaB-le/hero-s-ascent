@@ -218,7 +218,12 @@ function HabitsPage() {
             onClick={() => suggestM.mutate()}
             disabled={suggestM.isPending}
           >
-            <Sparkles className="mr-1 h-4 w-4" />
+            <img
+              src="/charlie-ico.ico"
+              alt=""
+              aria-hidden
+              className="mr-1 h-4 w-4 shrink-0 object-contain"
+            />
             {suggestM.isPending ? "Gerando…" : "Sugerir com Charlie"}
           </Button>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>

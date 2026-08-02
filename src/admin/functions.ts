@@ -434,8 +434,8 @@ export const adminAdjustXp = createServerFn({ method: "POST" })
 
 /**
  * Apaga o histórico do herói (chat, conclusões, missões, ML, notificações,
- * sessões de exercício validado…)
- * Mantém conta, perfil (nome/bio/wallpaper), hábitos/metas cadastrados e roles.
+ * sessões de exercício validado, metas…)
+ * Mantém conta, perfil (nome/bio/wallpaper), hábitos cadastrados e roles.
  * Zera XP / streak / capítulo.
  */
 export const adminClearUserHistory = createServerFn({ method: "POST" })
@@ -483,6 +483,8 @@ export const adminClearUserHistory = createServerFn({ method: "POST" })
       "habit_completions",
       // Métricas (exercise_session_metrics) caem por ON DELETE CASCADE
       "exercise_sessions",
+      // habits.goal_id → NULL via ON DELETE SET NULL
+      "goals",
       "activity_history",
       "user_checkins",
       "notifications",

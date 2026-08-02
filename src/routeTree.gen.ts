@@ -33,6 +33,7 @@ import { Route as DashitecnologyCheckinsRouteImport } from './routes/dashitecnol
 import { Route as DashitecnologyCharlieRouteImport } from './routes/dashitecnology/charlie'
 import { Route as DashitecnologyAnalyticsRouteImport } from './routes/dashitecnology/analytics'
 import { Route as DashitecnologyAgentRouteImport } from './routes/dashitecnology/agent'
+import { Route as AuthenticatedStoreRouteImport } from './routes/_authenticated/store'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedMentorRouteImport } from './routes/_authenticated/mentor'
@@ -166,6 +167,11 @@ const DashitecnologyAgentRoute = DashitecnologyAgentRouteImport.update({
   path: '/agent',
   getParentRoute: () => DashitecnologyRouteRoute,
 } as any)
+const AuthenticatedStoreRoute = AuthenticatedStoreRouteImport.update({
+  id: '/store',
+  path: '/store',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -226,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/mentor': typeof AuthenticatedMentorRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/store': typeof AuthenticatedStoreRoute
   '/dashitecnology/agent': typeof DashitecnologyAgentRoute
   '/dashitecnology/analytics': typeof DashitecnologyAnalyticsRoute
   '/dashitecnology/charlie': typeof DashitecnologyCharlieRoute
@@ -259,6 +266,7 @@ export interface FileRoutesByTo {
   '/mentor': typeof AuthenticatedMentorRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/store': typeof AuthenticatedStoreRoute
   '/dashitecnology/agent': typeof DashitecnologyAgentRoute
   '/dashitecnology/analytics': typeof DashitecnologyAnalyticsRoute
   '/dashitecnology/charlie': typeof DashitecnologyCharlieRoute
@@ -294,6 +302,7 @@ export interface FileRoutesById {
   '/_authenticated/mentor': typeof AuthenticatedMentorRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/store': typeof AuthenticatedStoreRoute
   '/dashitecnology/agent': typeof DashitecnologyAgentRoute
   '/dashitecnology/analytics': typeof DashitecnologyAnalyticsRoute
   '/dashitecnology/charlie': typeof DashitecnologyCharlieRoute
@@ -330,6 +339,7 @@ export interface FileRouteTypes {
     | '/mentor'
     | '/onboarding'
     | '/profile'
+    | '/store'
     | '/dashitecnology/agent'
     | '/dashitecnology/analytics'
     | '/dashitecnology/charlie'
@@ -363,6 +373,7 @@ export interface FileRouteTypes {
     | '/mentor'
     | '/onboarding'
     | '/profile'
+    | '/store'
     | '/dashitecnology/agent'
     | '/dashitecnology/analytics'
     | '/dashitecnology/charlie'
@@ -397,6 +408,7 @@ export interface FileRouteTypes {
     | '/_authenticated/mentor'
     | '/_authenticated/onboarding'
     | '/_authenticated/profile'
+    | '/_authenticated/store'
     | '/dashitecnology/agent'
     | '/dashitecnology/analytics'
     | '/dashitecnology/charlie'
@@ -599,6 +611,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashitecnologyAgentRouteImport
       parentRoute: typeof DashitecnologyRouteRoute
     }
+    '/_authenticated/store': {
+      id: '/_authenticated/store'
+      path: '/store'
+      fullPath: '/store'
+      preLoaderRoute: typeof AuthenticatedStoreRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
@@ -672,6 +691,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMentorRoute: typeof AuthenticatedMentorRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedStoreRoute: typeof AuthenticatedStoreRoute
   AuthenticatedExercisesSlugRoute: typeof AuthenticatedExercisesSlugRoute
 }
 
@@ -682,6 +702,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMentorRoute: AuthenticatedMentorRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedStoreRoute: AuthenticatedStoreRoute,
   AuthenticatedExercisesSlugRoute: AuthenticatedExercisesSlugRoute,
 }
 
