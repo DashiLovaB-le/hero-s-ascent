@@ -51,7 +51,7 @@ const PROFILE_COLS =
   "id, nome, avatar_url, bio, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, frase_motivacional, onboarding_completo";
 const ATTR_COLS =
   "user_id, forca, disciplina, sabedoria, espirito, testosterona, prosperidade, conhecimento, lideranca";
-const HABIT_COLS = "id, titulo, descricao, xp_recompensa, atributo, categoria, ativo, created_at, exercise_type_id";
+const HABIT_COLS = "id, titulo, descricao, xp_recompensa, atributo, categoria, ativo, created_at, exercise_type_id, goal_id";
 
 // ---------- GET JOURNEY (bootstrap embutido + selects enxutos) ----------
 export const getJourney = createServerFn({ method: "POST" })
@@ -432,9 +432,12 @@ export const listGoals = createServerFn({ method: "POST" })
     await requireOnboardingComplete(context.supabase as Client, context.userId);
     const { data } = await context.supabase
       .from("goals")
-      .select("id, categoria, titulo, descricao, ativo, created_at")
+      .select(
+        "id, categoria, titulo, descricao, motivo, prazo, status, is_norte, ativo, xp_recompensa, completed_at, created_at",
+      )
       .eq("user_id", context.userId)
-      .eq("ativo", true)
+      .in("status", ["ativa", "pausada"])
+      .order("is_norte", { ascending: false })
       .order("created_at");
     return data ?? [];
   });
@@ -453,6 +456,13 @@ export const createGoal = createServerFn({ method: "POST" })
           "proposito",
         ]),
         titulo: z.string().trim().min(2).max(80),
+        motivo: z.string().trim().max(200).optional().nullable(),
+        prazo: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional()
+          .nullable(),
+        is_norte: z.boolean().optional(),
       })
       .parse(i),
   )
@@ -460,8 +470,19 @@ export const createGoal = createServerFn({ method: "POST" })
     await requireOnboardingComplete(context.supabase as Client, context.userId);
     const { data: row, error } = await context.supabase
       .from("goals")
-      .insert({ ...data, user_id: context.userId })
-      .select("id, categoria, titulo, descricao, ativo, created_at")
+      .insert({
+        user_id: context.userId,
+        categoria: data.categoria,
+        titulo: data.titulo,
+        motivo: data.motivo?.trim() || null,
+        prazo: data.prazo || null,
+        is_norte: data.is_norte ?? false,
+        status: "ativa",
+        ativo: true,
+      })
+      .select(
+        "id, categoria, titulo, descricao, motivo, prazo, status, is_norte, ativo, xp_recompensa, completed_at, created_at",
+      )
       .single();
     if (error) throw new Error(error.message);
     return row;

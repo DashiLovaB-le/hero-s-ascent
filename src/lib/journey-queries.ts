@@ -1,5 +1,6 @@
 import { queryOptions, infiniteQueryOptions } from "@tanstack/react-query";
 import { getJourney, listGoals, listActivityHistory } from "@/lib/journey.functions";
+import { getGoalsBoard } from "@/lib/goals.functions";
 import { getProfilePanorama } from "@/lib/profile.functions";
 import { listMissions } from "@/lib/missions.functions";
 import { runQueryFn } from "@/lib/safe-query";
@@ -25,6 +26,17 @@ export const goalsQueryOptions = () =>
       runQueryFn(
         () => listGoals({ data: undefined as unknown as never }),
         "Falha ao carregar as metas.",
+      ),
+    staleTime: JOURNEY_STALE_MS,
+  });
+
+export const goalsBoardQueryOptions = () =>
+  queryOptions({
+    queryKey: ["goals-board"] as const,
+    queryFn: () =>
+      runQueryFn(
+        () => getGoalsBoard({ data: undefined as unknown as never }),
+        "Falha ao carregar o painel de metas.",
       ),
     staleTime: JOURNEY_STALE_MS,
   });

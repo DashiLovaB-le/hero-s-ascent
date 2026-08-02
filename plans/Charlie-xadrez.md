@@ -39,7 +39,6 @@ O risco é virar um **segundo produto**:
 - motor de jogo / engine
 - regras, UI de tabuleiro, cheat leve
 - persistência fina de posição
-- ranking / multiplayer / social
 
 Isso compete com o núcleo do V-Project (hábitos, jornada, mentor contínuo) e pode **distrair retenção** se a partida for mais divertida que o treino real.
 

@@ -263,7 +263,7 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
         .select("id, titulo, atributo")
         .eq("user_id", userId)
         .eq("ativo", true),
-      supabase.from("goals").select("titulo, categoria").eq("user_id", userId).eq("ativo", true),
+      supabase.from("goals").select("titulo, categoria").eq("user_id", userId).eq("status", "ativa"),
       supabase.from("habit_completions").select("habit_id").eq("user_id", userId).eq("dia", hoje),
       supabase
         .from("habit_completions")

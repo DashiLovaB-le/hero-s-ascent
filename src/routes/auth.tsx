@@ -8,13 +8,15 @@ import { clearAllSupabaseAuthStorage, getSupabasePublicEnv } from "@/integration
 import { getJwtProjectRef } from "@/integrations/supabase/auth-session";
 import { AuthDoorOverlay } from "@/components/auth/AuthDoorOverlay";
 import { AuthWelcomeDialog } from "@/components/auth/AuthWelcomeDialog";
+import { AuthTerminal2D } from "@/components/auth/AuthTerminal2D";
 import { AuthTerminal3D } from "@/components/auth/AuthTerminal3D";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>) => ({
+    /** Extra opcional: terminal Three.js. Padrão = 2D robusto. */
+    hud: search.hud === "3d" ? ("3d" as const) : undefined,
+  }),
   component: AuthPage,
 });
 
@@ -26,6 +28,9 @@ const DOOR_FLAG = "v-auth-door";
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { hud } = Route.useSearch();
+  const prefer3d = hud === "3d";
+
   const [loading, setLoading] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [doorActive, setDoorActive] = useState(false);
@@ -48,7 +53,7 @@ function AuthPage() {
     setWelcomeOpen(true);
   }
 
-  /** Sucesso de auth: some o terminal 3D, depois abre o welcome → porta. */
+  /** Sucesso de auth: some o terminal, depois abre o welcome → porta. */
   function beginSuccessExit() {
     if (entering.current || terminalExiting || doorActive) return;
     pendingWelcome.current = true;
@@ -185,6 +190,15 @@ function AuthPage() {
 
   const locked = loading || welcomeOpen || doorActive || terminalExiting;
 
+  const terminalProps = {
+    locked,
+    exiting: terminalExiting,
+    onExitComplete: handleTerminalExitComplete,
+    onSignIn: handleSignIn,
+    onSignUp: handleSignUp,
+    onGoogle: handleGoogle,
+  };
+
   return (
     <div
       className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-4 py-10"
@@ -198,7 +212,7 @@ function AuthPage() {
       <div className="absolute inset-0 bg-background/55" aria-hidden />
 
       <div className="relative z-10 flex w-full max-w-lg flex-col items-center">
-        <Link to="/" className="mb-4 flex items-center justify-center gap-2">
+        <Link to="/" className="mb-5 flex items-center justify-center gap-2">
           <img
             src="/logo.png"
             alt="V-Project"
@@ -208,125 +222,24 @@ function AuthPage() {
         </Link>
 
         {!terminalGone ? (
-          <TerminalErrorBoundary
-            fallback={
-              <AuthFallback2D
-                locked={locked}
-                onSignIn={handleSignIn}
-                onSignUp={handleSignUp}
-                onGoogle={handleGoogle}
-              />
-            }
-          >
-            <AuthTerminal3D
-              locked={locked}
-              exiting={terminalExiting}
-              onExitComplete={handleTerminalExitComplete}
-              onSignIn={handleSignIn}
-              onSignUp={handleSignUp}
-              onGoogle={handleGoogle}
-            />
-          </TerminalErrorBoundary>
+          prefer3d ? (
+            <TerminalErrorBoundary fallback={<AuthTerminal2D {...terminalProps} />}>
+              <AuthTerminal3D {...terminalProps} />
+            </TerminalErrorBoundary>
+          ) : (
+            <AuthTerminal2D {...terminalProps} />
+          )
         ) : (
           <div className="h-24" aria-hidden />
         )}
 
-        <p className="mt-2 text-center text-xs text-muted-foreground">
+        <p className="mt-4 text-center text-xs text-muted-foreground">
           Ao continuar, você aceita percorrer sua Jornada do Herói.
         </p>
       </div>
 
       <AuthWelcomeDialog open={welcomeOpen} onContinue={handleWelcomeContinue} />
       <AuthDoorOverlay active={doorActive} onComplete={goJourney} />
-    </div>
-  );
-}
-
-/** Fallback 2D se o canvas 3D falhar. */
-function AuthFallback2D({
-  locked,
-  onSignIn,
-  onSignUp,
-  onGoogle,
-}: {
-  locked: boolean;
-  onSignIn: (e: React.FormEvent<HTMLFormElement>) => void;
-  onSignUp: (e: React.FormEvent<HTMLFormElement>) => void;
-  onGoogle: () => void;
-}) {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  return (
-    <div className="w-full max-w-md border border-[#FC6E20]/40 bg-card/90 p-6 shadow-elevated backdrop-blur-sm">
-      <div className="mb-4 grid grid-cols-2 gap-2">
-        <Button
-          type="button"
-          variant={mode === "signin" ? "default" : "outline"}
-          onClick={() => setMode("signin")}
-          disabled={locked}
-        >
-          Entrar
-        </Button>
-        <Button
-          type="button"
-          variant={mode === "signup" ? "default" : "outline"}
-          onClick={() => setMode("signup")}
-          disabled={locked}
-        >
-          Criar conta
-        </Button>
-      </div>
-      {mode === "signin" ? (
-        <form onSubmit={onSignIn} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="fb-email-in">E-mail</Label>
-            <Input id="fb-email-in" name="email" type="email" required autoComplete="email" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="fb-pass-in">Senha</Label>
-            <Input
-              id="fb-pass-in"
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={locked}>
-            Entrar
-          </Button>
-        </form>
-      ) : (
-        <form onSubmit={onSignUp} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="fb-nome">Nome do herói</Label>
-            <Input id="fb-nome" name="nome" required autoComplete="name" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="fb-email-up">E-mail</Label>
-            <Input id="fb-email-up" name="email" type="email" required autoComplete="email" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="fb-pass-up">Senha</Label>
-            <Input
-              id="fb-pass-up"
-              name="password"
-              type="password"
-              required
-              autoComplete="new-password"
-              minLength={6}
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={locked}>
-            Aceitar o chamado
-          </Button>
-        </form>
-      )}
-      <div className="my-4 text-center text-xs uppercase tracking-widest text-muted-foreground">
-        ou
-      </div>
-      <Button type="button" variant="outline" className="w-full" onClick={onGoogle} disabled={locked}>
-        Continuar com Google
-      </Button>
     </div>
   );
 }

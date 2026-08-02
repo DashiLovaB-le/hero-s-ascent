@@ -4,6 +4,7 @@ import {
   createAuthTerminalModel,
   disposeAuthTerminalModel,
 } from "@/components/auth/terminal-3d/createAuthTerminalModel";
+import { AuthTerminal2D } from "@/components/auth/AuthTerminal2D";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,18 +38,6 @@ export function AuthTerminal3D(props: AuthTerminal3DProps) {
   const reduced =
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  useEffect(() => {
-    if (props.exiting && (!webglOk || reduced)) {
-      const id = window.setTimeout(() => {
-        if (!exitDone.current) {
-          exitDone.current = true;
-          onExitCompleteRef.current?.();
-        }
-      }, 220);
-      return () => window.clearTimeout(id);
-    }
-  }, [props.exiting, webglOk, reduced]);
 
   useEffect(() => {
     if (reduced) {
@@ -175,20 +164,19 @@ export function AuthTerminal3D(props: AuthTerminal3DProps) {
   if (!webglOk || reduced) {
     return (
       <div
-        className={`w-full max-w-sm transition-all duration-500 ${
+        className={`w-full transition-all duration-500 ${
           props.exiting ? "scale-90 opacity-0" : "opacity-100"
         }`}
       >
-        <div className="rounded-lg border border-[#FC6E20]/40 bg-card/90 p-5 shadow-elevated backdrop-blur-sm">
-          <AuthTerminalForm
-            mode={mode}
-            setMode={setMode}
-            locked={props.locked || props.exiting}
-            onSignIn={props.onSignIn}
-            onSignUp={props.onSignUp}
-            onGoogle={props.onGoogle}
-          />
-        </div>
+        {/* Reusa o chassis 2D quando WebGL não está disponível */}
+        <AuthTerminal2D
+          locked={props.locked}
+          exiting={props.exiting}
+          onExitComplete={props.onExitComplete}
+          onSignIn={props.onSignIn}
+          onSignUp={props.onSignUp}
+          onGoogle={props.onGoogle}
+        />
       </div>
     );
   }

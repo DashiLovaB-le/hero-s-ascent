@@ -135,29 +135,47 @@ export type Database = {
         Row: {
           ativo: boolean
           categoria: Database["public"]["Enums"]["goal_category"]
+          completed_at: string | null
           created_at: string
           descricao: string | null
           id: string
+          is_norte: boolean
+          motivo: string | null
+          prazo: string | null
+          status: Database["public"]["Enums"]["goal_status"]
           titulo: string
           user_id: string
+          xp_recompensa: number
         }
         Insert: {
           ativo?: boolean
           categoria: Database["public"]["Enums"]["goal_category"]
+          completed_at?: string | null
           created_at?: string
           descricao?: string | null
           id?: string
+          is_norte?: boolean
+          motivo?: string | null
+          prazo?: string | null
+          status?: Database["public"]["Enums"]["goal_status"]
           titulo: string
           user_id: string
+          xp_recompensa?: number
         }
         Update: {
           ativo?: boolean
           categoria?: Database["public"]["Enums"]["goal_category"]
+          completed_at?: string | null
           created_at?: string
           descricao?: string | null
           id?: string
+          is_norte?: boolean
+          motivo?: string | null
+          prazo?: string | null
+          status?: Database["public"]["Enums"]["goal_status"]
           titulo?: string
           user_id?: string
+          xp_recompensa?: number
         }
         Relationships: []
       }
@@ -204,6 +222,7 @@ export type Database = {
           created_at: string
           descricao: string | null
           exercise_type_id: string | null
+          goal_id: string | null
           id: string
           titulo: string
           user_id: string
@@ -216,6 +235,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           exercise_type_id?: string | null
+          goal_id?: string | null
           id?: string
           titulo: string
           user_id: string
@@ -228,6 +248,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           exercise_type_id?: string | null
+          goal_id?: string | null
           id?: string
           titulo?: string
           user_id?: string
@@ -239,6 +260,13 @@ export type Database = {
             columns: ["exercise_type_id"]
             isOneToOne: false
             referencedRelation: "exercise_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "habits_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
             referencedColumns: ["id"]
           },
         ]
@@ -1376,6 +1404,7 @@ export type Database = {
         | "prosperidade"
         | "relacionamentos"
         | "proposito"
+      goal_status: "ativa" | "pausada" | "concluida"
       mentor_challenge_status: "ativo" | "concluido" | "expirado" | "recusado"
       mentor_message_kind:
         | "chat"
@@ -1534,6 +1563,7 @@ export const Constants = {
         "relacionamentos",
         "proposito",
       ],
+      goal_status: ["ativa", "pausada", "concluida"],
       mentor_challenge_status: ["ativo", "concluido", "expirado", "recusado"],
       mentor_message_kind: [
         "chat",

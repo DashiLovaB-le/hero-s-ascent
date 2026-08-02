@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Desenvolvimento masculino gamificado pela Jornada do Herói.</strong><br />
-  Hábitos, metas, XP, atributos, fundos de tela e mentor com IA — do Homem Comum à Lenda.
+  Hábitos, metas, XP, capítulos, flexão validada por pose, fundos de tela e mentor com IA — do Homem Comum à Lenda.
 </p>
 
 <p align="center">
@@ -15,17 +15,22 @@
   <img src="https://img.shields.io/badge/Supabase-Backend-3FCF8E?logo=supabase&logoColor=white" alt="Supabase" />
   <img src="https://img.shields.io/badge/Tailwind-v4-38BDF8?logo=tailwindcss&logoColor=white" alt="Tailwind" />
   <img src="https://img.shields.io/badge/OpenRouter-Charlie-8B5CF6?logo=openai&logoColor=white" alt="OpenRouter" />
+  <img src="https://img.shields.io/badge/MediaPipe-Pose-FF6F00?logo=google&logoColor=white" alt="MediaPipe" />
 </p>
 
 ---
 
 ## Sobre
 
-O **V-Project** transforma autodisciplina em uma jornada. O usuário define metas, cria hábitos diários e ganha XP a cada conclusão — subindo de nível, mantendo streak e fortalecendo 8 atributos.
+O **V-Project** transforma autodisciplina em uma jornada. O usuário define metas, cria hábitos diários e ganha XP — subindo de nível, mantendo streak e fortalecendo 8 atributos.
+
+Hábitos **declarados** concluem com check manual. Hábitos **validados** (MVP: flexão) exigem sessão com câmera: pose on-device (MediaPipe), calibração ao corpo, coaching de forma em tempo real e métricas persistidas — **sem gravar nem enviar vídeo**.
 
 Inspirado na **Jornada do Herói**, o app guia o progresso em capítulos, com visual dark cyberpunk (painéis chanfrados, accent laranja `#FC6E20`).
 
-O mentor **Charlie** acompanha a jornada com chat, memórias, desafios e, se o herói definir a cidade no perfil, **previsão do tempo da região** (Open-Meteo). Há **check-in diário** (sono/energia/humor) e uma camada de **ML** (features, scores, lembretes adaptativos, iniciativas do agente). O progresso desbloqueia **fundos de tela**, e o sino de notificações (e o Telegram, se conectado) mantém o herói no ritmo.
+O mentor **Charlie** acompanha com chat, memórias, desafios, sugestões de hábito e, se a cidade estiver no perfil, clima local (Open-Meteo). Há check-in diário, camada de **ML**, **Web Push**, Telegram opcional e control room (`/dashitecnology`) para quem tem role `dashi`.
+
+Produção: `https://v-project-rho.vercel.app` · Doc canônico: [`plans/ResumoAplicacao.md`](plans/ResumoAplicacao.md).
 
 ---
 
@@ -34,53 +39,61 @@ O mentor **Charlie** acompanha a jornada com chat, memórias, desafios e, se o h
 | Área | O que faz |
 | --- | --- |
 | **Landing** (`/`) | Hero full-bleed, pilares e CTA |
-| **Auth** (`/auth`) | Login / cadastro (e-mail + senha), Google OAuth, animação da porta e boas-vindas |
+| **Auth** (`/auth`) | Login / cadastro (e-mail + senha), Google OAuth |
 | **Onboarding** | Áreas de foco e primeiras metas |
-| **Jornada** (`/journey`) | Dashboard: nível, XP, streak, hábitos do dia, check-in, atributos |
-| **Hábitos** (`/habits`) | CRUD de hábitos e check-off diário com XP |
+| **Jornada** (`/journey`) | Dashboard: nível, XP, streak, hábitos declarados, check-in, atributos |
+| **Hábitos** (`/habits`) | CRUD declarados + card para exercício validado |
+| **Flexão** (`/exercises/pushup`) | Sessão com câmera, framing, calibração (~3s), contagem e cues de postura |
 | **Metas** (`/goals`) | Gestão das metas por categoria |
-| **Charlie** (`/mentor`) | Mentor com IA: chat, memórias, desafios, clima e **sinais ML** |
-| **Perfil** (`/profile`) | Panorama: identidade, radar, ritmo 21 dias, troféus, cidade/região, fundos, Telegram |
-| **Notificações** | Sino in-app + Telegram opcional + iniciativas do agente |
+| **Charlie** (`/mentor`) | Chat, memórias, desafios, sugestões de hábito, clima, sinais ML |
+| **Perfil** (`/profile`) | Identidade, radar, troféus, cidade/clima, fundos, Telegram, Web Push |
+| **Notificações** | Sino in-app + Web Push (VAPID) + Telegram opcional |
 | **ML** | Feature store, scores, lembretes/desafios adaptativos, shadow sklearn, CF, agente |
+| **Control room** (`/dashitecnology`) | Operação (heróis, jobs, ML…) — role `dashi` |
+
+### Exercícios validados (flexão)
+
+- Card em `/habits` → `/exercises/pushup`
+- Fluxo: enquadramento → calibração ao lockout do herói → contagem automática
+- Coaching ao vivo: profundidade, lockout, alinhamento do corpo; barra de profundidade + skeleton
+- XP **híbrido** (base + por rep válida × fator de forma, com teto e cap diário)
+- Cancelar / 0 reps → sem XP; `completeHabit` bloqueado para hábitos validados
+- Plano: [`plans/ExerciciosValidados-Flexao.md`](plans/ExerciciosValidados-Flexao.md)
 
 ### Charlie e clima
 
-- No **Perfil**, o herói informa a cidade/região; o servidor geocodifica (Open-Meteo) e grava lat/lon + timezone
-- Em cada conversa/presença, o Charlie recebe temperatura, condição e previsão do dia (cache ~45 min)
-- Usa o clima com parcimônia (amanhecer, desafios de corpo/outdoor) — sem inventar tempo se a região não estiver cadastrada
-- Sem API key externa além do Open-Meteo (público); migration: `20260727140000_profile_location_weather.sql`
+- No **Perfil**, o herói informa a cidade/região; o servidor geocodifica (Open-Meteo)
+- Em cada conversa/presença, o Charlie recebe temperatura e condição (cache ~45 min)
+- Pode sugerir hábitos no mentor (aceitar cria o hábito; recusar descarta)
 
 ### Gamificação
 
 - **12 níveis** — Homem Comum → Lenda
 - **8 atributos** — Força, Disciplina, Sabedoria, Espírito, Testosterona, Prosperidade, Conhecimento, Liderança
 - **Streak** — dias consecutivos de hábitos concluídos
-- **Capítulos** da jornada e **conquistas**
+- **Capítulos**, **missões** e **conquistas**
 - Categorias: Corpo, Mente, Espírito, Prosperidade, Relacionamentos, Propósito
 
 ### Fundos de tela
 
-- Catálogo em `src/lib/wallpapers.ts` (imagens em `public/wallpapers/`)
+- Catálogo em `src/lib/wallpapers.ts` (`public/wallpapers/`)
 - Desbloqueio por nível, XP, streak máximo ou capítulo
-- Preferência aplicada no layout autenticado; configuração em `/profile`
-- Ao liberar um fundo (ex.: ao concluir hábito), notificação no sino
-- Ao tocar em fundo bloqueado, pop-up breve com o requisito
+- Preferência no layout autenticado; configuração em `/profile`
 
 ### Notificações
 
-- Tipos de produto (desafios do mentor, hábitos, streak, conquistas, sistema, **iniciativas do agente**)
-- Jobs diários via Edge Functions + cron (`notification-jobs`, `ml-features-job`, `agent-initiatives-job`)
-- Canal opcional: bot Telegram (`TELEGRAM_BOT_*`)
+- Sino in-app + **Web Push** (opt-in no perfil, chaves VAPID)
+- Canal opcional: bot Telegram (`@DashiVProject_bot`)
+- Jobs: `notification-jobs`, `ml-features-job`, `agent-initiatives-job`
 
 ### Machine Learning (Fases 1–4)
 
 | Fase | O que entrega |
 | --- | --- |
-| **1** | `user_features` + `user_ml_scores` (`heuristic_v1`) → contexto do Charlie; job `ml-features-job` |
-| **2** | Treino sklearn (Python em `ml/`) + AUC offline; scores em **shadow** (não substituem o Charlie) |
-| **3** | Lembretes e desafios **adaptativos** com guardrails (`src/lib/ml/adaptive.ts`) |
-| **4** | Check-ins; iniciativas do agente; collaborative filtering leve (só com peers suficientes) |
+| **1** | `user_features` + `user_ml_scores` (`heuristic_v1`) → Charlie; job `ml-features-job` |
+| **2** | Treino sklearn (`ml/`) + AUC; scores em **shadow** |
+| **3** | Lembretes e desafios adaptativos (`src/lib/ml/adaptive.ts`) |
+| **4** | Check-ins; iniciativas do agente; CF leve |
 
 Docs: `plans/ML-fase-1.md` … `plans/ML-fase-4.md`. Testes: `npm run test:ml`.
 
@@ -92,8 +105,10 @@ Docs: `plans/ML-fase-1.md` … `plans/ML-fase-4.md`. Testes: `npm run test:ml`.
 - **UI:** Tailwind CSS v4, shadcn/ui, Lucide, Sonner, Recharts
 - **Backend:** Supabase (Auth, Postgres, RLS, Edge Functions)
 - **IA:** OpenRouter (Charlie)
+- **Pose:** MediaPipe PoseLandmarker (`@mediapipe/tasks-vision`) — on-device
 - **ML:** TypeScript (features/adaptive/agent) + Python/sklearn (shadow)
-- **Clima:** Open-Meteo (geocoding + forecast, server-side)
+- **Clima:** Open-Meteo
+- **Push:** Web Push (VAPID)
 - **Validação:** Zod
 - **Idioma:** PT-BR
 
@@ -102,9 +117,10 @@ Docs: `plans/ML-fase-1.md` … `plans/ML-fase-4.md`. Testes: `npm run test:ml`.
 ## Pré-requisitos
 
 - Node.js 20+
-- Conta [Supabase](https://supabase.com) — **projeto dedicado** (não compartilhe o banco com outros apps)
-- Conta [OpenRouter](https://openrouter.ai) (para o Charlie)
+- Conta [Supabase](https://supabase.com) — projeto dedicado
+- Conta [OpenRouter](https://openrouter.ai) (Charlie)
 - npm
+- (Opcional) chaves VAPID para Web Push: `npx web-push generate-vapid-keys`
 
 ---
 
@@ -118,7 +134,7 @@ npm install
 
 ### 2. Variáveis de ambiente
 
-Copie `.env.example` para `.env` na raiz. **Cliente e servidor devem apontar para o mesmo projeto:**
+Copie `.env.example` para `.env`. **Cliente e servidor devem apontar para o mesmo projeto:**
 
 ```env
 SUPABASE_PROJECT_ID=seu_project_id
@@ -142,23 +158,28 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_BOT_USERNAME=
 TELEGRAM_WEBHOOK_SECRET=
 
+# Web Push (opcional)
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VITE_VAPID_PUBLIC_KEY=
+
 # URL pública (produção)
 APP_PUBLIC_URL=https://sua-app.exemplo
 ```
 
 > `VITE_*` e `SUPABASE_*` (URL / publishable) precisam ser **iguais**.  
-> `SERVICE_ROLE_KEY`, `OPENROUTER_API_KEY`, `CRON_SECRET` e tokens do Telegram só no servidor — nunca no client.  
-> Após trocar de projeto: faça **redeploy**, limpe a sessão do browser e entre de novo.
+> `SERVICE_ROLE_KEY`, `OPENROUTER_API_KEY`, `CRON_SECRET`, VAPID private e tokens do Telegram só no servidor.  
+> No Vercel: as mesmas vars em Production; `VITE_*` precisam existir no **build**.
 
 ### 3. Banco de dados
 
-Schema canônico (jornada + mentor + RLS + trigger de signup):
+Schema canônico:
 
 ```text
 supabase/migrations/20260717004140_complete_schema.sql
 ```
 
-Migrations relevantes depois do schema:
+Migrations relevantes depois do schema (ordem aproximada):
 
 ```text
 supabase/migrations/20260717050000_mentor_ai.sql
@@ -174,18 +195,17 @@ supabase/migrations/20260727151000_schedule_ml_features_job.sql
 supabase/migrations/20260727160000_ml_fase2_shadow.sql
 supabase/migrations/20260727170000_ml_fase4_agent.sql
 supabase/migrations/20260727171000_schedule_agent_initiatives_job.sql
+supabase/migrations/20260801134500_validated_exercises_pushup.sql
 ```
 
-No SQL Editor do projeto Supabase, execute o schema completo e, em seguida, as migrations acima (na ordem).  
+No SQL Editor do Supabase, execute o schema e as migrations.  
 Schedules de cron **não** devem recriar `pg_cron` se a extensão já existir (erro `2BP01`).
-
-Opcional via CLI (com o projeto linkado):
 
 ```bash
 npx supabase db push
 ```
 
-Edge Functions (todas com `--no-verify-jwt`; auth via `x-cron-secret` / Telegram secret):
+Edge Functions:
 
 ```bash
 npx supabase functions deploy notification-jobs ml-features-job \
@@ -200,11 +220,11 @@ npx supabase functions deploy notification-jobs ml-features-job \
 | `agent-initiatives-job` | `0 4 * * *` | CF + iniciativas do agente |
 | `telegram-webhook` | — | Vínculo Telegram |
 
-`CRON_SECRET` no projeto deve coincidir com o Vault `notification_jobs_cron_secret`.
+`CRON_SECRET` deve coincidir com o Vault `notification_jobs_cron_secret`.
+
 ### 4. Auth Google (opcional)
 
-No dashboard do **mesmo** projeto Supabase, ative o provider Google.  
-O app usa `supabase.auth.signInWithOAuth` nesse projeto.
+No dashboard do **mesmo** projeto Supabase, ative o provider Google.
 
 ### 5. Rodar em desenvolvimento
 
@@ -212,7 +232,7 @@ O app usa `supabase.auth.signInWithOAuth` nesse projeto.
 npm run dev
 ```
 
-Abra o endereço do terminal (geralmente `http://localhost:8080` ou a próxima porta livre).
+Abra o endereço do terminal (geralmente `http://localhost:8080`).
 
 ---
 
@@ -227,6 +247,12 @@ Abra o endereço do terminal (geralmente `http://localhost:8080` ou a próxima p
 | `npm run format` | Prettier |
 | `npm run test:ml` | Testes ML (heuristic + adaptive + agent/CF) |
 
+Testes de pose/flexão (Node):
+
+```bash
+node --import tsx --test src/lib/exercise/pushup-counter.test.ts
+```
+
 ---
 
 ## Estrutura
@@ -236,41 +262,40 @@ src/
   routes/
     index.tsx                 # Landing
     auth.tsx                  # Login / cadastro
-    _authenticated/           # Área logada (+ wallpaper + NotificationBell)
-      journey.tsx             # Dashboard + CheckinCard
+    _authenticated/
+      journey.tsx
       habits.tsx
+      exercises.$slug.tsx     # Sessão validada (flexão)
       goals.tsx
-      mentor.tsx              # Charlie (+ SINAIS ML)
-      profile.tsx             # Panorama + cidade/clima + fundos + Telegram
+      mentor.tsx
+      profile.tsx
       onboarding.tsx
-  mentor/                     # UI + server functions + OpenRouter + contexto
-  notifications/              # Sino, create, jobs, Telegram
+    dashitecnology/           # Control room (dashi)
+  mentor/
+  notifications/              # Sino, Telegram, Web Push
+  admin/                      # Server fns da control room
   components/
-    CheckinCard.tsx           # Check-in diário
+    ExerciseSessionCameraModal.tsx
+    CheckinCard.tsx
     WallpaperSettings.tsx
-    auth/                     # Porta + boas-vindas
-  integrations/supabase/      # Client, auth middleware, env unificado
   lib/
     journey.ts / journey.functions.ts
-    checkins.functions.ts
-    ml/                       # features, adaptive, agent, CF
+    exercise.functions.ts / exercise-xp.ts
+    exercise/                 # framing, calibração, counter, overlay, MediaPipe
+    useExerciseCamera.ts
+    ml/
     weather.ts
     wallpapers.ts
   styles.css
-ml/                           # Python Fase 2 (train / evaluate / score-shadow)
+ml/
 plans/
   ResumoAplicacao.md
+  ExerciciosValidados-Flexao.md
   ML-fase-1.md … ML-fase-4.md
 public/
-  logo.png
-  wallpapers/
 supabase/
   migrations/
   functions/
-    notification-jobs/
-    ml-features-job/
-    agent-initiatives-job/
-    telegram-webhook/
 ```
 
 ---
@@ -283,10 +308,12 @@ supabase/
 | `/auth` | Público | Autenticação |
 | `/onboarding` | Autenticado | Primeira configuração |
 | `/journey` | Autenticado | Dashboard + check-in |
-| `/habits` | Autenticado | Hábitos |
+| `/habits` | Autenticado | Hábitos declarados + entrada para flexão |
+| `/exercises/$slug` | Autenticado | Sessão de exercício validado (`pushup`) |
 | `/goals` | Autenticado | Metas |
-| `/mentor` | Autenticado | Charlie (mentor) |
-| `/profile` | Autenticado | Perfil, cidade/clima, fundos, Telegram |
+| `/mentor` | Autenticado | Charlie |
+| `/profile` | Autenticado | Perfil, clima, fundos, Telegram, Web Push |
+| `/dashitecnology/*` | Role `dashi` | Control room |
 
 ---
 
@@ -294,17 +321,16 @@ supabase/
 
 - Tema **dark** com accent **laranja herói** (`#FC6E20`)
 - Tipografia: **Ethnocentric** (títulos) + **Chakra Petch** (corpo)
-- Painéis com `clip-path` cyberpunk (`cp-panel`, `cp-modal`, `cp-brackets`, `cp-toast`)
+- Painéis com `clip-path` cyberpunk (`cp-panel`, `cp-modal`, …)
 - Navbar mobile: 5 colunas com botão elevado do **Charlie** no centro
-- Fundo de tela desbloqueável aplicado atrás do conteúdo autenticado
 
 ---
 
 ## Auth e projeto Supabase
 
-- Use um **projeto Supabase exclusivo** para o V-Project (sem Lovable no fluxo atual).
+- Use um **projeto Supabase exclusivo** para o V-Project.
 - Tokens de outro projeto geram `Unauthorized: Token from a different Supabase project`.
-- O client limpa sessões antigas (`sb-*-auth`) automaticamente quando detecta mismatch.
+- O client limpa sessões antigas quando detecta mismatch.
 
 ---
 
@@ -313,8 +339,10 @@ supabase/
 | Arquivo | Conteúdo |
 | --- | --- |
 | [`plans/ResumoAplicacao.md`](plans/ResumoAplicacao.md) | Visão completa produto + engenharia |
+| [`plans/ExerciciosValidados-Flexao.md`](plans/ExerciciosValidados-Flexao.md) | Flexão validada (câmera + pose) |
 | [`plans/ML-fase-1.md`](plans/ML-fase-1.md) … [`ML-fase-4.md`](plans/ML-fase-4.md) | Feature store → preditivo → adaptativo → agente |
 | [`plans/Charlie-fase-1.md`](plans/Charlie-fase-1.md) | Evolução do mentor |
+| [`plans/PlanejamentoNotificacoes.md`](plans/PlanejamentoNotificacoes.md) | Canais de notificação |
 
 ---
 

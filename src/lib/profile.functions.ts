@@ -53,9 +53,9 @@ export const getProfilePanorama = createServerFn({ method: "POST" })
         supabase.from("habits").select("id").eq("user_id", userId).eq("ativo", true),
         supabase
           .from("goals")
-          .select("id, titulo, categoria, ativo, created_at")
+          .select("id, titulo, categoria, ativo, status, created_at")
           .eq("user_id", userId)
-          .eq("ativo", true)
+          .in("status", ["ativa", "pausada"])
           .order("created_at", { ascending: false }),
         supabase
           .from("habit_completions")
