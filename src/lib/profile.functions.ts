@@ -1,7 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { getSupabasePublicEnv } from "@/integrations/supabase/env";
 import { addDaysToDateKey, eachDateKeyInclusive, hojeISO } from "@/lib/datetime";
 import { loadLevelsFromDb, loadWallpapersFromDb } from "@/lib/catalog.server";
+import type { Database } from "@/integrations/supabase/types";
 
 const PROFILE_COLS =
   "id, nome, avatar_url, bio, xp_total, streak_atual, streak_maximo, ultimo_dia_completo, capitulo_atual, frase_motivacional, onboarding_completo, created_at, location_label, location_lat, location_lon, location_timezone";
@@ -36,6 +41,30 @@ function bestActiveStreak(activeDays: Set<string>, days: string[]) {
 
 function asError(label: string, err: { message?: string } | null | undefined): Error {
   return new Error(`Falha ao carregar ${label}: ${err?.message ?? "erro desconhecido"}`);
+}
+
+function userHasPasswordIdentity(identities: { provider: string }[] | undefined): boolean {
+  return (identities ?? []).some((i) => i.provider === "email");
+}
+
+async function verifyCurrentPassword(email: string, password: string) {
+  const { url, publishableKey } = getSupabasePublicEnv();
+  const client = createClient<Database>(url, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
+  });
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  if (error) throw new Error("Senha atual incorreta.");
+}
+
+async function loadAccountAuth(userId: string) {
+  const { data, error } = await supabaseAdmin.auth.admin.getUserById(userId);
+  if (error || !data.user) {
+    throw new Error(error?.message ?? "Não foi possível carregar a conta.");
+  }
+  return {
+    email: data.user.email?.trim().toLowerCase() ?? null,
+    hasPassword: userHasPasswordIdentity(data.user.identities),
+  };
 }
 
 /** Panorama agregado do herói para /profile */
@@ -135,9 +164,10 @@ export const getProfilePanorama = createServerFn({ method: "POST" })
       Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)) + 1,
     );
 
-    const [levels, wallpapers] = await Promise.all([
+    const [levels, wallpapers, account] = await Promise.all([
       loadLevelsFromDb(),
       loadWallpapersFromDb(),
+      loadAccountAuth(userId),
     ]);
 
     return {
@@ -149,6 +179,7 @@ export const getProfilePanorama = createServerFn({ method: "POST" })
       daysOnJourney,
       levels,
       wallpapers,
+      account,
       rhythm: {
         days: rhythmDays,
         periodDays: days.length,
@@ -158,5 +189,99 @@ export const getProfilePanorama = createServerFn({ method: "POST" })
         completionRate,
         bestStreakInPeriod: bestActiveStreak(activeDaySet, days),
       },
+    };
+  });
+
+const emailSchema = z.string().trim().email("E-mail inválido").max(255);
+const newPasswordSchema = z.string().min(6, "Nova senha: mínimo 6 caracteres").max(72);
+
+/**
+ * Atualiza e-mail e/ou senha no Auth do Supabase (auth.users).
+ * Exige senha atual quando a conta já tem login por e-mail/senha.
+ */
+export const updateAccountAuth = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((i: unknown) =>
+    z
+      .object({
+        email: z.string().trim().max(255).optional(),
+        current_password: z.string().max(72).optional(),
+        new_password: z.string().max(72).optional(),
+        confirm_password: z.string().max(72).optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ context, data }) => {
+    const { userId } = context;
+    const account = await loadAccountAuth(userId);
+    if (!account.email) {
+      throw new Error("Conta sem e-mail. Entre de novo e tente outra vez.");
+    }
+
+    const nextEmailRaw = data.email?.trim() ?? "";
+    let nextEmail = account.email;
+    if (nextEmailRaw) {
+      const parsedEmail = emailSchema.safeParse(nextEmailRaw);
+      if (!parsedEmail.success) {
+        throw new Error(parsedEmail.error.issues[0]?.message ?? "E-mail inválido.");
+      }
+      nextEmail = parsedEmail.data.toLowerCase();
+    }
+    const wantsEmail = nextEmail !== account.email;
+
+    const newPassword = data.new_password?.trim() ?? "";
+    const confirmPassword = data.confirm_password?.trim() ?? "";
+    const wantsPassword = newPassword.length > 0;
+
+    if (!wantsEmail && !wantsPassword) {
+      return {
+        ok: true as const,
+        email: account.email,
+        emailChanged: false,
+        passwordChanged: false,
+      };
+    }
+
+    if (wantsPassword) {
+      const parsedPw = newPasswordSchema.safeParse(newPassword);
+      if (!parsedPw.success) {
+        throw new Error(parsedPw.error.issues[0]?.message ?? "Nova senha inválida.");
+      }
+      if (newPassword !== confirmPassword) {
+        throw new Error("A confirmação da nova senha não confere.");
+      }
+    }
+
+    if (account.hasPassword) {
+      const current = data.current_password ?? "";
+      if (!current) {
+        throw new Error("Informe a senha atual para alterar e-mail ou senha.");
+      }
+      await verifyCurrentPassword(account.email, current);
+    }
+
+    const patch: { email?: string; password?: string; email_confirm?: boolean } = {};
+    if (wantsEmail) {
+      patch.email = nextEmail;
+      patch.email_confirm = true;
+    }
+    if (wantsPassword) {
+      patch.password = newPassword;
+    }
+
+    const { data: updated, error } = await supabaseAdmin.auth.admin.updateUserById(userId, patch);
+    if (error) {
+      const msg = error.message ?? "Falha ao atualizar a conta.";
+      if (/already.*(registered|been)|exists|duplicate/i.test(msg)) {
+        throw new Error("Este e-mail já está em uso.");
+      }
+      throw new Error(msg);
+    }
+
+    return {
+      ok: true as const,
+      email: updated.user?.email?.trim().toLowerCase() ?? nextEmail,
+      emailChanged: wantsEmail,
+      passwordChanged: wantsPassword,
     };
   });

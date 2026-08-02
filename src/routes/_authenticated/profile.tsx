@@ -1,17 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useSuspenseQuery, useMutation, useQueryClient, useSuspenseInfiniteQuery } from "@tanstack/react-query";
+import {
+  useSuspenseQuery,
+  useMutation,
+  useQueryClient,
+  useSuspenseInfiniteQuery,
+} from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import {
-  Check,
-  Swords,
-  Trophy,
-  Target,
-  CalendarDays,
-  Pencil,
-  MapPin,
-  History,
-} from "lucide-react";
+import { Check, Swords, Trophy, Target, CalendarDays, Pencil, MapPin, History } from "lucide-react";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -23,6 +19,8 @@ import {
 import { toast } from "sonner";
 
 import { updateProfile } from "@/lib/journey.functions";
+import { updateAccountAuth } from "@/lib/profile.functions";
+import { supabase } from "@/integrations/supabase/client";
 import {
   profilePanoramaQueryOptions,
   activityHistoryInfiniteQueryOptions,
@@ -84,33 +82,87 @@ export const Route = createFileRoute("/_authenticated/profile")({
 function ProfilePage() {
   const { data } = useSuspenseQuery(profilePanoramaQueryOptions());
   const updateFn = useServerFn(updateProfile);
+  const updateAuthFn = useServerFn(updateAccountAuth);
   const qc = useQueryClient();
 
   const [nome, setNome] = useState(data.profile.nome ?? "");
   const [bio, setBio] = useState(data.profile.bio ?? "");
+  const [email, setEmail] = useState(() => data.account.email ?? "");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [locationQuery, setLocationQuery] = useState(
     () => (data.profile as { location_label?: string | null }).location_label ?? "",
   );
   const [wallpaperId, setWallpaperId] = useState(() => readStoredWallpaperId());
 
-  const locationLabel =
-    (data.profile as { location_label?: string | null }).location_label ?? null;
+  const locationLabel = (data.profile as { location_label?: string | null }).location_label ?? null;
 
   const m = useMutation({
-    mutationFn: () =>
-      updateFn({
+    mutationFn: async () => {
+      const currentEmail = (data.account.email ?? "").toLowerCase();
+      const nextEmail = email.trim().toLowerCase();
+      const wantsEmail = nextEmail.length > 0 && nextEmail !== currentEmail;
+      const wantsPassword = newPassword.trim().length > 0;
+
+      if (wantsPassword && newPassword !== confirmPassword) {
+        throw new Error("A confirmação da nova senha não confere.");
+      }
+      if (wantsPassword && newPassword.trim().length < 6) {
+        throw new Error("Nova senha: mínimo 6 caracteres.");
+      }
+      if ((wantsEmail || wantsPassword) && data.account.hasPassword && !currentPassword) {
+        throw new Error("Informe a senha atual para alterar e-mail ou senha.");
+      }
+
+      const profileRes = await updateFn({
         data: {
           nome,
           bio,
           location_query: locationQuery,
         },
-      }),
+      });
+
+      let authRes: {
+        email: string | null;
+        emailChanged: boolean;
+        passwordChanged: boolean;
+      } | null = null;
+
+      if (wantsEmail || wantsPassword) {
+        authRes = await updateAuthFn({
+          data: {
+            email: nextEmail || undefined,
+            current_password: currentPassword || undefined,
+            new_password: newPassword || undefined,
+            confirm_password: confirmPassword || undefined,
+          },
+        });
+        try {
+          await supabase.auth.refreshSession();
+        } catch {
+          /* sessão antiga ainda vale; e-mail no JWT atualiza no próximo refresh */
+        }
+      }
+
+      return { profileRes, authRes };
+    },
     onSuccess: (res) => {
-      toast.success("Perfil atualizado");
+      const parts = ["Perfil atualizado"];
+      if (res.authRes?.emailChanged) parts.push("e-mail alterado");
+      if (res.authRes?.passwordChanged) parts.push("senha alterada");
+      toast.success(parts.join(" · "));
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      if (res.authRes?.email) setEmail(res.authRes.email);
+
       const nextLabel =
-        res.location_label !== undefined ? res.location_label : locationLabel;
+        res.profileRes.location_label !== undefined ? res.profileRes.location_label : locationLabel;
       if (typeof nextLabel === "string") setLocationQuery(nextLabel);
       if (nextLabel === null) setLocationQuery("");
+
       qc.setQueryData<ProfilePanoramaData>(["profile-panorama"], (old) =>
         old
           ? {
@@ -120,6 +172,11 @@ function ProfilePage() {
                 nome,
                 bio,
                 location_label: nextLabel ?? null,
+              },
+              account: {
+                ...old.account,
+                email: res.authRes?.email ?? old.account.email,
+                hasPassword: Boolean(old.account.hasPassword || res.authRes?.passwordChanged),
               },
             }
           : old,
@@ -190,10 +247,7 @@ function ProfilePage() {
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-3 text-center">
-          <StatCell
-            label="XP"
-            value={data.profile.xp_total.toLocaleString("pt-BR")}
-          />
+          <StatCell label="XP" value={data.profile.xp_total.toLocaleString("pt-BR")} />
           <StatCell label="Dias na jornada" value={String(data.daysOnJourney)} />
           <StatCell label="Streak máx." value={String(data.profile.streak_maximo)} />
         </div>
@@ -242,16 +296,8 @@ function ProfilePage() {
           <ResponsiveContainer width="100%" height={280} minWidth={0}>
             <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="72%">
               <PolarGrid stroke="color-mix(in srgb, #FFE7D0 18%, transparent)" />
-              <PolarAngleAxis
-                dataKey="atributo"
-                tick={{ fill: "#FFE7D099", fontSize: 10 }}
-              />
-              <PolarRadiusAxis
-                angle={90}
-                domain={[0, radarMax]}
-                tick={false}
-                axisLine={false}
-              />
+              <PolarAngleAxis dataKey="atributo" tick={{ fill: "#FFE7D099", fontSize: 10 }} />
+              <PolarRadiusAxis angle={90} domain={[0, radarMax]} tick={false} axisLine={false} />
               <Radar
                 name="Atributos"
                 dataKey="valor"
@@ -289,7 +335,10 @@ function ProfilePage() {
 
         <div className="mt-5 grid grid-cols-3 gap-3 text-center">
           <StatCell label="Taxa" value={`${data.rhythm.completionRate}%`} />
-          <StatCell label="Dias ativos" value={`${data.rhythm.activeDays}/${data.rhythm.periodDays}`} />
+          <StatCell
+            label="Dias ativos"
+            value={`${data.rhythm.activeDays}/${data.rhythm.periodDays}`}
+          />
           <StatCell label="Melhor sequência" value={String(data.rhythm.bestStreakInPeriod)} />
         </div>
 
@@ -370,9 +419,7 @@ function ProfilePage() {
             </Link>
           </div>
           {data.completedChallenges.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nenhum desafio concluído ainda.
-            </p>
+            <p className="text-sm text-muted-foreground">Nenhum desafio concluído ainda.</p>
           ) : (
             <ul className="space-y-2">
               {data.completedChallenges.map((c) => (
@@ -468,11 +515,82 @@ function ProfilePage() {
         >
           <div className="space-y-2">
             <Label>Nome</Label>
-            <Input value={nome} onChange={(e) => setNome(e.target.value)} minLength={2} maxLength={60} />
+            <Input
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              minLength={2}
+              maxLength={60}
+            />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="profile-email">E-mail</Label>
+            <Input
+              id="profile-email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              maxLength={255}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="profile-current-password">
+              {data.account.hasPassword ? "Senha atual" : "Senha atual (opcional)"}
+            </Label>
+            <Input
+              id="profile-current-password"
+              type="password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              maxLength={72}
+              placeholder={
+                data.account.hasPassword
+                  ? "Obrigatória para mudar e-mail ou senha"
+                  : "Conta Google — só necessária se já tiver senha"
+              }
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="profile-new-password">Nova senha</Label>
+              <Input
+                id="profile-new-password"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                maxLength={72}
+                placeholder="Deixe em branco para manter"
+                minLength={newPassword ? 6 : undefined}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-confirm-password">Confirmar nova senha</Label>
+              <Input
+                id="profile-confirm-password"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                maxLength={72}
+                placeholder="Repita a nova senha"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Alterar e-mail ou senha atualiza a conta no Supabase Auth. Mínimo 6 caracteres na nova
+            senha.
+          </p>
+          <div className="space-y-2">
             <Label>Bio</Label>
-            <Textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280} rows={3} />
+            <Textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              maxLength={280}
+              rows={3}
+            />
           </div>
           <div className="space-y-2">
             <Label>Cidade / região (clima do Charlie)</Label>
@@ -506,12 +624,9 @@ function StatCell({ label, value }: { label: string; value: string }) {
 }
 
 function ActivityHistorySection() {
-  const {
-    data,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-  } = useSuspenseInfiniteQuery(activityHistoryInfiniteQueryOptions());
+  const { data, hasNextPage, isFetchingNextPage, fetchNextPage } = useSuspenseInfiniteQuery(
+    activityHistoryInfiniteQueryOptions(),
+  );
 
   const items = data.pages.flatMap((p) => p.items);
 
