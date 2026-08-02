@@ -1,7 +1,7 @@
 # ResumoAplicacao — V-Project
 
 Documento único para compreender **o que a aplicação é**, **como funciona**, **como está construída** e **o que ainda não faz**.  
-Alinhado ao código do repositório `hero-s-ascent` (agosto 2026 — ML Fases 1–4, Web Push, exercícios validados / flexão).
+Alinhado ao código do repositório `hero-s-ascent` (agosto 2026 — ML Fases 1–4, Web Push, exercícios validados, metas enriquecidas, loja de personalidades do Charlie).
 
 | Campo | Valor |
 | --- | --- |
@@ -25,12 +25,13 @@ O **V-Project** transforma autodisciplina em uma jornada gamificada. O herói:
 3. Cria hábitos diários ligados a atributos
 4. Completa hábitos **declarados** → ganha **XP**, sobe de **nível**, mantém **streak**, fortalece **atributos**
 5. Pode validar **flexões** com câmera ao vivo (pose on-device, sem gravar vídeo) → XP híbrido por sessão
-6. Conversa com o mentor **Charlie** (IA), que pode criar **desafios** e **sugerir hábitos**
-7. Personaliza o app com **fundos de tela** desbloqueáveis
-8. Recebe **notificações in-app** (sino), opcionalmente **Web Push** e **Telegram** (`@DashiVProject_bot`)
-9. Pode informar a **cidade/região** no perfil; o Charlie usa o **clima local** (Open-Meteo) no contexto da conversa
-10. Registra **check-in** diário (sono/energia/humor) na Jornada — sinais reais para o Charlie e para o agente
-11. Camada de **ML** (features + scores + jobs) alimenta lembretes, desafios e iniciativas com guardrails
+6. Conversa com o mentor **Charlie** (IA), que pode criar **desafios**, **sugerir hábitos** e acompanhar **metas**
+7. Escolhe a **personalidade** do Charlie na loja (`/store`) — vitrine pronta para produtos futuros
+8. Personaliza o app com **fundos de tela** desbloqueáveis
+9. Recebe **notificações in-app** (sino), opcionalmente **Web Push** e **Telegram** (`@DashiVProject_bot`)
+10. Pode informar a **cidade/região** no perfil; o Charlie usa o **clima local** (Open-Meteo) no contexto da conversa
+11. Registra **check-in** diário (sono/energia/humor) na Jornada — sinais reais para o Charlie e para o agente
+12. Camada de **ML** (features + scores + jobs) alimenta lembretes, desafios e iniciativas com guardrails
 
 Não é uma rede social. É um app individual de progresso, ritmo diário e mentoria.
 
@@ -47,8 +48,9 @@ Landing (/)
        → hábitos declarados do dia, XP, streak, card do Charlie, **check-in**
   → /habits  — CRUD + concluir (declarados) + card Exercício validado
   → /exercises/pushup — sessão de flexão (câmera + pose on-device)
-  → /goals   — CRUD metas
+  → /goals   — metas (norte, prazo, progresso, vínculo com hábitos)
   → /mentor  — chat Charlie, presença, desafios, sugestões de hábito, sinais ML
+  → /store   — loja de personalidades do Charlie (ativação real do tom)
   → /profile — identidade, atributos, cidade, wallpaper, Telegram, Web Push
   → sino (notificações) + crons diários (lembretes / ML features / agente)
   → /dashitecnology/* — control room (role `dashi`)
@@ -74,17 +76,18 @@ Layout compartilhado:
 | Rota | Função |
 | --- | --- |
 | `/journey` | Dashboard: nível, XP, streak, hábitos **declarados** do dia, check-in, atributos, entrada para Charlie |
-| `/habits` | CRUD de hábitos declarados + card para exercício validado (flexão) |
+| `/habits` | CRUD de hábitos declarados + card para exercício validado (flexão) + sugerir com Charlie |
 | `/exercises/$slug` | Sessão validada (MVP: `pushup`) — câmera ao vivo, calibração, contagem por pose |
-| `/goals` | Criar / excluir metas |
-| `/mentor` | Chat com Charlie, desafios, sugestões de hábito (aceitar/recusar), histórico |
+| `/goals` | Metas com status, motivo, prazo, norte, progresso 7d e vínculo com hábitos |
+| `/mentor` | Chat com Charlie; link **Configurar Personalidade do Charlie** → `/store` |
+| `/store` | Loja de personalidades (cards cyberpunk); confirmar ativa `profiles.charlie_personality` |
 | `/profile` | Perfil, radar de atributos, ritmo, troféus, localização/clima, wallpapers, Telegram, Web Push |
 | `/onboarding` | Escolha de categorias + metas iniciais |
 
 ### Control room (`/dashitecnology`)
 
 Acesso: role `dashi` em `user_roles`. Visão operacional (heróis, jobs, ML, agente, notificações, etc.).  
-Em `/dashitecnology/users/$userId`, **Limpar histórico completo** apaga também `exercise_sessions` (métricas via CASCADE).
+Em `/dashitecnology/users/$userId`, **Limpar histórico completo** apaga `exercise_sessions`, **`goals`** (hábitos.goal_id → NULL) e o restante do histórico — mantém conta, nome e hábitos cadastrados.
 
 ---
 
@@ -126,6 +129,7 @@ src/
     auth.tsx                   # Auth
     _authenticated/            # Shell + páginas protegidas
       exercises.$slug.tsx      # Sessão de exercício validado
+      store.tsx                # Loja de personalidades do Charlie
     dashitecnology/            # Control room (role dashi)
   mentor/                      # Charlie (UI, context, OpenRouter, functions)
   notifications/               # Sino, CRUD, create, jobs, Telegram, Web Push
@@ -133,13 +137,16 @@ src/
   lib/
     journey.ts                 # Níveis, categorias, frases (puro)
     journey.functions.ts       # Server fns jornada / hábitos / metas (+ recompute ML)
-    journey-queries.ts         # React Query options
-    profile.functions.ts       # Panorama do perfil
-    checkins.functions.ts      # Check-in diário (sono/energia/humor)
+    goals.functions.ts         # Board de metas + completar/vincular hábitos
+    mentor-goals.ts            # Bloco METAS DO HERÓI para o Charlie
+    charlie-store.ts           # Imagens / preço display da loja
     exercise.functions.ts      # Sessões validadas (start/complete/cancel)
     exercise-xp.ts             # XP híbrido da sessão
     exercise/                  # Pose: framing, calibração, counter, overlay, MediaPipe
     useExerciseCamera.ts       # getUserMedia (sem gravação)
+    journey-queries.ts         # React Query options
+    profile.functions.ts       # Panorama do perfil
+    checkins.functions.ts      # Check-in diário (sono/energia/humor)
     ml/                        # Feature store, adaptive, agent, CF
       features.ts              # computeUserFeatures + heuristic_v1
       recompute.ts             # Upsert user_features / user_ml_scores
@@ -160,9 +167,9 @@ ml/                            # Pacote Python Fase 2 (train / evaluate / score-
 plans/
   ML-fase-1.md … ML-fase-4.md  # Roadmap ML canônico
   ExerciciosValidados-Flexao.md
-public/                        # logo, charlie, wallpapers, ícones
+public/                        # logo, charlie, wallpapers, animate-icons, charlie-versions
 supabase/
-  migrations/                  # Schema + incrementais (ML 1–4, exercícios)
+  migrations/                  # Schema + incrementais (ML 1–4, exercícios, metas)
   functions/
     notification-jobs/         # Cron lembretes + adaptive
     ml-features-job/           # Cron features + scores
@@ -260,11 +267,26 @@ Dois modos de hábito:
 | **Declarado** | Check manual em `/habits` ou `/journey` | `xp_recompensa` do hábito |
 | **Validado** (`habits.exercise_type_id`) | Sessão em `/exercises/$slug` | XP híbrido da sessão (base + por rep × forma, com teto e cap diário) |
 
-- Hábitos declarados: título, descrição, XP, atributo, categoria, ativo
+- Hábitos declarados: título, descrição, XP, atributo, categoria, ativo, opcional `goal_id`
 - Conclusões declaradas: 1 por hábito por dia (`habit_completions`)
 - `completeHabit` **bloqueia** hábitos com `exercise_type_id` (obriga a sessão)
-- Metas: texto + categoria; onboarding cria as primeiras via `setGoals`
 - Charlie pode propor `habit_suggestion` no mentor (aceitar → cria hábito; recusar → descarta)
+- Em `/habits`, **Sugerir com Charlie** usa o ícone `/charlie-ico.ico`
+
+**Metas enriquecidas** (`/goals`, migration `20260802010000_goals_enrichment.sql`):
+
+| Campo / peça | Detalhe |
+| --- | --- |
+| Status | `ativa` · `pausada` · `concluida` |
+| Motivo | Texto curto (“por quê importa”) |
+| Prazo | Data opcional; UI sinaliza atraso |
+| Norte | Até 3 metas destaque (`is_norte`) |
+| Progresso 7d | % de hábitos vinculados concluídos na semana |
+| Vínculo | `habits.goal_id` → meta (ON DELETE SET NULL) |
+| Conquistar | Marca concluída + XP (`xp_recompensa`, default 40) + memória no Charlie |
+| Server | `src/lib/goals.functions.ts` (board, CRUD, link, complete) |
+
+Onboarding ainda cria as primeiras via `setGoals` (título + categoria).
 
 ### Exercícios validados (MVP: flexão)
 
@@ -298,13 +320,24 @@ Módulo: `src/mentor/`.
 | Objetivos | `mentor_objectives` |
 | Desafios | `mentor_challenges` — máx. 2 ativos; **clamp adaptativo** (Fase 3) |
 | Sugestão de hábito | Tipagem `habit_suggestion` no mentor — aceitar cria o hábito |
+| Metas | Bloco `METAS DO HERÓI` (`src/lib/mentor-goals.ts`) — nortes, prazo, ritmo 7d |
+| Personalidade | `profiles.charlie_personality` — escolhida na **loja** `/store` (não modal) |
 | Sinais ML | Bloco `SINAIS ML` no contexto (`user_ml_scores` / `heuristic_v1`) |
 | Check-ins | Sono/energia/humor só se o herói registrou; senão o prompt proíbe inventar |
 | IA | OpenRouter (`OPENROUTER_API_KEY`, modelo configurável) |
 | Clima | Se o perfil tem lat/lon, o contexto inclui snapshot Open-Meteo |
 
 Concluir desafio → XP + activity + notificação `mentor_challenge_done`.  
-Expiração → status `expirado` + notificação `mentor_challenge_expired` (lazy no mentor e/ou job global).
+Expiração → status `expirado` + notificação `mentor_challenge_expired` (lazy no mentor e/ou job global).  
+Conquistar meta → memória no mentor + XP.
+
+### Loja de personalidades (`/store`)
+
+- CTA no mentor: **Configurar Personalidade do Charlie** → `/store`
+- Vitrine com cards `cp-panel` / `cp-brackets`; arte em `public/charlie-versions/`
+- Confirmar chama `setCharliePersonality` e grava o tom real
+- Preço de vitrine **Grátis** por enquanto (`charlie-store.ts`); pagamento / inventário ainda não existem
+- Slugs: classico, militar, estoico, empresarial, cristao, fitness, financeiro
 
 Documentos: `plans/Charlie-fase-1.md`, `plans/ML-fase-1.md` … `ML-fase-4.md`.
 
@@ -398,13 +431,13 @@ CLI Python: `cd ml && python -m vproject_ml train|evaluate|score-shadow`.
 
 | Tabela | Papel |
 | --- | --- |
-| `profiles` | Herói (XP, streak, capítulo, wallpaper, telegram, localização…) |
+| `profiles` | Herói (XP, streak, capítulo, wallpaper, telegram, localização, `charlie_personality`…) |
 | `attributes` | 8 atributos |
 | `levels` / `chapters` / `achievements` | Seeds de catálogo |
 | `user_achievements` | Conquistas desbloqueadas |
 | `missions` | Missões de capítulo |
-| `goals` | Metas |
-| `habits` | Hábitos (declarados ou validados via `exercise_type_id`) |
+| `goals` | Metas (status, motivo, prazo, norte, XP ao concluir) |
+| `habits` | Hábitos (declarados ou validados via `exercise_type_id`; opcional `goal_id`) |
 | `habit_completions` | Check diário (hábitos declarados) |
 | `exercise_types` | Catálogo global de exercícios validados (seed: flexão) |
 | `exercise_sessions` | Sessões (active / completed / cancelled / rejected) |
@@ -423,7 +456,7 @@ CLI Python: `cd ml && python -m vproject_ml train|evaluate|score-shadow`.
 | `user_cf_recommendations` | Sugestões CF (weekday peers) |
 
 Schema base: `supabase/migrations/20260717004140_complete_schema.sql`  
-(+ migrations incrementais: notificações, Telegram, wallpaper, clima, missões, **ML fases 1–4**, **exercícios validados** `20260801134500_validated_exercises_pushup.sql`).
+(+ migrations incrementais: notificações, Telegram, wallpaper, clima, missões, **ML fases 1–4**, **exercícios validados** `20260801134500_validated_exercises_pushup.sql`, **metas enriquecidas** `20260802010000_goals_enrichment.sql`).
 
 ---
 
@@ -509,7 +542,7 @@ Functions ativas no projeto: só essas quatro (leftovers Lovable removidos).
    select vault.create_secret('SEU_CRON_SECRET', 'notification_jobs_cron_secret');
    ```
    e reexecutar os schedules (notifications / ml-features / agent) — **sem** recriar `pg_cron` se já existir (erro `2BP01`)
-3. Migrations incrementais: clima, missões, ML fases 1–4, exercícios validados (`20260801134500_*`)
+3. Migrations incrementais: clima, missões, ML fases 1–4, exercícios (`20260801134500_*`), metas (`20260802010000_*`)
 4. `setWebhook` do Telegram com `secret_token` alinhado a `TELEGRAM_WEBHOOK_SECRET`
 
 ### Dev local
@@ -539,17 +572,19 @@ python -m vproject_ml evaluate
 ### Funciona hoje
 
 - Auth (e-mail + Google), onboarding com gate real (UI + server)
-- Hábitos **declarados**, metas, XP, níveis, streak, atributos
+- Hábitos **declarados**, XP, níveis, streak, atributos
+- **Metas enriquecidas** (`/goals`): status, motivo, prazo, norte, progresso 7d, vínculo com hábitos, XP ao conquistar
 - **Exercícios validados (flexão):** câmera + pose on-device (framing → calibração → contagem) + XP híbrido
 - **Engine de progresso:** avanço automático de capítulo + unlock de conquistas (+ XP bônus)
 - **Missões de capítulo** (principal/secundária) com progresso ao concluir hábitos
 - **Histórico de atividade** no perfil
 - **Sugestão de hábitos** via Charlie (onboarding, `/habits`, tipagem no `/mentor`)
-- Charlie (chat, presença, memórias, desafios, clima opcional, **sinais ML**, check-ins)
+- Charlie (chat, presença, memórias, desafios, **METAS DO HERÓI**, clima opcional, **sinais ML**, check-ins)
+- **Loja `/store`:** personalidades do Charlie com ativação real do tom
 - **ML Fases 1–4:** feature store, scores, adaptive notifs/desafios, sklearn shadow, check-ins, agente, CF
-- Wallpapers desbloqueáveis (inclui após subir de capítulo)
+- Wallpapers desbloqueáveis (inclui após subir de capítulo); flame GIF no streak (jornada/perfil)
 - Notificações in-app + **Web Push** (VAPID) + jobs diários + Telegram
-- **Control room** `/dashitecnology` (role `dashi`), incl. limpeza de histórico com sessões de exercício
+- **Control room** `/dashitecnology` (role `dashi`); limpeza apaga sessões, **metas** e histórico (mantém hábitos)
 - Deploy Vercel + Supabase Edge
 
 ### Ainda não / incompleto
@@ -561,12 +596,15 @@ python -m vproject_ml evaluate
 | Mais exercícios validados | Só flexão no MVP; agachamento/prancha no plano |
 | Resumo pós-sessão dedicado | Encerrar → XP popup; tela de resumo rica ainda no plano |
 | Charlie com histórico de flexões | Métricas persistidas; injeção no contexto ainda no plano (Fase 3 do doc de exercícios) |
+| Pagamento / inventário da loja | Vitrine + ativação grátis; checkout e ownership ainda não |
+| Produtos além de personalidade | `/store` preparado como vitrine; só personalidades hoje |
 | Promoção sklearn → Charlie | Shadow only; exige AUC real + decisão humana |
 | CF com N pequeno | Sem peers suficientes, não inventa sugestões |
 
 > Missões: migration `supabase/migrations/20260727150103_missions.sql`.  
 > ML: migrations `20260727150000_ml_feature_store.sql` … `20260727171000_schedule_agent_initiatives_job.sql`.  
-> Exercícios: `20260801134500_validated_exercises_pushup.sql`.
+> Exercícios: `20260801134500_validated_exercises_pushup.sql`.  
+> Metas: `20260802010000_goals_enrichment.sql`.
 
 ---
 
@@ -579,6 +617,9 @@ python -m vproject_ml evaluate
 | Engine progresso | `src/lib/progress-engine.ts` |
 | Missões | `src/lib/missions-core.ts`, `missions.functions.ts` |
 | Hábitos IA | `src/lib/habit-suggest.ts` |
+| Metas | `src/lib/goals.functions.ts`, `src/routes/_authenticated/goals.tsx` |
+| Metas → Charlie | `src/lib/mentor-goals.ts` |
+| Loja Charlie | `src/routes/_authenticated/store.tsx`, `src/lib/charlie-store.ts` |
 | Exercícios / pose | `src/lib/exercise.functions.ts`, `exercise-xp.ts`, `src/lib/exercise/*` |
 | Modal de sessão | `src/components/ExerciseSessionCameraModal.tsx` |
 | Jornada server | `src/lib/journey.functions.ts` |
@@ -614,7 +655,9 @@ python -m vproject_ml evaluate
 | **Check-in** | Sono / energia / humor do dia |
 | **Hábito declarado** | Conclusão manual (check) |
 | **Hábito validado** | Exige sessão de exercício (ex.: flexão) |
+| **Norte** | Meta destaque (máx. 3); guia o foco da jornada |
 | **Sessão** | Execução com câmera + métricas persistidas (sem vídeo) |
+| **Loja** | `/store` — personalidades do Charlie (vitrine + ativação) |
 | **Sino** | UI de notificações in-app |
 | **Web Push** | Notificação do browser (VAPID), opt-in no perfil |
 | **dashi** | Role de admin da control room |

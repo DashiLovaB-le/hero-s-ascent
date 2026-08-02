@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Desenvolvimento masculino gamificado pela Jornada do Herói.</strong><br />
-  Hábitos, metas, XP, capítulos, flexão validada por pose, fundos de tela e mentor com IA — do Homem Comum à Lenda.
+  Hábitos, metas enriquecidas, XP, capítulos, flexão validada por pose, loja do Charlie, fundos de tela e mentor com IA — do Homem Comum à Lenda.
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@ Hábitos **declarados** concluem com check manual. Hábitos **validados** (MVP: 
 
 Inspirado na **Jornada do Herói**, o app guia o progresso em capítulos, com visual dark cyberpunk (painéis chanfrados, accent laranja `#FC6E20`).
 
-O mentor **Charlie** acompanha com chat, memórias, desafios, sugestões de hábito e, se a cidade estiver no perfil, clima local (Open-Meteo). Há check-in diário, camada de **ML**, **Web Push**, Telegram opcional e control room (`/dashitecnology`) para quem tem role `dashi`.
+O mentor **Charlie** acompanha com chat, memórias, desafios, sugestões de hábito, **metas do herói** e, se a cidade estiver no perfil, clima local (Open-Meteo). A personalidade do Charlie é escolhida na **loja** (`/store`). Há check-in diário, camada de **ML**, **Web Push**, Telegram opcional e control room (`/dashitecnology`) para quem tem role `dashi`.
 
 Produção: `https://v-project-rho.vercel.app` · Doc canônico: [`plans/ResumoAplicacao.md`](plans/ResumoAplicacao.md).
 
@@ -42,10 +42,11 @@ Produção: `https://v-project-rho.vercel.app` · Doc canônico: [`plans/ResumoA
 | **Auth** (`/auth`) | Login / cadastro (e-mail + senha), Google OAuth |
 | **Onboarding** | Áreas de foco e primeiras metas |
 | **Jornada** (`/journey`) | Dashboard: nível, XP, streak, hábitos declarados, check-in, atributos |
-| **Hábitos** (`/habits`) | CRUD declarados + card para exercício validado |
+| **Hábitos** (`/habits`) | CRUD declarados + card para exercício validado + sugerir com Charlie |
 | **Flexão** (`/exercises/pushup`) | Sessão com câmera, framing, calibração (~3s), contagem e cues de postura |
-| **Metas** (`/goals`) | Gestão das metas por categoria |
-| **Charlie** (`/mentor`) | Chat, memórias, desafios, sugestões de hábito, clima, sinais ML |
+| **Metas** (`/goals`) | Status, motivo, prazo, norte (máx. 3), progresso 7d, vínculo com hábitos, XP ao conquistar |
+| **Charlie** (`/mentor`) | Chat, memórias, desafios, sugestões, metas no contexto, clima, sinais ML |
+| **Loja** (`/store`) | Personalidades do Charlie — confirmar ativa o tom em `profiles.charlie_personality` |
 | **Perfil** (`/profile`) | Identidade, radar, troféus, cidade/clima, fundos, Telegram, Web Push |
 | **Notificações** | Sino in-app + Web Push (VAPID) + Telegram opcional |
 | **ML** | Feature store, scores, lembretes/desafios adaptativos, shadow sklearn, CF, agente |
@@ -60,11 +61,28 @@ Produção: `https://v-project-rho.vercel.app` · Doc canônico: [`plans/ResumoA
 - Cancelar / 0 reps → sem XP; `completeHabit` bloqueado para hábitos validados
 - Plano: [`plans/ExerciciosValidados-Flexao.md`](plans/ExerciciosValidados-Flexao.md)
 
-### Charlie e clima
+### Metas
+
+- Board em `/goals`: nortes, ativas, pausadas, concluídas
+- Campos: motivo, prazo, status, `is_norte` (máx. 3)
+- Ligar hábitos à meta; progresso dos últimos 7 dias
+- Conquistar → XP + memória no Charlie
+- Migration: `supabase/migrations/20260802010000_goals_enrichment.sql`
+
+### Charlie, metas e clima
 
 - No **Perfil**, o herói informa a cidade/região; o servidor geocodifica (Open-Meteo)
 - Em cada conversa/presença, o Charlie recebe temperatura e condição (cache ~45 min)
+- Contexto inclui bloco **METAS DO HERÓI** (`src/lib/mentor-goals.ts`)
 - Pode sugerir hábitos no mentor (aceitar cria o hábito; recusar descarta)
+- CTA **Configurar Personalidade do Charlie** → `/store`
+
+### Loja de personalidades (`/store`)
+
+- Vitrine com arte em `public/charlie-versions/`
+- Confirmar aplica `setCharliePersonality` de verdade
+- Preço de vitrine **Grátis** por enquanto; pagamento/inventário ainda não
+- Slugs: classico, militar, estoico, empresarial, cristao, fitness, financeiro
 
 ### Gamificação
 
@@ -196,6 +214,7 @@ supabase/migrations/20260727160000_ml_fase2_shadow.sql
 supabase/migrations/20260727170000_ml_fase4_agent.sql
 supabase/migrations/20260727171000_schedule_agent_initiatives_job.sql
 supabase/migrations/20260801134500_validated_exercises_pushup.sql
+supabase/migrations/20260802010000_goals_enrichment.sql
 ```
 
 No SQL Editor do Supabase, execute o schema e as migrations.  
@@ -266,8 +285,9 @@ src/
       journey.tsx
       habits.tsx
       exercises.$slug.tsx     # Sessão validada (flexão)
-      goals.tsx
+      goals.tsx               # Metas enriquecidas
       mentor.tsx
+      store.tsx               # Loja de personalidades
       profile.tsx
       onboarding.tsx
     dashitecnology/           # Control room (dashi)
@@ -280,6 +300,8 @@ src/
     WallpaperSettings.tsx
   lib/
     journey.ts / journey.functions.ts
+    goals.functions.ts / mentor-goals.ts
+    charlie-store.ts
     exercise.functions.ts / exercise-xp.ts
     exercise/                 # framing, calibração, counter, overlay, MediaPipe
     useExerciseCamera.ts
@@ -293,6 +315,8 @@ plans/
   ExerciciosValidados-Flexao.md
   ML-fase-1.md … ML-fase-4.md
 public/
+  charlie-versions/           # Arte das personalidades
+  animate-icons/              # GIFs (ex.: flame no streak)
 supabase/
   migrations/
   functions/
@@ -310,8 +334,9 @@ supabase/
 | `/journey` | Autenticado | Dashboard + check-in |
 | `/habits` | Autenticado | Hábitos declarados + entrada para flexão |
 | `/exercises/$slug` | Autenticado | Sessão de exercício validado (`pushup`) |
-| `/goals` | Autenticado | Metas |
+| `/goals` | Autenticado | Metas (norte, prazo, progresso, hábitos) |
 | `/mentor` | Autenticado | Charlie |
+| `/store` | Autenticado | Personalidades do Charlie |
 | `/profile` | Autenticado | Perfil, clima, fundos, Telegram, Web Push |
 | `/dashitecnology/*` | Role `dashi` | Control room |
 
