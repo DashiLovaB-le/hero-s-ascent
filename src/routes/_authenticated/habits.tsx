@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Plus, Trash2, Flame, Pencil, Sparkles, Check, ChevronsUp, ArrowRight } from "lucide-react";
+import { Plus, Trash2, Pencil, Sparkles, Check, ChevronsUp, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -362,7 +362,12 @@ function HabitsPage() {
                       disabled={done || completeM.isPending}
                       onClick={() => completeM.mutate(h.id)}
                     >
-                      <Flame className="mr-1 h-3.5 w-3.5" />
+                      <img
+                        src="/animate-icons/flame.gif"
+                        alt=""
+                        aria-hidden
+                        className="mr-1 h-3.5 w-3.5 shrink-0 object-contain"
+                      />
                       {done ? "Feito" : "Fazer"}
                     </Button>
                     <Button

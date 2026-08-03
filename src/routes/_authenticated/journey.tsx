@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect } from "react";
-import { Check, Sparkles, ChevronRight, Trophy, Target, ArrowRight, ScrollText } from "lucide-react";
+import { Check, Sparkles, ChevronRight, Trophy, Target, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 import { completeHabit } from "@/lib/journey.functions";
@@ -211,7 +211,15 @@ function JourneyPage() {
       {(principal || secundarias.length > 0) && (
         <Card className="p-6">
           <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-semibold">
-            <ScrollText className="h-5 w-5 text-hero" /> Missões do capítulo
+            <img
+              src="/animate-icons/manuscript.gif"
+              alt=""
+              width={20}
+              height={20}
+              className="h-5 w-5 object-contain"
+              aria-hidden
+            />{" "}
+            Missões do capítulo
           </h2>
           <div className="space-y-3">
             {principal && <MissionCard mission={principal} />}

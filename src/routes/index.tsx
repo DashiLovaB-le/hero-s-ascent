@@ -1,11 +1,7 @@
 import { useRef } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import {
-  CheckItem,
-  SlashLabel,
-  TechMark,
-} from "@/components/landing/LandingChrome";
+import { CheckItem, SlashLabel, TechMark } from "@/components/landing/LandingChrome";
 import { useLandingGsap } from "@/components/landing/useLandingGsap";
 
 export const Route = createFileRoute("/")({
@@ -71,7 +67,10 @@ function Landing() {
   return (
     <div ref={rootRef} className="min-h-screen overflow-x-hidden bg-[#1B1B1B] text-[#FFE7D0]">
       {/* ── HERO (~60dvh) ── */}
-      <section data-lp="hero" className="relative isolate flex min-h-[60dvh] flex-col overflow-hidden">
+      <section
+        data-lp="hero"
+        className="relative isolate flex min-h-[60dvh] flex-col overflow-hidden"
+      >
         <img
           data-lp="hero-bg"
           src="/images/hero-section-lp.jpg"
@@ -106,6 +105,15 @@ function Landing() {
             </span>
           </Link>
           <div className="flex items-center gap-2">
+            <Link to="/parceiros">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="lp-btn lp-btn-sm h-8 rounded-none px-3 text-xs text-[#FFE7D0]/80 hover:bg-white/10 hover:text-[#FFE7D0]"
+              >
+                Parceiros
+              </Button>
+            </Link>
             <Link to="/auth">
               <Button
                 variant="ghost"
@@ -248,7 +256,9 @@ function Landing() {
                 className="lp-card lp-card-sm p-3.5 transition-[filter] duration-300 hover:brightness-110 sm:p-4"
               >
                 <div className="flex items-baseline gap-2.5">
-                  <span className="font-mono text-[10px] tracking-[0.18em] text-hero">{step.n}</span>
+                  <span className="font-mono text-[10px] tracking-[0.18em] text-hero">
+                    {step.n}
+                  </span>
                 </div>
                 <h3 className="mt-2 font-display text-sm uppercase tracking-[0.04em] text-[#FFE7D0] sm:text-base">
                   {step.title}
@@ -364,10 +374,7 @@ function Landing() {
       </section>
 
       {/* ── PREÇO ── */}
-      <section
-        data-lp="price"
-        className="bg-[#1B1B1B] px-5 py-10 sm:px-6 sm:py-14"
-      >
+      <section data-lp="price" className="bg-[#1B1B1B] px-5 py-10 sm:px-6 sm:py-14">
         <div data-lp="section-inner" className="mx-auto max-w-3xl text-center">
           <SlashLabel bar={false} className="w-full justify-center">
             V-PROJECT // ACESSO
@@ -383,11 +390,12 @@ function Landing() {
               Apenas
             </p>
             <p className="mt-2 font-display text-4xl font-bold tracking-[0.04em] text-hero sm:text-5xl">
-              R${" "}
-              <span data-lp="price-num">97</span>
+              R$ <span data-lp="price-num">97</span>
               <span className="text-xl text-[#FFE7D0]/70 sm:text-2xl">/mês</span>
             </p>
-            <p className="mt-2.5 text-xs text-[#FFE7D0]/55">Sem fidelidade. Cancele quando quiser.</p>
+            <p className="mt-2.5 text-xs text-[#FFE7D0]/55">
+              Sem fidelidade. Cancele quando quiser.
+            </p>
             <Link to="/auth" className="mt-5 inline-block">
               <Button
                 size="sm"
@@ -430,7 +438,15 @@ function Landing() {
       </section>
 
       <footer className="border-t border-white/10 bg-[#1B1B1B] py-5 text-center text-[10px] tracking-[0.12em] text-[#FFE7D0]/40 sm:text-xs">
-        V-PROJECT — Você não precisa de mais motivação. Você precisa de um sistema.
+        <p>V-PROJECT — Você não precisa de mais motivação. Você precisa de um sistema.</p>
+        <p className="mt-2">
+          <Link
+            to="/parceiros"
+            className="text-[#FFE7D0]/55 underline-offset-2 hover:text-hero hover:underline"
+          >
+            Programa de parceiros
+          </Link>
+        </p>
       </footer>
     </div>
   );

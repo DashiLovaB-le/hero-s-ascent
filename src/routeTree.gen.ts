@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ParceirosRouteImport } from './routes/parceiros'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DashitecnologyRouteRouteImport } from './routes/dashitecnology/route'
@@ -44,6 +45,11 @@ import { Route as DashitecnologyUsersIndexRouteImport } from './routes/dashitecn
 import { Route as DashitecnologyUsersUserIdRouteImport } from './routes/dashitecnology/users.$userId'
 import { Route as AuthenticatedExercisesSlugRouteImport } from './routes/_authenticated/exercises.$slug'
 
+const ParceirosRoute = ParceirosRouteImport.update({
+  id: '/parceiros',
+  path: '/parceiros',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MaintenanceRoute = MaintenanceRouteImport.update({
   id: '/maintenance',
   path: '/maintenance',
@@ -226,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/dashitecnology': typeof DashitecnologyRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/maintenance': typeof MaintenanceRoute
+  '/parceiros': typeof ParceirosRoute
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/journey': typeof AuthenticatedJourneyRoute
@@ -260,6 +267,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/maintenance': typeof MaintenanceRoute
+  '/parceiros': typeof ParceirosRoute
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/journey': typeof AuthenticatedJourneyRoute
@@ -296,6 +304,7 @@ export interface FileRoutesById {
   '/dashitecnology': typeof DashitecnologyRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/maintenance': typeof MaintenanceRoute
+  '/parceiros': typeof ParceirosRoute
   '/_authenticated/goals': typeof AuthenticatedGoalsRoute
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/journey': typeof AuthenticatedJourneyRoute
@@ -333,6 +342,7 @@ export interface FileRouteTypes {
     | '/dashitecnology'
     | '/auth'
     | '/maintenance'
+    | '/parceiros'
     | '/goals'
     | '/habits'
     | '/journey'
@@ -367,6 +377,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/maintenance'
+    | '/parceiros'
     | '/goals'
     | '/habits'
     | '/journey'
@@ -402,6 +413,7 @@ export interface FileRouteTypes {
     | '/dashitecnology'
     | '/auth'
     | '/maintenance'
+    | '/parceiros'
     | '/_authenticated/goals'
     | '/_authenticated/habits'
     | '/_authenticated/journey'
@@ -439,10 +451,18 @@ export interface RootRouteChildren {
   DashitecnologyRouteRoute: typeof DashitecnologyRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   MaintenanceRoute: typeof MaintenanceRoute
+  ParceirosRoute: typeof ParceirosRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/parceiros': {
+      id: '/parceiros'
+      path: '/parceiros'
+      fullPath: '/parceiros'
+      preLoaderRoute: typeof ParceirosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/maintenance': {
       id: '/maintenance'
       path: '/maintenance'
@@ -775,6 +795,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashitecnologyRouteRoute: DashitecnologyRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   MaintenanceRoute: MaintenanceRoute,
+  ParceirosRoute: ParceirosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

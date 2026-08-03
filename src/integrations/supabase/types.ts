@@ -41,6 +41,51 @@ export type Database = {
         }
         Relationships: []
       }
+      affiliate_applications: {
+        Row: {
+          admin_notes: string | null
+          audiencia_aprox: string | null
+          canal_principal: string
+          created_at: string
+          email: string
+          handle_ou_url: string
+          id: string
+          mensagem: string | null
+          nome: string
+          status: Database["public"]["Enums"]["affiliate_application_status"]
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          audiencia_aprox?: string | null
+          canal_principal: string
+          created_at?: string
+          email: string
+          handle_ou_url: string
+          id?: string
+          mensagem?: string | null
+          nome: string
+          status?: Database["public"]["Enums"]["affiliate_application_status"]
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          audiencia_aprox?: string | null
+          canal_principal?: string
+          created_at?: string
+          email?: string
+          handle_ou_url?: string
+          id?: string
+          mensagem?: string | null
+          nome?: string
+          status?: Database["public"]["Enums"]["affiliate_application_status"]
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       activity_history: {
         Row: {
           created_at: string
@@ -1386,6 +1431,7 @@ export type Database = {
       }
     }
     Enums: {
+      affiliate_application_status: "pending" | "contacted" | "approved" | "rejected"
       app_role: "admin" | "dashi" | "user"
       attribute_type:
         | "forca"
@@ -1543,6 +1589,12 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      affiliate_application_status: [
+        "pending",
+        "contacted",
+        "approved",
+        "rejected",
+      ],
       app_role: ["admin", "dashi", "user"],
       attribute_type: [
         "forca",
