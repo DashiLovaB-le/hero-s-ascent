@@ -16,6 +16,8 @@ import {
 } from "@/lib/wallpaper-storage";
 import { MENTOR_FOCUS_EVENT, readMentorFocusMode } from "@/mentor/focus-mode";
 import { isOnboardingAllowedPath } from "@/lib/chapters";
+import { ProductTour } from "@/components/onboarding/ProductTour";
+import { shouldOpenProductTour } from "@/lib/product-tour.functions";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -53,13 +55,33 @@ export const Route = createFileRoute("/_authenticated")({
       throw redirect({ to: "/auth" });
     }
 
-    const { data: profile } = await supabase
+    let onboardingDone = false;
+    let tourVisto = true;
+
+    const profileRes = await supabase
       .from("profiles")
-      .select("onboarding_completo")
+      .select("onboarding_completo, tour_visto")
       .eq("id", user.id)
       .maybeSingle();
 
-    const onboardingDone = profile?.onboarding_completo === true;
+    if (profileRes.error && /tour_visto|column|schema cache/i.test(profileRes.error.message)) {
+      const fallback = await supabase
+        .from("profiles")
+        .select("onboarding_completo")
+        .eq("id", user.id)
+        .maybeSingle();
+      onboardingDone = fallback.data?.onboarding_completo === true;
+      // Sem coluna: não força tour em usuários antigos (só via session pós-setup).
+      tourVisto = true;
+    } else if (profileRes.error) {
+      console.error("[auth] profiles:", profileRes.error.message);
+      onboardingDone = false;
+      tourVisto = true;
+    } else {
+      onboardingDone = profileRes.data?.onboarding_completo === true;
+      tourVisto = profileRes.data?.tour_visto === true;
+    }
+
     const path = location.pathname;
     const onOnboarding = path === "/onboarding" || path.endsWith("/onboarding");
 
@@ -70,16 +92,28 @@ export const Route = createFileRoute("/_authenticated")({
       throw redirect({ to: "/journey" });
     }
 
-    return { user, onboardingCompleto: onboardingDone };
+    return { user, onboardingCompleto: onboardingDone, tourVisto };
   },
   component: AuthedLayout,
 });
 
 function AuthedLayout() {
+  const { user, onboardingCompleto, tourVisto } = Route.useRouteContext();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [wallpaperId, setWallpaperId] = useState(() => readStoredWallpaperId());
   const [mentorFocus, setMentorFocus] = useState(() => readMentorFocusMode());
+  const [tourOpen, setTourOpen] = useState(false);
+
+  useEffect(() => {
+    setTourOpen(
+      shouldOpenProductTour({
+        onboardingCompleto,
+        tourVisto,
+        userId: user.id,
+      }),
+    );
+  }, [onboardingCompleto, tourVisto, user.id]);
 
   useEffect(() => {
     function onFocus(e: Event) {
@@ -179,6 +213,14 @@ function AuthedLayout() {
           <Outlet />
         </OutletErrorBoundary>
       </main>
+
+      {onboardingCompleto && (
+        <ProductTour
+          open={tourOpen}
+          userId={user.id}
+          onComplete={() => setTourOpen(false)}
+        />
+      )}
 
       {!mentorFocus && (
         <nav className="fixed bottom-0 left-0 right-0 z-40 overflow-visible border-t border-border bg-background/90 backdrop-blur-md md:hidden">

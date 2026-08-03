@@ -12,6 +12,7 @@ import {
   type HabitSuggestion,
 } from "@/lib/habit-suggest";
 import { CATEGORIAS, ATRIBUTO_LABELS } from "@/lib/journey";
+import { markPendingProductTour } from "@/lib/product-tour.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +74,7 @@ function Onboarding() {
     },
     onSuccess: () => {
       toast.success("Sua jornada está pronta.");
+      markPendingProductTour();
       void qc.invalidateQueries();
       navigate({ to: "/journey", replace: true });
     },
