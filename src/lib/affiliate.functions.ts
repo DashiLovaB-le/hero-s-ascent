@@ -27,6 +27,12 @@ const submitSchema = z.object({
     .max(800)
     .optional()
     .transform((v) => (v && v.length > 0 ? v : null)),
+  outros_canais: z
+    .string()
+    .trim()
+    .max(800)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : null)),
 });
 
 export type AffiliateCanal = (typeof CANAIS)[number];
@@ -78,6 +84,7 @@ export const submitAffiliateApplication = createServerFn({ method: "POST" })
       handle_ou_url: data.handle_ou_url,
       audiencia_aprox: data.audiencia_aprox,
       mensagem: data.mensagem,
+      outros_canais: data.outros_canais,
       status: "pending",
     });
 

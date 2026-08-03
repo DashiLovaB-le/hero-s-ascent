@@ -52,6 +52,7 @@ export type Database = {
           id: string
           mensagem: string | null
           nome: string
+          outros_canais: string | null
           status: Database["public"]["Enums"]["affiliate_application_status"]
           telefone: string | null
           updated_at: string
@@ -66,6 +67,7 @@ export type Database = {
           id?: string
           mensagem?: string | null
           nome: string
+          outros_canais?: string | null
           status?: Database["public"]["Enums"]["affiliate_application_status"]
           telefone?: string | null
           updated_at?: string
@@ -80,6 +82,7 @@ export type Database = {
           id?: string
           mensagem?: string | null
           nome?: string
+          outros_canais?: string | null
           status?: Database["public"]["Enums"]["affiliate_application_status"]
           telefone?: string | null
           updated_at?: string

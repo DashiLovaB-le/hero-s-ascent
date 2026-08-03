@@ -37,6 +37,7 @@ function ParceirosPage() {
   const [canal, setCanal] = useState<AffiliateCanal | "">("");
   const [handle, setHandle] = useState("");
   const [audiencia, setAudiencia] = useState("");
+  const [outrosCanais, setOutrosCanais] = useState("");
   const [mensagem, setMensagem] = useState("");
 
   const m = useMutation({
@@ -50,6 +51,7 @@ function ParceirosPage() {
           canal_principal: canal,
           handle_ou_url: handle,
           audiencia_aprox: audiencia || undefined,
+          outros_canais: outrosCanais || undefined,
           mensagem: mensagem || undefined,
         },
       });
@@ -106,18 +108,116 @@ function ParceirosPage() {
       <main className="relative z-10 mx-auto w-full max-w-3xl px-5 pb-16 pt-4 sm:px-6 sm:pt-8">
         <SlashLabel>PARCEIROS // AFILIADOS</SlashLabel>
         <h1 className="mt-3 font-display text-2xl font-bold tracking-[0.04em] sm:text-3xl">
-          Ganhe dinheiro com a V-Project.
+          Divulgue o V-Project.
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-[#FFE7D0]/70 sm:text-base">
-          Cadastro gratuito para donos de página e influenciadores. A comissão e o link de afiliado
-          ficam na Kiwify — aqui só registramos seu interesse para liberar o acesso ao programa.
+          Cadastro gratuito para criadores e donos de página no nicho de desenvolvimento masculino.
+          Comissão e pagamento ficam na <span className="text-[#FFE7D0]">Kiwify</span> — aqui você
+          se candidata ao programa.
         </p>
 
-        <ul className="mt-6 max-w-xl space-y-2">
-          <CheckItem>Inscrição free — sem custo para entrar no programa</CheckItem>
-          <CheckItem>Comissão e pagamento via Kiwify (não misturado com a conta do app)</CheckItem>
-          <CheckItem>Opcional: criar conta de herói para testar a V-Project e entender melhor como funciona a plataforma</CheckItem>
-        </ul>
+        {/* Produto */}
+        <section className="mt-10 space-y-3">
+          <SlashLabel>O QUE VOCÊ PROMOVE</SlashLabel>
+          <p className="max-w-xl text-sm leading-relaxed text-[#FFE7D0]/85 sm:text-[15px]">
+            O V-Project é o sistema gamificado de desenvolvimento masculino: hábitos diários, XP,
+            níveis e o mentor Charlie com IA — para o homem que quer disciplina de verdade, não só
+            motivação.
+          </p>
+          <p className="font-display text-lg tracking-[0.04em] text-hero">
+            R$ 97<span className="text-sm text-[#FFE7D0]/60">/mês</span>
+          </p>
+        </section>
+
+        {/* Comissão */}
+        <section className="mt-10 space-y-4">
+          <SlashLabel>COMISSÃO</SlashLabel>
+          <div className="border border-hero/35 bg-hero/10 px-4 py-5 sm:px-5">
+            <p className="font-display text-sm tracking-[0.06em] text-hero">1ª mensalidade</p>
+            <p className="mt-2 text-sm leading-relaxed text-[#FFE7D0]/90">
+              Você fica com <span className="text-hero">todo o valor da primeira mensalidade</span>,
+              descontadas apenas taxas e impostos da Kiwify.
+            </p>
+            <p className="mt-3 text-xs text-[#FFE7D0]/55">
+              Só a 1ª compra gera comissão. Renovações mensais não pagam afiliado. Sem teto — hoje há
+              uma oferta (R$&nbsp;97/mês).
+            </p>
+          </div>
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <div className="bg-[#323232]/70 px-4 py-3">
+              <dt className="text-[10px] uppercase tracking-[0.2em] text-[#FFE7D0]/45">
+                Quando recebe
+              </dt>
+              <dd className="mt-1.5 text-[#FFE7D0]/85">
+                Quando o valor liberar na Kiwify — em geral após os{" "}
+                <span className="text-[#FFE7D0]">7 dias de garantia</span>.
+              </dd>
+            </div>
+            <div className="bg-[#323232]/70 px-4 py-3">
+              <dt className="text-[10px] uppercase tracking-[0.2em] text-[#FFE7D0]/45">
+                Financeiro
+              </dt>
+              <dd className="mt-1.5 text-[#FFE7D0]/85">
+                Tudo (saque, impostos, taxas) é tratado na Kiwify — não no V-Project.
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        {/* Atribuição */}
+        <section className="mt-10 space-y-3">
+          <SlashLabel>COMO A VENDA É ATRIBUÍDA</SlashLabel>
+          <ul className="max-w-xl space-y-2">
+            <CheckItem>
+              Cookie de <span className="text-[#FFE7D0]">90 dias</span> via link de afiliado
+            </CheckItem>
+            <CheckItem>
+              Sem cookie, a venda <span className="text-[#FFE7D0]">não conta</span> — a menos que a
+              pessoa use o <span className="text-[#FFE7D0]">cupom</span> do afiliado (se houver)
+            </CheckItem>
+            <CheckItem>Quem leva a comissão: link de afiliado e/ou cupom</CheckItem>
+          </ul>
+          <p className="text-xs text-[#FFE7D0]/45">
+            Trial, cupons e detalhes extras da oferta: conforme configuração atual na Kiwify.
+          </p>
+        </section>
+
+        {/* Perfil + regras */}
+        <section className="mt-10 space-y-3">
+          <SlashLabel>PARA QUEM É / REGRAS</SlashLabel>
+          <p className="max-w-xl text-sm leading-relaxed text-[#FFE7D0]/75">
+            Perfil: melhoria pessoal masculina — disciplina, objetivos, vencer a procrastinação e
+            progresso real. Conteúdo alinhado a produtos masculinos de desenvolvimento pessoal.
+          </p>
+          <ul className="max-w-xl space-y-2">
+            <CheckItem>
+              <span className="text-hero">Nunca</span> garantir resultado ao público
+            </CheckItem>
+            <CheckItem>Disclaimer obrigatório em divulgações</CheckItem>
+            <CheckItem>Pode usar a marca V-Project / Charlie em anúncios pagos (Meta, Google etc.)</CheckItem>
+          </ul>
+        </section>
+
+        {/* Processo */}
+        <section className="mt-10 space-y-4">
+          <SlashLabel>DEPOIS DA INSCRIÇÃO</SlashLabel>
+          <ul className="max-w-xl space-y-2">
+            <CheckItem>Resposta em até 48 horas</CheckItem>
+            <CheckItem>
+              Se aprovado: pack com link, criativos e copy (material em produção; sem grupo)
+            </CheckItem>
+          </ul>
+          <div className="max-w-xl border border-hero/30 bg-hero/10 px-4 py-4">
+            <p className="font-display text-sm tracking-[0.04em] text-hero">Quer testar o app?</p>
+            <p className="mt-2 text-sm text-[#FFE7D0]/75">
+              Crie uma conta de herói normal — igual a qualquer usuário, separado do programa de
+              afiliados.
+            </p>
+            <Link to="/auth" className="mt-4 inline-block">
+              <Button className="rounded-none shadow-hero">Criar conta no V-Project</Button>
+            </Link>
+          </div>
+        </section>
 
         {done ? (
           <div className="cp-panel cp-brackets mt-10 space-y-5 border-transparent bg-[#323232]/80 p-6 sm:p-8">
@@ -126,9 +226,9 @@ function ParceirosPage() {
               Em breve falamos com você.
             </h2>
             <p className="text-sm leading-relaxed text-[#FFE7D0]/75">
-              Vamos revisar sua inscrição e enviar o link/código de afiliado Kiwify quando aprovado.
-              Isso <strong className="font-semibold text-[#FFE7D0]">não</strong> cria login no
-              V-Project.
+              Vamos revisar sua inscrição (até 48h) e, se aprovado, enviar o pack com link Kiwify,
+              criativos e copy. Isso{" "}
+              <span className="font-semibold text-[#FFE7D0]">não</span> cria login no V-Project.
             </p>
             <div className="border border-hero/30 bg-hero/10 p-4">
               <p className="font-display text-sm tracking-[0.04em] text-hero">
@@ -157,9 +257,9 @@ function ParceirosPage() {
               m.mutate();
             }}
           >
-            <SlashLabel bar={false}>FORMULÁRIO</SlashLabel>
+            <SlashLabel bar={false}>CANDIDATAR-SE</SlashLabel>
             <p className="text-xs text-[#FFE7D0]/55">
-              Campos com * são obrigatórios. Não é cadastro de usuário do app.
+              Campos com * são obrigatórios. Isto não é cadastro de usuário do app.
             </p>
 
             <div className="space-y-2">
@@ -244,6 +344,21 @@ function ParceirosPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="aff-outros">Outros canais</Label>
+              <Textarea
+                id="aff-outros"
+                value={outrosCanais}
+                onChange={(e) => setOutrosCanais(e.target.value)}
+                maxLength={800}
+                rows={3}
+                placeholder="Ex.: YouTube @canal · TikTok @user · podcast link…"
+              />
+              <p className="text-[11px] text-[#FFE7D0]/45">
+                Opcional. Liste outros lugares onde você publica (@, links ou nomes).
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="aff-msg">Mensagem</Label>
               <Textarea
                 id="aff-msg"
@@ -254,6 +369,11 @@ function ParceirosPage() {
                 placeholder="Como você pretende divulgar? (opcional)"
               />
             </div>
+
+            <p className="text-[11px] leading-relaxed text-[#FFE7D0]/45">
+              Ao enviar, você confirma que leu as regras: sem garantia de resultado e com disclaimer
+              obrigatório nas divulgações.
+            </p>
 
             <Button
               type="submit"
