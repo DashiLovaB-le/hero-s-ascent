@@ -2,6 +2,9 @@ import { useRef } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { CheckItem, SlashLabel, TechMark } from "@/components/landing/LandingChrome";
+import { LandingMobileGallery } from "@/components/landing/LandingMobileGallery";
+import { LandingCharlieVersions } from "@/components/landing/LandingCharlieVersions";
+import { LandingFlexaoSection } from "@/components/landing/LandingFlexaoSection";
 import { useLandingGsap } from "@/components/landing/useLandingGsap";
 
 export const Route = createFileRoute("/")({
@@ -289,7 +292,7 @@ function Landing() {
               Um mentor disponível 24 horas por dia.
             </h2>
             <p className="mt-2.5 max-w-xl text-sm text-[#FFE7D0]/75">Não é apenas um chatbot.</p>
-            <ul className="mt-4 max-w-xl space-y-1.5 text-xs text-[#FFE7D0]/8 sm:text-sm">
+            <ul className="mt-4 max-w-xl space-y-1.5 text-xs text-white sm:text-sm">
               <li>Charlie conhece sua jornada.</li>
               <li>Analisa seu progresso.</li>
               <li>Percebe quando você está perdendo ritmo.</li>
@@ -299,6 +302,12 @@ function Landing() {
           </div>
         </div>
       </section>
+
+      <LandingCharlieVersions />
+
+      <LandingFlexaoSection />
+
+      <LandingMobileGallery />
 
       {/* ── ATRIBUTOS ── */}
       <section data-lp="section" className="bg-[#1B1B1B] px-5 py-10 sm:px-6 sm:py-14">
