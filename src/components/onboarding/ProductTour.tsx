@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Flame, LayoutDashboard, ScrollText, Sparkles, Target, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, Flame, LayoutDashboard, ScrollText } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
@@ -32,7 +32,16 @@ const SLIDES: TourSlide[] = [
     eyebrow: "BOAS-VINDAS",
     title: "Bem-vindo à V-Project",
     body: "Sua jornada de evolução pessoal vira um jogo: hábitos diários, XP, missões e um mentor ao seu lado.",
-    icon: <Sparkles className="h-7 w-7 text-hero" aria-hidden />,
+    icon: (
+      <img
+        src="/animate-icons/journey-.gif"
+        alt=""
+        width={28}
+        height={28}
+        className="h-7 w-7 object-contain"
+        aria-hidden
+      />
+    ),
   },
   {
     id: "journey",
@@ -75,10 +84,14 @@ const SLIDES: TourSlide[] = [
     title: "Defina o destino",
     body: "Metas guiam seus hábitos. No Perfil você vê o panorama completo e personaliza a experiência.",
     icon: (
-      <span className="inline-flex items-center gap-1.5 text-hero" aria-hidden>
-        <Target className="h-6 w-6" />
-        <User className="h-6 w-6" />
-      </span>
+      <img
+        src="/animate-icons/target-.gif"
+        alt=""
+        width={28}
+        height={28}
+        className="h-7 w-7 object-contain"
+        aria-hidden
+      />
     ),
   },
 ];
