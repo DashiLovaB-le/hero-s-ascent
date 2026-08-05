@@ -199,6 +199,7 @@ Preencha / envie o que puder — **itens em negrito são bloqueantes** para come
 2. **IDs dos produtos/ofertas** na Kiwify (mensal, anual, trial se houver).
 3. **Preços e intervalos** oficiais (R$, mensal/anual, trial dias).
 4. Confirmação: assinatura é **recorrente nativa** da Kiwify (não só pagamento único disfarçado).
+4b. **URL de obrigado (pós-compra):** `https://v-project-rho.vercel.app/obrigado` (rota `/obrigado` no app).
 
 ### Webhook e segurança
 

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ParceirosRouteImport } from './routes/parceiros'
+import { Route as ObrigadoRouteImport } from './routes/obrigado'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DashitecnologyRouteRouteImport } from './routes/dashitecnology/route'
@@ -48,6 +49,11 @@ import { Route as AuthenticatedExercisesSlugRouteImport } from './routes/_authen
 const ParceirosRoute = ParceirosRouteImport.update({
   id: '/parceiros',
   path: '/parceiros',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ObrigadoRoute = ObrigadoRouteImport.update({
+  id: '/obrigado',
+  path: '/obrigado',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MaintenanceRoute = MaintenanceRouteImport.update({
@@ -232,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/dashitecnology': typeof DashitecnologyRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/maintenance': typeof MaintenanceRoute
+  '/obrigado': typeof ObrigadoRoute
   '/parceiros': typeof ParceirosRoute
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
@@ -267,6 +274,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/maintenance': typeof MaintenanceRoute
+  '/obrigado': typeof ObrigadoRoute
   '/parceiros': typeof ParceirosRoute
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
@@ -304,6 +312,7 @@ export interface FileRoutesById {
   '/dashitecnology': typeof DashitecnologyRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/maintenance': typeof MaintenanceRoute
+  '/obrigado': typeof ObrigadoRoute
   '/parceiros': typeof ParceirosRoute
   '/_authenticated/goals': typeof AuthenticatedGoalsRoute
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
@@ -342,6 +351,7 @@ export interface FileRouteTypes {
     | '/dashitecnology'
     | '/auth'
     | '/maintenance'
+    | '/obrigado'
     | '/parceiros'
     | '/goals'
     | '/habits'
@@ -377,6 +387,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/maintenance'
+    | '/obrigado'
     | '/parceiros'
     | '/goals'
     | '/habits'
@@ -413,6 +424,7 @@ export interface FileRouteTypes {
     | '/dashitecnology'
     | '/auth'
     | '/maintenance'
+    | '/obrigado'
     | '/parceiros'
     | '/_authenticated/goals'
     | '/_authenticated/habits'
@@ -451,6 +463,7 @@ export interface RootRouteChildren {
   DashitecnologyRouteRoute: typeof DashitecnologyRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   MaintenanceRoute: typeof MaintenanceRoute
+  ObrigadoRoute: typeof ObrigadoRoute
   ParceirosRoute: typeof ParceirosRoute
 }
 
@@ -461,6 +474,13 @@ declare module '@tanstack/react-router' {
       path: '/parceiros'
       fullPath: '/parceiros'
       preLoaderRoute: typeof ParceirosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/obrigado': {
+      id: '/obrigado'
+      path: '/obrigado'
+      fullPath: '/obrigado'
+      preLoaderRoute: typeof ObrigadoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/maintenance': {
@@ -795,6 +815,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashitecnologyRouteRoute: DashitecnologyRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   MaintenanceRoute: MaintenanceRoute,
+  ObrigadoRoute: ObrigadoRoute,
   ParceirosRoute: ParceirosRoute,
 }
 export const routeTree = rootRouteImport
