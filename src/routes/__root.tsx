@@ -26,6 +26,7 @@ import {
   isChunkLoadError,
   reloadOnceOnChunkError,
 } from "@/lib/chunk-reload";
+import { TIKTOK_BASE_PIXEL_SCRIPT } from "@/lib/tiktok-pixel";
 
 function NotFoundComponent() {
   return (
@@ -181,6 +182,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "/images/hero-bg-desktop.png",
         as: "image",
         media: "(min-width: 768px)",
+      },
+    ],
+    scripts: [
+      {
+        children: TIKTOK_BASE_PIXEL_SCRIPT,
       },
     ],
   }),
