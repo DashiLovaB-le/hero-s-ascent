@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 import { XpGainPopupHost } from "@/components/XpGainPopup";
 import { TikTokPixel } from "@/components/TikTokPixel";
+import { PageViewTracker } from "@/components/PageViewTracker";
 import {
   getMaintenanceStatus,
   canBypassMaintenance,
@@ -233,6 +234,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <TikTokPixel />
+      <PageViewTracker />
       <Outlet />
       <Toaster richColors position="top-center" />
       <XpGainPopupHost />

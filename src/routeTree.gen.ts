@@ -19,9 +19,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashitecnologyIndexRouteImport } from './routes/dashitecnology/index'
 import { Route as DashitecnologyWallpapersRouteImport } from './routes/dashitecnology/wallpapers'
 import { Route as DashitecnologyUsersRouteImport } from './routes/dashitecnology/users'
+import { Route as DashitecnologyTrafficRouteImport } from './routes/dashitecnology/traffic'
 import { Route as DashitecnologyTokensRouteImport } from './routes/dashitecnology/tokens'
 import { Route as DashitecnologyTelegramRouteImport } from './routes/dashitecnology/telegram'
 import { Route as DashitecnologySystemRouteImport } from './routes/dashitecnology/system'
+import { Route as DashitecnologyPopupsRouteImport } from './routes/dashitecnology/popups'
 import { Route as DashitecnologyNotificationsRouteImport } from './routes/dashitecnology/notifications'
 import { Route as DashitecnologyMlRouteImport } from './routes/dashitecnology/ml'
 import { Route as DashitecnologyMaintenanceRouteImport } from './routes/dashitecnology/maintenance'
@@ -96,6 +98,11 @@ const DashitecnologyUsersRoute = DashitecnologyUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => DashitecnologyRouteRoute,
 } as any)
+const DashitecnologyTrafficRoute = DashitecnologyTrafficRouteImport.update({
+  id: '/traffic',
+  path: '/traffic',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
 const DashitecnologyTokensRoute = DashitecnologyTokensRouteImport.update({
   id: '/tokens',
   path: '/tokens',
@@ -109,6 +116,11 @@ const DashitecnologyTelegramRoute = DashitecnologyTelegramRouteImport.update({
 const DashitecnologySystemRoute = DashitecnologySystemRouteImport.update({
   id: '/system',
   path: '/system',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyPopupsRoute = DashitecnologyPopupsRouteImport.update({
+  id: '/popups',
+  path: '/popups',
   getParentRoute: () => DashitecnologyRouteRoute,
 } as any)
 const DashitecnologyNotificationsRoute =
@@ -260,9 +272,11 @@ export interface FileRoutesByFullPath {
   '/dashitecnology/maintenance': typeof DashitecnologyMaintenanceRoute
   '/dashitecnology/ml': typeof DashitecnologyMlRoute
   '/dashitecnology/notifications': typeof DashitecnologyNotificationsRoute
+  '/dashitecnology/popups': typeof DashitecnologyPopupsRoute
   '/dashitecnology/system': typeof DashitecnologySystemRoute
   '/dashitecnology/telegram': typeof DashitecnologyTelegramRoute
   '/dashitecnology/tokens': typeof DashitecnologyTokensRoute
+  '/dashitecnology/traffic': typeof DashitecnologyTrafficRoute
   '/dashitecnology/users': typeof DashitecnologyUsersRouteWithChildren
   '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
   '/dashitecnology/': typeof DashitecnologyIndexRoute
@@ -296,9 +310,11 @@ export interface FileRoutesByTo {
   '/dashitecnology/maintenance': typeof DashitecnologyMaintenanceRoute
   '/dashitecnology/ml': typeof DashitecnologyMlRoute
   '/dashitecnology/notifications': typeof DashitecnologyNotificationsRoute
+  '/dashitecnology/popups': typeof DashitecnologyPopupsRoute
   '/dashitecnology/system': typeof DashitecnologySystemRoute
   '/dashitecnology/telegram': typeof DashitecnologyTelegramRoute
   '/dashitecnology/tokens': typeof DashitecnologyTokensRoute
+  '/dashitecnology/traffic': typeof DashitecnologyTrafficRoute
   '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
   '/dashitecnology': typeof DashitecnologyIndexRoute
   '/exercises/$slug': typeof AuthenticatedExercisesSlugRoute
@@ -334,9 +350,11 @@ export interface FileRoutesById {
   '/dashitecnology/maintenance': typeof DashitecnologyMaintenanceRoute
   '/dashitecnology/ml': typeof DashitecnologyMlRoute
   '/dashitecnology/notifications': typeof DashitecnologyNotificationsRoute
+  '/dashitecnology/popups': typeof DashitecnologyPopupsRoute
   '/dashitecnology/system': typeof DashitecnologySystemRoute
   '/dashitecnology/telegram': typeof DashitecnologyTelegramRoute
   '/dashitecnology/tokens': typeof DashitecnologyTokensRoute
+  '/dashitecnology/traffic': typeof DashitecnologyTrafficRoute
   '/dashitecnology/users': typeof DashitecnologyUsersRouteWithChildren
   '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
   '/dashitecnology/': typeof DashitecnologyIndexRoute
@@ -373,9 +391,11 @@ export interface FileRouteTypes {
     | '/dashitecnology/maintenance'
     | '/dashitecnology/ml'
     | '/dashitecnology/notifications'
+    | '/dashitecnology/popups'
     | '/dashitecnology/system'
     | '/dashitecnology/telegram'
     | '/dashitecnology/tokens'
+    | '/dashitecnology/traffic'
     | '/dashitecnology/users'
     | '/dashitecnology/wallpapers'
     | '/dashitecnology/'
@@ -409,9 +429,11 @@ export interface FileRouteTypes {
     | '/dashitecnology/maintenance'
     | '/dashitecnology/ml'
     | '/dashitecnology/notifications'
+    | '/dashitecnology/popups'
     | '/dashitecnology/system'
     | '/dashitecnology/telegram'
     | '/dashitecnology/tokens'
+    | '/dashitecnology/traffic'
     | '/dashitecnology/wallpapers'
     | '/dashitecnology'
     | '/exercises/$slug'
@@ -446,9 +468,11 @@ export interface FileRouteTypes {
     | '/dashitecnology/maintenance'
     | '/dashitecnology/ml'
     | '/dashitecnology/notifications'
+    | '/dashitecnology/popups'
     | '/dashitecnology/system'
     | '/dashitecnology/telegram'
     | '/dashitecnology/tokens'
+    | '/dashitecnology/traffic'
     | '/dashitecnology/users'
     | '/dashitecnology/wallpapers'
     | '/dashitecnology/'
@@ -539,6 +563,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashitecnologyUsersRouteImport
       parentRoute: typeof DashitecnologyRouteRoute
     }
+    '/dashitecnology/traffic': {
+      id: '/dashitecnology/traffic'
+      path: '/traffic'
+      fullPath: '/dashitecnology/traffic'
+      preLoaderRoute: typeof DashitecnologyTrafficRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
     '/dashitecnology/tokens': {
       id: '/dashitecnology/tokens'
       path: '/tokens'
@@ -558,6 +589,13 @@ declare module '@tanstack/react-router' {
       path: '/system'
       fullPath: '/dashitecnology/system'
       preLoaderRoute: typeof DashitecnologySystemRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/popups': {
+      id: '/dashitecnology/popups'
+      path: '/popups'
+      fullPath: '/dashitecnology/popups'
+      preLoaderRoute: typeof DashitecnologyPopupsRouteImport
       parentRoute: typeof DashitecnologyRouteRoute
     }
     '/dashitecnology/notifications': {
@@ -776,9 +814,11 @@ interface DashitecnologyRouteRouteChildren {
   DashitecnologyMaintenanceRoute: typeof DashitecnologyMaintenanceRoute
   DashitecnologyMlRoute: typeof DashitecnologyMlRoute
   DashitecnologyNotificationsRoute: typeof DashitecnologyNotificationsRoute
+  DashitecnologyPopupsRoute: typeof DashitecnologyPopupsRoute
   DashitecnologySystemRoute: typeof DashitecnologySystemRoute
   DashitecnologyTelegramRoute: typeof DashitecnologyTelegramRoute
   DashitecnologyTokensRoute: typeof DashitecnologyTokensRoute
+  DashitecnologyTrafficRoute: typeof DashitecnologyTrafficRoute
   DashitecnologyUsersRoute: typeof DashitecnologyUsersRouteWithChildren
   DashitecnologyWallpapersRoute: typeof DashitecnologyWallpapersRoute
   DashitecnologyIndexRoute: typeof DashitecnologyIndexRoute
@@ -798,9 +838,11 @@ const DashitecnologyRouteRouteChildren: DashitecnologyRouteRouteChildren = {
   DashitecnologyMaintenanceRoute: DashitecnologyMaintenanceRoute,
   DashitecnologyMlRoute: DashitecnologyMlRoute,
   DashitecnologyNotificationsRoute: DashitecnologyNotificationsRoute,
+  DashitecnologyPopupsRoute: DashitecnologyPopupsRoute,
   DashitecnologySystemRoute: DashitecnologySystemRoute,
   DashitecnologyTelegramRoute: DashitecnologyTelegramRoute,
   DashitecnologyTokensRoute: DashitecnologyTokensRoute,
+  DashitecnologyTrafficRoute: DashitecnologyTrafficRoute,
   DashitecnologyUsersRoute: DashitecnologyUsersRouteWithChildren,
   DashitecnologyWallpapersRoute: DashitecnologyWallpapersRoute,
   DashitecnologyIndexRoute: DashitecnologyIndexRoute,

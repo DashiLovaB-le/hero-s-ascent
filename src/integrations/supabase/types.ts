@@ -119,6 +119,81 @@ export type Database = {
         }
         Relationships: []
       }
+      app_popups: {
+        Row: {
+          ativo: boolean
+          button_label: string
+          corpo: string
+          created_at: string
+          expires_at: string
+          id: string
+          image_url: string | null
+          priority: number
+          starts_at: string
+          subtitulo: string | null
+          target_path: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          button_label?: string
+          corpo: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          image_url?: string | null
+          priority?: number
+          starts_at?: string
+          subtitulo?: string | null
+          target_path: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          button_label?: string
+          corpo?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          image_url?: string | null
+          priority?: number
+          starts_at?: string
+          subtitulo?: string | null
+          target_path?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      page_views: {
+        Row: {
+          created_at: string
+          id: string
+          path: string
+          referrer: string | null
+          session_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          path: string
+          referrer?: string | null
+          session_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          path?: string
+          referrer?: string | null
+          session_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       attributes: {
         Row: {
           conhecimento: number

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { adminListUsers } from "@/admin/functions";
+import { AdminHeroesGrowthChart } from "@/admin/AdminHeroesGrowthChart";
 import {
   AdminError,
   AdminLoading,
@@ -39,6 +40,8 @@ function UsersPage() {
 
   return (
     <AdminShell title="Heróis" subtitle={`${data.users.length} perfis carregados.`}>
+      <AdminHeroesGrowthChart />
+
       <Panel>
         <form
           className="mb-4 flex gap-2"

@@ -17,6 +17,7 @@ import {
 import { MENTOR_FOCUS_EVENT, readMentorFocusMode } from "@/mentor/focus-mode";
 import { isOnboardingAllowedPath } from "@/lib/chapters";
 import { ProductTour } from "@/components/onboarding/ProductTour";
+import { AppPopupHost } from "@/components/AppPopupHost";
 import { shouldOpenProductTour } from "@/lib/product-tour.functions";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -221,6 +222,8 @@ function AuthedLayout() {
           onComplete={() => setTourOpen(false)}
         />
       )}
+
+      {onboardingCompleto ? <AppPopupHost /> : null}
 
       {!mentorFocus && (
         <nav className="fixed bottom-0 left-0 right-0 z-40 overflow-visible border-t border-border bg-background/90 backdrop-blur-md md:hidden">

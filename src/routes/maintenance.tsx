@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { getMaintenanceStatus } from "@/lib/maintenance";
 import { runQueryFn } from "@/lib/safe-query";
@@ -62,12 +62,6 @@ function MaintenancePage() {
           >
             Tentar de novo
           </button>
-          <Link
-            to="/auth"
-            className="rounded-md border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-medium text-white/80 transition-colors hover:bg-white/10"
-          >
-            Entrar
-          </Link>
         </div>
 
         <p className="mt-8 text-xs text-white/30">

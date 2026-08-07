@@ -8,7 +8,7 @@ import { WALLPAPERS } from "@/lib/wallpapers";
 import { recomputeUserMl } from "@/lib/ml/recompute";
 import { runProductNotificationJobs } from "@/notifications/jobs";
 import { runCfAndAgentJobs } from "@/lib/ml/agent-jobs";
-import { hojeISO } from "@/lib/datetime";
+import { hojeISO, addDaysToDateKey, calendarDateInTz } from "@/lib/datetime";
 
 async function withAdmin(userId: string) {
   await assertIsAdmin(userId);
@@ -209,6 +209,101 @@ export const adminListUsers = createServerFn({ method: "GET" })
     });
 
     return { users };
+  });
+
+const HEROES_GROWTH_RANGES = ["7d", "30d", "90d", "all"] as const;
+export type HeroesGrowthRange = (typeof HEROES_GROWTH_RANGES)[number];
+
+/** Série diária de cadastros (novos + acumulado) para o gráfico em /dashitecnology/users. */
+export const adminHeroesGrowth = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((i: unknown) =>
+    z
+      .object({
+        range: z.enum(HEROES_GROWTH_RANGES).default("30d"),
+        onboardedOnly: z.boolean().optional(),
+      })
+      .parse(i ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    await withAdmin(context.userId);
+
+    let query = supabaseAdmin.from("profiles").select("created_at, onboarding_completo");
+    if (data.onboardedOnly) {
+      query = query.eq("onboarding_completo", true);
+    }
+
+    const { data: rows, error } = await query;
+    if (error) throw new Error(error.message);
+
+    const today = hojeISO();
+    const byDay = new Map<string, number>();
+    let earliest: string | null = null;
+
+    for (const row of rows ?? []) {
+      if (!row.created_at) continue;
+      const day = calendarDateInTz(new Date(row.created_at));
+      byDay.set(day, (byDay.get(day) ?? 0) + 1);
+      if (!earliest || day < earliest) earliest = day;
+    }
+
+    const totalHeroes = rows?.length ?? 0;
+    if (totalHeroes === 0 || !earliest) {
+      return {
+        range: data.range,
+        onboardedOnly: Boolean(data.onboardedOnly),
+        totalHeroes: 0,
+        newInPeriod: 0,
+        from: today,
+        to: today,
+        points: [] as { date: string; label: string; novos: number; acumulado: number }[],
+      };
+    }
+
+    const lookback =
+      data.range === "7d" ? 6 : data.range === "30d" ? 29 : data.range === "90d" ? 89 : null;
+
+    const axisFrom =
+      lookback == null ? earliest : addDaysToDateKey(today, -lookback);
+    const days: string[] = [];
+    {
+      let cur = axisFrom;
+      while (cur <= today) {
+        days.push(cur);
+        cur = addDaysToDateKey(cur, 1);
+        if (days.length > 3000) break;
+      }
+    }
+
+    let baseline = 0;
+    for (const [day, n] of byDay) {
+      if (day < axisFrom) baseline += n;
+    }
+
+    let running = baseline;
+    const points = days.map((date) => {
+      const novos = byDay.get(date) ?? 0;
+      running += novos;
+      const [, m, d] = date.split("-");
+      return {
+        date,
+        label: `${d}/${m}`,
+        novos,
+        acumulado: running,
+      };
+    });
+
+    const newInPeriod = points.reduce((sum, p) => sum + p.novos, 0);
+
+    return {
+      range: data.range,
+      onboardedOnly: Boolean(data.onboardedOnly),
+      totalHeroes,
+      newInPeriod,
+      from: axisFrom,
+      to: today,
+      points,
+    };
   });
 
 export const adminUserDetail = createServerFn({ method: "POST" })
