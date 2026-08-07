@@ -129,11 +129,24 @@ async function expireChallenges(
 
   let n = 0;
   for (const c of overdue) {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("nome, charlie_personality")
+      .eq("id", c.user_id)
+      .maybeSingle();
+    const voiced = voiceCharlieEdge({
+      tipo: "mentor_challenge_expired",
+      personalitySlug: profile?.charlie_personality,
+      nome: profile?.nome,
+      subject: c.titulo,
+      fallbackTitulo: "Desafio expirado",
+      fallbackCorpo: c.titulo,
+    });
     const { error: iErr } = await admin.from("notifications").insert({
       user_id: c.user_id,
       tipo: "mentor_challenge_expired",
-      titulo: "Desafio expirado",
-      corpo: c.titulo,
+      titulo: voiced.titulo,
+      corpo: voiced.corpo,
       metadata: { challenge_id: c.id, href: "/mentor" },
     });
     if (!iErr) {
@@ -141,8 +154,8 @@ async function expireChallenges(
       await maybeTelegram(admin, {
         userId: c.user_id,
         tipo: "mentor_challenge_expired",
-        titulo: "Desafio expirado",
-        corpo: c.titulo,
+        titulo: voiced.titulo,
+        corpo: voiced.corpo,
         href: "/mentor",
       });
     }
@@ -215,7 +228,7 @@ async function sendReminders(admin: ReturnType<typeof createClient>, hoje: strin
 
   const { data: profiles } = await admin
     .from("profiles")
-    .select("id, streak_atual, ultimo_dia_completo, onboarding_completo")
+    .select("id, streak_atual, ultimo_dia_completo, onboarding_completo, nome, charlie_personality")
     .in("id", userIds)
     .eq("onboarding_completo", true);
 
@@ -254,18 +267,32 @@ async function sendReminders(admin: ReturnType<typeof createClient>, hoje: strin
     });
 
     if (decision.sendHabitReminder) {
+      const weak =
+        ((ml?.explicacao as { weekday_weakest_label?: string } | null)
+          ?.weekday_weakest_label) ?? null;
+      const voiced = voiceCharlieEdge({
+        tipo: "habit_reminder",
+        personalitySlug: (profile as { charlie_personality?: string }).charlie_personality,
+        nome: (profile as { nome?: string }).nome,
+        pending,
+        risco_streak: decision.risco_streak,
+        risco_abandono: decision.risco_abandono,
+        fallbackTitulo: decision.habitTitulo,
+        fallbackCorpo: decision.habitCorpo,
+      });
       const ok = await oncePerDay(
         admin,
         userId,
         "habit_reminder",
-        decision.habitTitulo,
-        decision.habitCorpo,
+        voiced.titulo,
+        voiced.corpo,
         {
           href: "/habits",
           pending,
           ml_guided: decision.ml_guided,
           risco_streak: decision.risco_streak,
           risco_abandono: decision.risco_abandono,
+          weekday_weakest_label: weak,
         },
         hoje,
       );
@@ -273,18 +300,33 @@ async function sendReminders(admin: ReturnType<typeof createClient>, hoje: strin
     }
 
     if (decision.sendStreakRisk) {
+      const weak =
+        ((ml?.explicacao as { weekday_weakest_label?: string } | null)
+          ?.weekday_weakest_label) ?? null;
+      const voiced = voiceCharlieEdge({
+        tipo: "streak_risk",
+        personalitySlug: (profile as { charlie_personality?: string }).charlie_personality,
+        nome: (profile as { nome?: string }).nome,
+        streak: profile.streak_atual ?? 0,
+        weekdayWeak: weak,
+        risco_streak: decision.risco_streak,
+        risco_abandono: decision.risco_abandono,
+        fallbackTitulo: decision.streakTitulo,
+        fallbackCorpo: decision.streakCorpo,
+      });
       const ok = await oncePerDay(
         admin,
         userId,
         "streak_risk",
-        decision.streakTitulo,
-        decision.streakCorpo,
+        voiced.titulo,
+        voiced.corpo,
         {
           href: "/habits",
           streak: profile.streak_atual,
           ml_guided: decision.ml_guided,
           risco_streak: decision.risco_streak,
           risco_abandono: decision.risco_abandono,
+          weekday_weakest_label: weak,
         },
         hoje,
       );
@@ -404,8 +446,11 @@ async function maybeTelegram(
         "",
       );
     const path = input.href?.startsWith("/") ? input.href : "/habits";
-    const lines = ["⚔ V-Project", input.titulo];
-    if (input.corpo?.trim()) lines.push(input.corpo.trim());
+    const lines = ["Charlie"];
+    if (input.titulo?.trim()) lines.push(input.titulo.trim());
+    if (input.corpo?.trim() && input.corpo.trim() !== input.titulo?.trim()) {
+      lines.push(input.corpo.trim());
+    }
     lines.push("", `${app}${path}`);
 
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -420,4 +465,158 @@ async function maybeTelegram(
   } catch (e) {
     console.error("[notification-jobs] telegram", e);
   }
+}
+
+/** Espelho enxuto de src/notifications/charlie-telegram-voice.ts (Edge). */
+function voiceCharlieEdge(input: {
+  tipo: string;
+  personalitySlug?: string | null;
+  nome?: string | null;
+  pending?: number | null;
+  streak?: number | null;
+  weekdayWeak?: string | null;
+  subject?: string | null;
+  risco_streak?: number | null;
+  risco_abandono?: number | null;
+  fallbackTitulo: string;
+  fallbackCorpo?: string;
+}): { titulo: string; corpo: string } {
+  const slug = (input.personalitySlug ?? "classico").trim().toLowerCase() || "classico";
+  const name = (input.nome ?? "").trim().split(/\s+/)[0] || null;
+  const addr = name ? `${name}, ` : "";
+  const addrDot = name ? `${name}. ` : "";
+  const high =
+    (input.risco_abandono ?? 0) >= ML_HIGH || (input.risco_streak ?? 0) >= ML_HIGH;
+
+  if (input.tipo === "habit_reminder") {
+    const n = input.pending && input.pending > 0 ? input.pending : 1;
+    const what = n === 1 ? "1 hábito" : `${n} hábitos`;
+    const map: Record<string, { titulo: string; corpo: string }> = {
+      militar: {
+        titulo: "Ordem do dia",
+        corpo: high
+          ? `${addr}ainda há ${what} em aberto. Execute agora. Sem discurso.`
+          : `${addr}faltam ${what}. Complete e reporte no app.`,
+      },
+      estoico: {
+        titulo: "O que depende de você",
+        corpo: high
+          ? `${addr}o dia ainda pede ${what}. Só a ação de agora está sob seu comando.`
+          : `${addr}ainda restam ${what} hoje. Um passo certo basta para honrar o dia.`,
+      },
+      empresarial: {
+        titulo: "Pendências do sprint",
+        corpo: high
+          ? `${addr}${what} em aberto — risco de atraso. Feche o ciclo hoje.`
+          : `${addr}faltam ${what} no dia. Priorize e execute.`,
+      },
+      cristao: {
+        titulo: "Fidelidade no pequeno",
+        corpo: high
+          ? `${addr}ainda há ${what} por cumprir. Domínio próprio começa no próximo passo.`
+          : `${addr}faltam ${what} hoje. Seja fiel no pouco — e vá.`,
+      },
+      fitness: {
+        titulo: "Sessão incompleta",
+        corpo: high
+          ? `${addr}${what} ainda no ar. Corpo e mente pedem o check agora.`
+          : `${addr}faltam ${what}. Fecha a sessão do dia.`,
+      },
+      financeiro: {
+        titulo: "Itens em aberto",
+        corpo: high
+          ? `${addr}${what} sem baixa. Disciplina de caixa começa no hábito de hoje.`
+          : `${addr}faltam ${what} no dia. Quite a pendência.`,
+      },
+      classico: {
+        titulo: "O dia ainda não fechou",
+        corpo: high
+          ? `${addr}ainda há ${what} em aberto. Volte agora — o ritmo está escorregando.`
+          : `${addr}ainda restam ${what} hoje. Mantém a linha.`,
+      },
+    };
+    return map[slug] ?? map.classico;
+  }
+
+  if (input.tipo === "streak_risk") {
+    const days = input.streak && input.streak > 0 ? input.streak : 0;
+    const seq = days > 0 ? `Sequência de ${days} dias` : "Sua sequência";
+    const weak =
+      input.weekdayWeak && input.weekdayWeak.trim()
+        ? ` Seu padrão fraco costuma ser ${input.weekdayWeak.trim()} — não repita hoje.`
+        : "";
+    const map: Record<string, { titulo: string; corpo: string }> = {
+      militar: {
+        titulo: "Corrente sob fogo",
+        corpo: `${addrDot}${seq} em risco. Um hábito agora. Sem adiamento.${weak}`,
+      },
+      estoico: {
+        titulo: "A corrente pede virtude",
+        corpo: `${addrDot}${seq} quase cai. O que você controla é o próximo ato.${weak}`,
+      },
+      empresarial: {
+        titulo: "KPI de consistência",
+        corpo: `${addrDot}${seq} sob risco. Proteja o ativo com um hábito hoje.${weak}`,
+      },
+      cristao: {
+        titulo: "Não quebre a fidelidade",
+        corpo: `${addrDot}${seq} está em jogo. Um ato fiel hoje segura o caminho.${weak}`,
+      },
+      fitness: {
+        titulo: "Não quebre o ciclo",
+        corpo: `${addrDot}${seq} em risco. Um check agora mantém o progresso.${weak}`,
+      },
+      financeiro: {
+        titulo: "Não zere a série",
+        corpo: `${addrDot}${seq} em risco. Quite um hábito hoje e preserve o capital de disciplina.${weak}`,
+      },
+      classico: {
+        titulo: "A corrente quase cai",
+        corpo: high
+          ? `${addrDot}${seq} sob pressão. Um hábito agora segura o dia.${weak}`
+          : `${addrDot}${seq}. Conclua um hábito hoje e a jornada continua.${weak}`,
+      },
+    };
+    return map[slug] ?? map.classico;
+  }
+
+  if (input.tipo === "mentor_challenge_expired") {
+    const mission = (input.subject || input.fallbackCorpo || "o desafio").trim();
+    const map: Record<string, { titulo: string; corpo: string }> = {
+      militar: {
+        titulo: "Prazo encerrado",
+        corpo: `${addrDot}${mission} expirou. Sem drama — reabra o mentor e retome.`,
+      },
+      estoico: {
+        titulo: "O prazo passou",
+        corpo: `${addrDot}${mission} encerrou. Aceite o fato. O próximo ato ainda é seu.`,
+      },
+      empresarial: {
+        titulo: "Sprint vencido",
+        corpo: `${addrDot}${mission} expirou. Replaneje e reabra no mentor.`,
+      },
+      cristao: {
+        titulo: "Janela fechou",
+        corpo: `${addrDot}${mission} passou. Levante-se sem vergonha — e volte.`,
+      },
+      fitness: {
+        titulo: "Série perdida",
+        corpo: `${addrDot}${mission} expirou. Volte à base e recomece limpo.`,
+      },
+      financeiro: {
+        titulo: "Prazo estourado",
+        corpo: `${addrDot}${mission} expirou. Ajuste e reabra a operação no mentor.`,
+      },
+      classico: {
+        titulo: "Desafio expirado",
+        corpo: `${addrDot}${mission} passou do prazo. A jornada segue — volte ao mentor.`,
+      },
+    };
+    return map[slug] ?? map.classico;
+  }
+
+  return {
+    titulo: input.fallbackTitulo,
+    corpo: (input.fallbackCorpo ?? "").trim(),
+  };
 }

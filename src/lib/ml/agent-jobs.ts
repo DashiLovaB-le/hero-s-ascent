@@ -179,8 +179,9 @@ async function createInitiatives(admin: Admin, hoje: string, now: Date, limit: n
           }
         : null;
 
+    const scores = scoresFromMlRow(mlRes.data);
     const decision = decideAgentInitiative({
-      scores: scoresFromMlRow(mlRes.data),
+      scores,
       hasCheckinToday: Boolean(checkinRes.data),
       hasPendingInitiative: Boolean(pendingRes.data),
       alreadyNotifiedToday: (notifRes.count ?? 0) > 0,
@@ -224,6 +225,9 @@ async function createInitiatives(admin: Admin, hoje: string, now: Date, limit: n
         initiative_id: initiative?.id,
         kind: decision.kind,
         ml_guided: true,
+        risco_streak: scores?.risco_streak ?? null,
+        risco_abandono: scores?.risco_abandono ?? null,
+        weekday_weakest_label: scores?.weekday_weakest_label ?? null,
       },
     });
 

@@ -55,8 +55,12 @@ export function formatTelegramNotificationText(input: {
   const path =
     input.href && input.href.startsWith("/") ? input.href : input.href ? `/${input.href}` : "";
   const link = path ? `${base}${path}` : base;
-  const lines = [`⚔ V-Project`, input.titulo];
-  if (input.corpo?.trim()) lines.push(input.corpo.trim());
+
+  const titulo = input.titulo.trim();
+  const corpo = input.corpo?.trim() ?? "";
+  const lines = ["Charlie"];
+  if (titulo) lines.push(titulo);
+  if (corpo && corpo !== titulo) lines.push(corpo);
   lines.push("", link);
   return lines.join("\n");
 }

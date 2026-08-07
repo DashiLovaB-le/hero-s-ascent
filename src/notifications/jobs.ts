@@ -298,6 +298,7 @@ async function sendDailyProductReminders(admin: Admin, hoje: string) {
           pending,
           ...decision.metadataExtra,
           adaptive_reasons: decision.reasons,
+          weekday_weakest_label: mlByUser.get(userId)?.weekday_weakest_label ?? null,
         },
         dia: hoje,
       });
@@ -315,6 +316,7 @@ async function sendDailyProductReminders(admin: Admin, hoje: string) {
           streak: profile.streak_atual,
           ...decision.metadataExtra,
           adaptive_reasons: decision.reasons,
+          weekday_weakest_label: mlByUser.get(userId)?.weekday_weakest_label ?? null,
         },
         dia: hoje,
       });
