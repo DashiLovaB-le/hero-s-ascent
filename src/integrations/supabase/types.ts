@@ -122,6 +122,9 @@ export type Database = {
       app_popups: {
         Row: {
           ativo: boolean
+          body_link_ativo: boolean
+          body_link_label: string | null
+          body_link_url: string | null
           button_label: string
           corpo: string
           created_at: string
@@ -137,6 +140,9 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          body_link_ativo?: boolean
+          body_link_label?: string | null
+          body_link_url?: string | null
           button_label?: string
           corpo: string
           created_at?: string
@@ -152,6 +158,9 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          body_link_ativo?: boolean
+          body_link_label?: string | null
+          body_link_url?: string | null
           button_label?: string
           corpo?: string
           created_at?: string
@@ -191,6 +200,57 @@ export type Database = {
           referrer?: string | null
           session_id?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      charlie_wisdom_cards: {
+        Row: {
+          ativo: boolean
+          blocked_personalities: string[]
+          created_at: string
+          id: string
+          keywords: string[]
+          priority: number
+          principio: string
+          quando_evitar: string
+          quando_usar: string
+          slug: string
+          source: string
+          tags: string[]
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          blocked_personalities?: string[]
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          priority?: number
+          principio: string
+          quando_evitar?: string
+          quando_usar?: string
+          slug: string
+          source: string
+          tags?: string[]
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          blocked_personalities?: string[]
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          priority?: number
+          principio?: string
+          quando_evitar?: string
+          quando_usar?: string
+          slug?: string
+          source?: string
+          tags?: string[]
+          titulo?: string
+          updated_at?: string
         }
         Relationships: []
       }

@@ -62,6 +62,9 @@ function emptyForm() {
     corpo: "",
     image_url: "",
     button_label: "Entendi",
+    body_link_ativo: false,
+    body_link_label: "",
+    body_link_url: "",
     target_path: "/journey" as (typeof POPUP_TARGET_OPTIONS)[number]["value"],
     ativo: false,
     starts_at: toLocalInput(start.toISOString()),
@@ -97,6 +100,9 @@ function PopupsAdminPage() {
           corpo: form.corpo,
           image_url: form.image_url || null,
           button_label: form.button_label || "Entendi",
+          body_link_ativo: form.body_link_ativo,
+          body_link_label: form.body_link_label || null,
+          body_link_url: form.body_link_url || null,
           target_path: form.target_path,
           ativo: form.ativo,
           starts_at: fromLocalInput(form.starts_at),
@@ -158,6 +164,9 @@ function PopupsAdminPage() {
       corpo: item.corpo,
       image_url: item.image_url ?? "",
       button_label: item.button_label || "Entendi",
+      body_link_ativo: Boolean(item.body_link_ativo),
+      body_link_label: item.body_link_label ?? "",
+      body_link_url: item.body_link_url ?? "",
       target_path: item.target_path as (typeof POPUP_TARGET_OPTIONS)[number]["value"],
       ativo: item.ativo,
       starts_at: toLocalInput(item.starts_at),
@@ -216,6 +225,44 @@ function PopupsAdminPage() {
                 maxLength={4000}
                 required
               />
+            </div>
+            <div className="space-y-3 rounded-md border border-white/10 bg-black/30 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-white">Botão de link no texto</p>
+                  <p className="text-xs text-white/45">
+                    Se ativo, aparece no corpo do pop-up e abre em nova aba.
+                  </p>
+                </div>
+                <Switch
+                  checked={form.body_link_ativo}
+                  onCheckedChange={(v) => setForm((f) => ({ ...f, body_link_ativo: v }))}
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Nome do botão</Label>
+                  <Input
+                    value={form.body_link_label}
+                    onChange={(e) => setForm((f) => ({ ...f, body_link_label: e.target.value }))}
+                    maxLength={60}
+                    placeholder="Saiba mais"
+                    disabled={!form.body_link_ativo}
+                    required={form.body_link_ativo}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Link</Label>
+                  <Input
+                    value={form.body_link_url}
+                    onChange={(e) => setForm((f) => ({ ...f, body_link_url: e.target.value }))}
+                    maxLength={800}
+                    placeholder="https://…"
+                    disabled={!form.body_link_ativo}
+                    required={form.body_link_ativo}
+                  />
+                </div>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Imagem (URL)</Label>
@@ -348,6 +395,9 @@ function PopupsAdminPage() {
                         <p className="truncate font-medium text-white">{item.titulo}</p>
                         <p className="mt-0.5 text-xs text-white/45">
                           {item.target_path} · botão “{item.button_label}”
+                          {item.body_link_ativo && item.body_link_label
+                            ? ` · link “${item.body_link_label}”`
+                            : ""}
                         </p>
                         <p className="mt-1 text-[11px] text-white/40">
                           {live ? (

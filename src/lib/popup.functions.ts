@@ -34,6 +34,9 @@ export type AppPopupRow = {
   corpo: string;
   image_url: string | null;
   button_label: string;
+  body_link_ativo: boolean;
+  body_link_label: string | null;
+  body_link_url: string | null;
   target_path: string;
   ativo: boolean;
   starts_at: string;
@@ -42,6 +45,32 @@ export type AppPopupRow = {
   created_at: string;
   updated_at: string;
 };
+
+const POPUP_SELECT =
+  "id, titulo, subtitulo, corpo, image_url, button_label, body_link_ativo, body_link_label, body_link_url, target_path, ativo, starts_at, expires_at, priority, created_at, updated_at";
+
+const POPUP_SELECT_ACTIVE =
+  "id, titulo, subtitulo, corpo, image_url, button_label, body_link_ativo, body_link_label, body_link_url, target_path, ativo, starts_at, expires_at, priority";
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  return trimmed ? trimmed : null;
+}
+
+function normalizeBodyLinkUrl(value: string | null | undefined): string | null {
+  const trimmed = normalizeOptionalText(value);
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error("O link do corpo deve começar com http:// ou https://");
+    }
+    return url.toString();
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("http")) throw err;
+    throw new Error("URL do link do corpo inválida.");
+  }
+}
 
 function normalizeIso(input: string): string {
   const d = new Date(input);
@@ -55,19 +84,42 @@ function assertWindow(startsAt: string, expiresAt: string) {
   }
 }
 
-const popupUpsertSchema = z.object({
-  id: z.string().uuid().optional(),
-  titulo: z.string().trim().min(1).max(120),
-  subtitulo: z.string().trim().max(200).optional().nullable(),
-  corpo: z.string().trim().min(1).max(4000),
-  image_url: z.string().trim().max(800).optional().nullable(),
-  button_label: z.string().trim().min(1).max(40),
-  target_path: targetPathSchema,
-  ativo: z.boolean(),
-  starts_at: z.string().min(10),
-  expires_at: z.string().min(10),
-  priority: z.number().int().min(0).max(100),
-});
+const popupUpsertSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    titulo: z.string().trim().min(1).max(120),
+    subtitulo: z.string().trim().max(200).optional().nullable(),
+    corpo: z.string().trim().min(1).max(4000),
+    image_url: z.string().trim().max(800).optional().nullable(),
+    button_label: z.string().trim().min(1).max(40),
+    body_link_ativo: z.boolean().default(false),
+    body_link_label: z.string().trim().max(60).optional().nullable(),
+    body_link_url: z.string().trim().max(800).optional().nullable(),
+    target_path: targetPathSchema,
+    ativo: z.boolean(),
+    starts_at: z.string().min(10),
+    expires_at: z.string().min(10),
+    priority: z.number().int().min(0).max(100),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.body_link_ativo) return;
+    const label = data.body_link_label?.trim() ?? "";
+    const url = data.body_link_url?.trim() ?? "";
+    if (!label) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Informe o nome do botão de link no corpo.",
+        path: ["body_link_label"],
+      });
+    }
+    if (!url) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Informe o link do botão no corpo.",
+        path: ["body_link_url"],
+      });
+    }
+  });
 
 /** Lista todos (admin). */
 export const adminListPopups = createServerFn({ method: "GET" })
@@ -76,9 +128,7 @@ export const adminListPopups = createServerFn({ method: "GET" })
     await assertIsAdmin(context.userId);
     const { data, error } = await supabaseAdmin
       .from("app_popups")
-      .select(
-        "id, titulo, subtitulo, corpo, image_url, button_label, target_path, ativo, starts_at, expires_at, priority, created_at, updated_at",
-      )
+      .select(POPUP_SELECT)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return { items: (data ?? []) as AppPopupRow[] };
@@ -93,12 +143,19 @@ export const adminUpsertPopup = createServerFn({ method: "POST" })
     const expiresAt = normalizeIso(data.expires_at);
     assertWindow(startsAt, expiresAt);
 
+    const bodyLinkLabel = normalizeOptionalText(data.body_link_label);
+    const bodyLinkUrl = normalizeBodyLinkUrl(data.body_link_url);
+    const bodyLinkAtivo = Boolean(data.body_link_ativo && bodyLinkLabel && bodyLinkUrl);
+
     const patch = {
       titulo: data.titulo,
       subtitulo: data.subtitulo?.trim() ? data.subtitulo.trim() : null,
       corpo: data.corpo,
       image_url: data.image_url?.trim() ? data.image_url.trim() : null,
       button_label: data.button_label || "Entendi",
+      body_link_ativo: bodyLinkAtivo,
+      body_link_label: bodyLinkLabel,
+      body_link_url: bodyLinkUrl,
       target_path: data.target_path,
       ativo: data.ativo,
       starts_at: startsAt,
@@ -112,9 +169,7 @@ export const adminUpsertPopup = createServerFn({ method: "POST" })
         .from("app_popups")
         .update(patch)
         .eq("id", data.id)
-        .select(
-          "id, titulo, subtitulo, corpo, image_url, button_label, target_path, ativo, starts_at, expires_at, priority, created_at, updated_at",
-        )
+        .select(POPUP_SELECT)
         .single();
       if (error) throw new Error(error.message);
       return { item: row as AppPopupRow };
@@ -123,9 +178,7 @@ export const adminUpsertPopup = createServerFn({ method: "POST" })
     const { data: row, error } = await supabaseAdmin
       .from("app_popups")
       .insert(patch)
-      .select(
-        "id, titulo, subtitulo, corpo, image_url, button_label, target_path, ativo, starts_at, expires_at, priority, created_at, updated_at",
-      )
+      .select(POPUP_SELECT)
       .single();
     if (error) throw new Error(error.message);
     return { item: row as AppPopupRow };
@@ -191,9 +244,7 @@ export const getActivePopupForPath = createServerFn({ method: "POST" })
 
     const { data: rows, error } = await supabaseAdmin
       .from("app_popups")
-      .select(
-        "id, titulo, subtitulo, corpo, image_url, button_label, target_path, ativo, starts_at, expires_at, priority",
-      )
+      .select(POPUP_SELECT_ACTIVE)
       .eq("ativo", true)
       .eq("target_path", path)
       .lte("starts_at", now)
@@ -210,6 +261,10 @@ export const getActivePopupForPath = createServerFn({ method: "POST" })
     }
 
     const row = rows?.[0] ?? null;
+    const bodyLinkLabel = (row?.body_link_label as string | null) ?? null;
+    const bodyLinkUrl = (row?.body_link_url as string | null) ?? null;
+    const bodyLinkAtivo = Boolean(row?.body_link_ativo && bodyLinkLabel && bodyLinkUrl);
+
     return {
       popup: row
         ? {
@@ -219,6 +274,9 @@ export const getActivePopupForPath = createServerFn({ method: "POST" })
             corpo: row.corpo as string,
             image_url: (row.image_url as string | null) ?? null,
             button_label: (row.button_label as string) || "Entendi",
+            body_link_ativo: bodyLinkAtivo,
+            body_link_label: bodyLinkAtivo ? bodyLinkLabel : null,
+            body_link_url: bodyLinkAtivo ? bodyLinkUrl : null,
             target_path: row.target_path as string,
             expires_at: row.expires_at as string,
           }

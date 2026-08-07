@@ -17,6 +17,7 @@ import { Route as DashitecnologyRouteRouteImport } from './routes/dashitecnology
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashitecnologyIndexRouteImport } from './routes/dashitecnology/index'
+import { Route as DashitecnologyWisdomRouteImport } from './routes/dashitecnology/wisdom'
 import { Route as DashitecnologyWallpapersRouteImport } from './routes/dashitecnology/wallpapers'
 import { Route as DashitecnologyUsersRouteImport } from './routes/dashitecnology/users'
 import { Route as DashitecnologyTrafficRouteImport } from './routes/dashitecnology/traffic'
@@ -85,6 +86,11 @@ const IndexRoute = IndexRouteImport.update({
 const DashitecnologyIndexRoute = DashitecnologyIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const DashitecnologyWisdomRoute = DashitecnologyWisdomRouteImport.update({
+  id: '/wisdom',
+  path: '/wisdom',
   getParentRoute: () => DashitecnologyRouteRoute,
 } as any)
 const DashitecnologyWallpapersRoute =
@@ -279,6 +285,7 @@ export interface FileRoutesByFullPath {
   '/dashitecnology/traffic': typeof DashitecnologyTrafficRoute
   '/dashitecnology/users': typeof DashitecnologyUsersRouteWithChildren
   '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
+  '/dashitecnology/wisdom': typeof DashitecnologyWisdomRoute
   '/dashitecnology/': typeof DashitecnologyIndexRoute
   '/exercises/$slug': typeof AuthenticatedExercisesSlugRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
@@ -316,6 +323,7 @@ export interface FileRoutesByTo {
   '/dashitecnology/tokens': typeof DashitecnologyTokensRoute
   '/dashitecnology/traffic': typeof DashitecnologyTrafficRoute
   '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
+  '/dashitecnology/wisdom': typeof DashitecnologyWisdomRoute
   '/dashitecnology': typeof DashitecnologyIndexRoute
   '/exercises/$slug': typeof AuthenticatedExercisesSlugRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
@@ -357,6 +365,7 @@ export interface FileRoutesById {
   '/dashitecnology/traffic': typeof DashitecnologyTrafficRoute
   '/dashitecnology/users': typeof DashitecnologyUsersRouteWithChildren
   '/dashitecnology/wallpapers': typeof DashitecnologyWallpapersRoute
+  '/dashitecnology/wisdom': typeof DashitecnologyWisdomRoute
   '/dashitecnology/': typeof DashitecnologyIndexRoute
   '/_authenticated/exercises/$slug': typeof AuthenticatedExercisesSlugRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
@@ -398,6 +407,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/traffic'
     | '/dashitecnology/users'
     | '/dashitecnology/wallpapers'
+    | '/dashitecnology/wisdom'
     | '/dashitecnology/'
     | '/exercises/$slug'
     | '/dashitecnology/users/$userId'
@@ -435,6 +445,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/tokens'
     | '/dashitecnology/traffic'
     | '/dashitecnology/wallpapers'
+    | '/dashitecnology/wisdom'
     | '/dashitecnology'
     | '/exercises/$slug'
     | '/dashitecnology/users/$userId'
@@ -475,6 +486,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/traffic'
     | '/dashitecnology/users'
     | '/dashitecnology/wallpapers'
+    | '/dashitecnology/wisdom'
     | '/dashitecnology/'
     | '/_authenticated/exercises/$slug'
     | '/dashitecnology/users/$userId'
@@ -547,6 +559,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/dashitecnology/'
       preLoaderRoute: typeof DashitecnologyIndexRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/dashitecnology/wisdom': {
+      id: '/dashitecnology/wisdom'
+      path: '/wisdom'
+      fullPath: '/dashitecnology/wisdom'
+      preLoaderRoute: typeof DashitecnologyWisdomRouteImport
       parentRoute: typeof DashitecnologyRouteRoute
     }
     '/dashitecnology/wallpapers': {
@@ -821,6 +840,7 @@ interface DashitecnologyRouteRouteChildren {
   DashitecnologyTrafficRoute: typeof DashitecnologyTrafficRoute
   DashitecnologyUsersRoute: typeof DashitecnologyUsersRouteWithChildren
   DashitecnologyWallpapersRoute: typeof DashitecnologyWallpapersRoute
+  DashitecnologyWisdomRoute: typeof DashitecnologyWisdomRoute
   DashitecnologyIndexRoute: typeof DashitecnologyIndexRoute
 }
 
@@ -845,6 +865,7 @@ const DashitecnologyRouteRouteChildren: DashitecnologyRouteRouteChildren = {
   DashitecnologyTrafficRoute: DashitecnologyTrafficRoute,
   DashitecnologyUsersRoute: DashitecnologyUsersRouteWithChildren,
   DashitecnologyWallpapersRoute: DashitecnologyWallpapersRoute,
+  DashitecnologyWisdomRoute: DashitecnologyWisdomRoute,
   DashitecnologyIndexRoute: DashitecnologyIndexRoute,
 }
 

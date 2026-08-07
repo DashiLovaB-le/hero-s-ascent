@@ -133,16 +133,58 @@ function ParceirosPage() {
         <section className="mt-10 space-y-4">
           <SlashLabel>COMISSÃO</SlashLabel>
           <div className="border border-hero/35 bg-hero/10 px-4 py-5 sm:px-5">
-            <p className="font-display text-sm tracking-[0.06em] text-hero">1ª mensalidade</p>
+            <p className="font-display text-sm tracking-[0.06em] text-hero">Recorrente</p>
             <p className="mt-2 text-sm leading-relaxed text-[#FFE7D0]/90">
-              Você fica com <span className="text-hero">todo o valor da primeira mensalidade</span>,
-              descontadas apenas taxas e impostos da Kiwify.
+              Enquanto o cliente continuar pagando a assinatura, você continua recebendo sua
+              porcentagem — não é só na primeira venda.
             </p>
             <p className="mt-3 text-xs text-[#FFE7D0]/55">
-              Só a 1ª compra gera comissão. Renovações mensais não pagam afiliado. Sem teto — hoje há
-              uma oferta (R$&nbsp;97/mês).
+              Todos começam em <span className="text-[#FFE7D0]">10%</span>. Conforme cresce o número
+              de <span className="text-[#FFE7D0]">clientes ativos</span> (retenção, não só vendas), a
+              faixa sobe até <span className="text-[#FFE7D0]">20%</span>. Taxas e impostos da Kiwify
+              são descontados normalmente.
             </p>
           </div>
+
+          <div className="overflow-x-auto border border-white/10">
+            <table className="w-full min-w-[320px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-white/10 bg-[#323232]/80 text-[10px] uppercase tracking-[0.18em] text-[#FFE7D0]/45">
+                  <th className="px-4 py-3 font-normal">Clientes ativos</th>
+                  <th className="px-4 py-3 font-normal">Comissão recorrente</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 text-[#FFE7D0]/85">
+                <tr>
+                  <td className="px-4 py-2.5">1–50</td>
+                  <td className="px-4 py-2.5 text-hero">10%</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5">51–200</td>
+                  <td className="px-4 py-2.5 text-hero">12%</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5">201–500</td>
+                  <td className="px-4 py-2.5 text-hero">15%</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5">501–1.000</td>
+                  <td className="px-4 py-2.5 text-hero">18%</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2.5">1.001+</td>
+                  <td className="px-4 py-2.5 text-hero">20%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="max-w-xl text-xs leading-relaxed text-[#FFE7D0]/50">
+            A promoção de faixa é feita pela V-Project com base na apuração interna de clientes
+            ativos (a Kiwify não mostra esse contador ao afiliado). Ao atingir um novo nível,
+            ajustamos sua comissão personalizada na Kiwify.
+          </p>
+
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <div className="bg-[#323232]/70 px-4 py-3">
               <dt className="text-[10px] uppercase tracking-[0.2em] text-[#FFE7D0]/45">

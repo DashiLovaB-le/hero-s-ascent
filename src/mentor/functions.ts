@@ -534,11 +534,25 @@ async function callMentor(
 
   const systemPrompt = promptMeta.prompt;
 
+  let wisdomBlock = "";
+  try {
+    const { resolveWisdomBlock } = await import("@/lib/wisdom.functions");
+    wisdomBlock = await resolveWisdomBlock({
+      userText: opts.userText,
+      personalitySlug: promptMeta.slug,
+      contextBlock,
+    });
+  } catch (e) {
+    console.warn("[mentor] wisdom block skipped", e);
+  }
+
   const messages = [
     { role: "system" as const, content: systemPrompt },
     {
       role: "system" as const,
-      content: `CONTEXTO ATUAL DA JORNADA\n${contextBlock}`,
+      content: `CONTEXTO ATUAL DA JORNADA\n${contextBlock}${
+        wisdomBlock ? `\n\n${wisdomBlock}` : ""
+      }`,
     },
     ...opts.history.map((m) => ({ role: m.role, content: m.content })),
     { role: "user" as const, content: opts.userText },

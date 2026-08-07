@@ -100,10 +100,24 @@ export function AppPopupHost() {
             <DialogDescription className="whitespace-pre-wrap text-sm leading-relaxed text-[#FFE7D0]/80">
               {popup.corpo}
             </DialogDescription>
+            {popup.body_link_ativo && popup.body_link_label && popup.body_link_url ? (
+              <a
+                href={popup.body_link_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="lp-btn inline-flex h-10 items-center justify-center rounded-none bg-hero px-5 text-[10px] font-semibold tracking-[0.16em] text-black shadow-hero"
+              >
+                {popup.body_link_label}
+              </a>
+            ) : null}
           </DialogHeader>
         </div>
         <DialogFooter className="border-t border-white/10 px-6 py-4 sm:justify-end">
-          <Button type="button" onClick={dismiss} className="rounded-none shadow-hero">
+          <Button
+            type="button"
+            onClick={dismiss}
+            className="lp-btn h-10 rounded-none px-5 text-[10px] font-semibold tracking-[0.16em] shadow-hero"
+          >
             {popup.button_label || "Entendi"}
           </Button>
         </DialogFooter>
