@@ -71,20 +71,20 @@ Cron 22:00 BRT (já existe)
 - [x] Migration colunas + `telegram_link_codes` + RLS
 - [x] Server fns: `createTelegramLinkCode`, `unlinkTelegram`, `setTelegramOptIn`
 - [x] UI em `/profile`: status, botão “Conectar Telegram”, toggle opt-in, “Desconectar”
-- [ ] Atualizar `plans/ResumoAplicacao.md`
+- [x] Atualizar `plans/ResumoAplicacao.md`
 
 ### T2 — Webhook do bot
 - [x] Edge Function `telegram-webhook` (`verify_jwt = false` + secret header)
 - [x] Handler `/start <code>` → associa `chat_id`, marca código usado, responde no Telegram
-- [ ] Script/docs: `setWebhook` com `secret_token` (você no painel)
-- [ ] Redeploy + teste com `/start` real
+- [x] Script/docs: `setWebhook` com `secret_token` (você no painel)
+- [x] Redeploy + teste com `/start` real
 
 ### T3 — Envio no cron
 - [x] Helper `sendTelegramMessage` / `maybeSendTelegramNotification`
 - [x] Em `notification-jobs` + `createNotification`: envia se opt-in
 - [x] Texto PT-BR + link do app
 - [x] Log de falha sem abortar o job
-- [ ] Redeploy `notification-jobs` + secrets `APP_PUBLIC_URL`
+- [x] Redeploy `notification-jobs` + secrets `APP_PUBLIC_URL`
 
 ### T4 — Hardening (rápido)
 - [ ] Não reenviar se já mandou o mesmo tipo hoje no Telegram (opcional: flag em metadata ou confiar no anti-spam in-app)

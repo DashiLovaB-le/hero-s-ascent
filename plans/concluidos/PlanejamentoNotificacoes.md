@@ -123,7 +123,7 @@ Não fazer nestas fases:
 
 1. [x] **Fase 1** — schema + RLS + listar/marcar + sino + wire Charlie
 2. [x] **Fase 2** — tipos de produto + cron + deep links + anti-spam
-3. [ ] Validar uso (usuário abre o sino? age nos reminders?)
+3. [x] Validar uso (usuário abre o sino? age nos reminders?)
 4. [x] **Fase 3** — settings + Web Push (e-mail ainda pendente)
 
 ---
