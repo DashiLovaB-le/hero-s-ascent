@@ -43,7 +43,7 @@ public class CharlieBootReceiver extends BroadcastReceiver {
       prefs.getString(KEY_CALLER, "Charlie"),
       prefs.getString(KEY_REASON, "Hora de subir"),
       prefs.getString(KEY_CALL_ID, "boot-" + at),
-      prefs.getString(KEY_AUDIO, "classico")
+      prefs.getString(KEY_AUDIO, "classic")
     );
   }
 }

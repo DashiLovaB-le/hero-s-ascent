@@ -10,13 +10,17 @@ import { Input } from "@/components/ui/input";
 import { isNativePlatform } from "@/lib/platform";
 import { getCharlieAlarm, upsertCharlieAlarm } from "@/lib/charlie-call/functions";
 import {
+  CHARLIE_RINGTONES,
   canScheduleCharlieExact,
   cancelCharlieAlarm,
   nextAlarmTriggerMs,
+  normalizeRingtoneKey,
   openCharlieExactAlarmSettings,
   persistCharlieBootSchedule,
   scheduleCharlieAlarm,
+  type CharlieRingtoneKey,
 } from "@/lib/charlie-call/client";
+import { cn } from "@/lib/utils";
 
 const DAY_LABELS = [
   { d: 0, label: "D" },
@@ -47,12 +51,14 @@ export function CharlieAlarmSettingsCard() {
   const [enabled, setEnabled] = useState(false);
   const [timeLocal, setTimeLocal] = useState("06:30");
   const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [ringtone, setRingtone] = useState<CharlieRingtoneKey>("classic");
 
   useEffect(() => {
     if (!data?.alarm) return;
     setEnabled(data.alarm.enabled);
     setTimeLocal(data.alarm.time_local.slice(0, 5));
     setDays(data.alarm.days_of_week?.length ? data.alarm.days_of_week : [1, 2, 3, 4, 5]);
+    setRingtone(normalizeRingtoneKey(data.alarm.audio_key));
   }, [data]);
 
   const globalOn = data?.globalEnabled !== false;
@@ -65,7 +71,7 @@ export function CharlieAlarmSettingsCard() {
           time_local: timeLocal,
           days_of_week: days,
           snooze_minutes: 5,
-          audio_key: "classico",
+          audio_key: ringtone,
           reason_text: "Hora de subir",
         },
       });
@@ -82,18 +88,19 @@ export function CharlieAlarmSettingsCard() {
             timeLocal: row.time_local.slice(0, 5),
             daysOfWeek: row.days_of_week,
           });
+          const audioKey = normalizeRingtoneKey(row.audio_key);
           const sched = await scheduleCharlieAlarm({
             triggerAtMs,
             callId: `alarm-${row.id}`,
             reason: row.reason_text,
-            audioKey: row.audio_key,
+            audioKey,
           });
           await persistCharlieBootSchedule({
             enabled: true,
             triggerAtMs,
             callId: `alarm-${row.id}`,
             reason: row.reason_text,
-            audioKey: row.audio_key,
+            audioKey,
           });
           if (sched.needsExactAlarmPermission) {
             toast.message("Ative “Alarmes e lembretes” para o V-Project.");
@@ -142,7 +149,7 @@ export function CharlieAlarmSettingsCard() {
 
       {!native ? (
         <p className="mb-3 text-xs text-muted-foreground">
-          No navegador você só configura. O toque como “ligação” acontece no app Android.
+          No navegador você só configura. O toque e a tela cheia acontecem no app Android.
         </p>
       ) : null}
 
@@ -192,6 +199,28 @@ export function CharlieAlarmSettingsCard() {
               </button>
             );
           })}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <Label>Toque (volume de alarme do aparelho)</Label>
+        <div className="mt-2 grid gap-2">
+          {CHARLIE_RINGTONES.map((r) => (
+            <button
+              key={r.key}
+              type="button"
+              onClick={() => setRingtone(r.key)}
+              className={cn(
+                "flex items-center justify-between border px-3 py-2 text-left text-sm",
+                ringtone === r.key
+                  ? "border-hero bg-hero/10 text-foreground"
+                  : "border-border text-muted-foreground",
+              )}
+            >
+              <span>{r.label}</span>
+              <span className="font-mono text-[10px] opacity-60">{r.file}</span>
+            </button>
+          ))}
         </div>
       </div>
 

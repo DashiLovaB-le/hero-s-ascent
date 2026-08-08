@@ -30,7 +30,7 @@ public class MainActivity extends BridgeActivity {
       "/alarm/ritual?callId=" +
       (callId != null ? callId : "") +
       "&audioKey=" +
-      (audioKey != null ? audioKey : "classico") +
+      (audioKey != null ? audioKey : "classic") +
       "&mode=" +
       (mode != null ? mode : "alarm");
 

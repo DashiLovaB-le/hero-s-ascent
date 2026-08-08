@@ -37,7 +37,7 @@ public class CharlieCallPlugin extends Plugin {
     String reason = call.getString("reason", "Hora de subir");
     String mode = call.getString("mode", "alarm");
     String callId = call.getString("callId", String.valueOf(System.currentTimeMillis()));
-    String audioKey = call.getString("audioKey", "classico");
+    String audioKey = call.getString("audioKey", "classic");
 
     Intent intent = new Intent(getContext(), CharlieCallActivity.class);
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -66,7 +66,7 @@ public class CharlieCallPlugin extends Plugin {
     String callerName = call.getString("callerName", "Charlie");
     String reason = call.getString("reason", "Hora de subir");
     String callId = call.getString("callId", "alarm-" + triggerAtMs);
-    String audioKey = call.getString("audioKey", "classico");
+    String audioKey = call.getString("audioKey", "classic");
     int requestCode = call.getInt("requestCode", 77001);
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -130,16 +130,21 @@ public class CharlieCallPlugin extends Plugin {
       .putLong(CharlieBootReceiver.KEY_NEXT_AT, triggerAtMs)
       .putString(CharlieBootReceiver.KEY_CALLER, call.getString("callerName", "Charlie"))
       .putString(CharlieBootReceiver.KEY_REASON, call.getString("reason", "Hora de subir"))
-      .putString(CharlieBootReceiver.KEY_AUDIO, call.getString("audioKey", "classico"))
+      .putString(CharlieBootReceiver.KEY_AUDIO, call.getString("audioKey", "classic"))
       .putString(CharlieBootReceiver.KEY_CALL_ID, call.getString("callId", "alarm"))
       .apply();
     call.resolve();
   }
 
   public void emitCallEvent(String event, String callId, String mode) {
+    emitCallEvent(event, callId, mode, "classic");
+  }
+
+  public void emitCallEvent(String event, String callId, String mode, String audioKey) {
     JSObject data = new JSObject();
     data.put("callId", callId);
     data.put("mode", mode);
+    data.put("audioKey", audioKey != null && !audioKey.isEmpty() ? audioKey : "classic");
     notifyListeners(event, data);
   }
 }

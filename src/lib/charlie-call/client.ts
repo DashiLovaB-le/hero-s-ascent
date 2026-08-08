@@ -26,6 +26,7 @@ export type CharlieScheduleOptions = {
 export type CharlieCallEvent = {
   callId: string;
   mode: string;
+  audioKey?: string;
 };
 
 type CharlieCallPlugin = {
@@ -65,7 +66,7 @@ export async function presentCharlieCall(opts: CharlieCallPresentOptions = {}) {
     callerName: opts.callerName ?? "Charlie",
     reason: opts.reason ?? "Hora de subir",
     callId: opts.callId ?? `sim-${Date.now()}`,
-    audioKey: opts.audioKey ?? "classico",
+    audioKey: normalizeRingtoneKey(opts.audioKey),
   });
 }
 
@@ -75,8 +76,8 @@ export async function scheduleCharlieAlarm(opts: CharlieScheduleOptions) {
     requestCode: 77001,
     callerName: "Charlie",
     reason: "Hora de subir",
-    audioKey: "classico",
     ...opts,
+    audioKey: normalizeRingtoneKey(opts.audioKey),
   });
 }
 
@@ -89,7 +90,10 @@ export async function persistCharlieBootSchedule(
   opts: Parameters<CharlieCallPlugin["persistBootSchedule"]>[0],
 ) {
   if (!isNativePlatform()) return;
-  await CharlieCallNative.persistBootSchedule(opts);
+  await CharlieCallNative.persistBootSchedule({
+    ...opts,
+    audioKey: normalizeRingtoneKey(opts.audioKey),
+  });
 }
 
 export async function canScheduleCharlieExact() {
@@ -147,4 +151,19 @@ export function nextAlarmTriggerMs(opts: {
   return fb.getTime();
 }
 
-export const CHARLIE_ALARM_AUDIO_PATH = "/audio/charlie-alarm-classico.m4a";
+export const CHARLIE_RINGTONES = [
+  { key: "classic", label: "Clássico", file: "classic.wav" },
+  { key: "warrior", label: "Guerreiro", file: "warrior.wav" },
+  { key: "calm", label: "Calmo", file: "calm.wav" },
+] as const;
+
+export type CharlieRingtoneKey = (typeof CHARLIE_RINGTONES)[number]["key"];
+
+/** Pasta canônica dos toques (APK: android assets; web preview: public). */
+export const CHARLIE_RINGTONES_DIR = "audio/charlie-ringtones";
+
+export function normalizeRingtoneKey(key: string | null | undefined): CharlieRingtoneKey {
+  if (key === "warrior" || key === "calm" || key === "classic") return key;
+  if (key === "classico") return "classic";
+  return "classic";
+}

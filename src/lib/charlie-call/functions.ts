@@ -32,6 +32,12 @@ function normalizeTime(t: string): string {
   return `${parts[0]?.padStart(2, "0") ?? "06"}:${parts[1]?.padStart(2, "0") ?? "30"}`;
 }
 
+function normalizeAudioKey(key: string | null | undefined): string {
+  if (key === "warrior" || key === "calm" || key === "classic") return key;
+  if (key === "classico") return "classic";
+  return "classic";
+}
+
 async function readGlobalEnabled(): Promise<boolean> {
   const { data } = await supabaseAdmin
     .from("app_settings")
@@ -92,7 +98,7 @@ export const upsertCharlieAlarm = createServerFn({ method: "POST" })
           ? Intl.DateTimeFormat().resolvedOptions().timeZone
           : "America/Sao_Paulo"),
       snooze_minutes: data.snooze_minutes ?? 5,
-      audio_key: data.audio_key ?? "classico",
+      audio_key: normalizeAudioKey(data.audio_key),
       reason_text: data.reason_text ?? "Hora de subir",
       updated_at: new Date().toISOString(),
     };
@@ -133,6 +139,104 @@ export const logCharlieAlarmEvent = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export type MorningBriefing = {
+  greeting: string;
+  heroName: string;
+  message: string;
+  weatherLine: string | null;
+  tasks: Array<{ id: string; title: string; kind: "habit" | "goal" }>;
+};
+
+export const getMorningBriefing = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<MorningBriefing> => {
+    const { userId, supabase } = context;
+    const { fetchWeatherForCoords } = await import("@/lib/weather");
+    const { hojeISO } = await import("@/lib/datetime");
+
+    const [{ data: profile }, { data: habits }, { data: completions }, { data: goals }] =
+      await Promise.all([
+        supabase
+          .from("profiles")
+          .select("nome, location_label, location_lat, location_lon, location_timezone")
+          .eq("id", userId)
+          .maybeSingle(),
+        supabase
+          .from("habits")
+          .select("id, titulo, ativo")
+          .eq("user_id", userId)
+          .eq("ativo", true)
+          .order("created_at", { ascending: true })
+          .limit(12),
+        supabase
+          .from("habit_completions")
+          .select("habit_id")
+          .eq("user_id", userId)
+          .eq("dia", hojeISO()),
+        supabase
+          .from("goals")
+          .select("id, titulo, status")
+          .eq("user_id", userId)
+          .eq("status", "ativa")
+          .limit(6),
+      ]);
+
+    const nome = profile?.nome?.trim() || "herói";
+    const hour = new Date().getHours();
+    const greeting =
+      hour < 12 ? `Bom dia, ${nome}.` : hour < 18 ? `Olá, ${nome}.` : `Boa noite, ${nome}.`;
+
+    let weatherLine: string | null = null;
+    const lat = profile?.location_lat;
+    const lon = profile?.location_lon;
+    if (typeof lat === "number" && typeof lon === "number") {
+      try {
+        const w = await fetchWeatherForCoords({
+          lat,
+          lon,
+          label: profile?.location_label || "sua região",
+          timezone: profile?.location_timezone,
+        });
+        if (w) {
+          const temp = w.tempC != null ? `${Math.round(w.tempC)}°C` : "";
+          const rain =
+            w.todayRainChance != null ? ` · chuva ${Math.round(w.todayRainChance)}%` : "";
+          weatherLine = `${w.label}: ${w.condition}${temp ? ` · ${temp}` : ""}${rain}`;
+        }
+      } catch {
+        weatherLine = null;
+      }
+    }
+
+    const done = new Set((completions ?? []).map((c) => c.habit_id));
+    const pendingHabits = (habits ?? [])
+      .filter((h) => !done.has(h.id))
+      .slice(0, 5)
+      .map((h) => ({ id: h.id, title: h.titulo, kind: "habit" as const }));
+
+    const pendingGoals = (goals ?? []).slice(0, 3).map((g) => ({
+      id: g.id,
+      title: g.titulo,
+      kind: "goal" as const,
+    }));
+
+    // Prefer hábitos; completa com metas se sobrar espaço
+    const tasks = [...pendingHabits, ...pendingGoals].slice(0, 6);
+
+    const message =
+      tasks.length > 0
+        ? "Levanta. O dia já começou — estas são as frentes principais. Marca o que importa."
+        : "Levanta. Sem pendências listadas agora — use o silêncio a seu favor e avance na jornada.";
+
+    return {
+      greeting,
+      heroName: nome,
+      message,
+      weatherLine,
+      tasks,
+    };
+  });
+
 export const adminGetCharlieAlarmConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -162,7 +266,7 @@ export const adminGetCharlieAlarmConfig = createServerFn({ method: "GET" })
     return {
       enabled: (map.get("charlie_alarm_enabled")?.value ?? "true").toLowerCase() !== "false",
       defaultReason: map.get("charlie_alarm_default_reason")?.value ?? "Hora de subir",
-      defaultAudioKey: map.get("charlie_alarm_default_audio_key")?.value ?? "classico",
+      defaultAudioKey: normalizeAudioKey(map.get("charlie_alarm_default_audio_key")?.value),
       enabledUsers: count ?? 0,
       recent: recent ?? [],
     };
@@ -195,7 +299,7 @@ export const adminSetCharlieAlarmConfig = createServerFn({ method: "POST" })
       },
       {
         key: "charlie_alarm_default_audio_key",
-        value: data.defaultAudioKey,
+        value: normalizeAudioKey(data.defaultAudioKey),
         updated_at: now,
         updated_by: context.userId,
       },

@@ -29,7 +29,7 @@ export function NativeShellHost() {
             to: "/alarm/ritual",
             search: {
               callId: e.callId,
-              audioKey: "classico",
+              audioKey: e.audioKey || "classic",
               mode: e.mode || "alarm",
             },
             replace: true,

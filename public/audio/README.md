@@ -1,23 +1,23 @@
-# Áudio do Despertador Charlie
+# Áudio do Charlie Call / Despertador
 
-Coloque o arquivo de voz do MVP **exatamente** neste caminho:
+## Toques (tela de chamada — STREAM_ALARM)
 
-```text
-public/audio/charlie-alarm-classico.m4a
-```
-
-## Specs MVP
-- Duração: 15–25 segundos
-- Idioma: PT-BR
-- Tom: mentor Charlie clássico
-- Texto sugerido: *“É Charlie. O dia começou. Levanta, respira, e marca o primeiro hábito. A jornada não espera.”*
-- Formato: `.m4a` (AAC) ou `.ogg` (se mudar o path no código)
-
-## Keys extras
-Se o Dashi definir `audio_key = motivacao`, o app busca:
+Pasta canônica:
 
 ```text
-public/audio/charlie-alarm-motivacao.m4a
+public/audio/charlie-ringtones/classic.wav
+public/audio/charlie-ringtones/warrior.wav
+public/audio/charlie-ringtones/calm.wav
 ```
 
-O arquivo **não** deve ser commitado se for voz licenciada/privata sem direitos — mas o path acima é o canônico no deploy (Vercel `public/`).
+Espelho obrigatório no APK:
+
+```text
+android/app/src/main/assets/charlie-ringtones/
+```
+
+Ver `charlie-ringtones/README.md`.
+
+## Ritual pós-ATENDER
+
+Não usa mais player de voz sequencial. Após atender, o app abre `/alarm/ritual` com saudação + clima + tarefas e o botão **LEVANTEI**.

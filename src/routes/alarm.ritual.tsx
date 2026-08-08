@@ -1,15 +1,17 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
-import { CHARLIE_ALARM_AUDIO_PATH } from "@/lib/charlie-call/client";
-import { logCharlieAlarmEvent } from "@/lib/charlie-call/functions";
+import { getMorningBriefing, logCharlieAlarmEvent } from "@/lib/charlie-call/functions";
+import { runQueryFn } from "@/lib/safe-query";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/alarm/ritual")({
   ssr: false,
   validateSearch: (search: Record<string, unknown>) => ({
     callId: typeof search.callId === "string" ? search.callId : undefined,
-    audioKey: typeof search.audioKey === "string" ? search.audioKey : "classico",
+    audioKey: typeof search.audioKey === "string" ? search.audioKey : "classic",
     mode: typeof search.mode === "string" ? search.mode : "alarm",
   }),
   component: AlarmRitualPage,
@@ -17,78 +19,117 @@ export const Route = createFileRoute("/alarm/ritual")({
 
 function AlarmRitualPage() {
   const { callId, audioKey } = Route.useSearch();
+  const navigate = useNavigate();
   const logFn = useServerFn(logCharlieAlarmEvent);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [missing, setMissing] = useState(false);
-
-  const src =
-    audioKey && audioKey !== "classico"
-      ? `/audio/charlie-alarm-${audioKey}.m4a`
-      : CHARLIE_ALARM_AUDIO_PATH;
+  const briefFn = useServerFn(getMorningBriefing);
 
   useEffect(() => {
     void logFn({
-      data: { outcome: "answered", platform: "android", call_id: callId, meta: { audioKey } },
+      data: {
+        outcome: "answered",
+        platform: "android",
+        call_id: callId,
+        meta: { audioKey },
+      },
     }).catch(() => undefined);
   }, [callId, audioKey, logFn]);
 
-  useEffect(() => {
-    const el = audioRef.current;
-    if (!el) return;
-    const play = async () => {
-      try {
-        await el.play();
-        setPlaying(true);
-      } catch {
-        setPlaying(false);
-      }
-    };
-    void play();
-  }, [src]);
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["morning-briefing", callId] as const,
+    queryFn: () => runQueryFn(() => briefFn(), "Falha ao montar o resumo do dia."),
+    staleTime: 60_000,
+  });
+
+  function handleLevantou() {
+    void navigate({ to: "/journey", replace: true });
+  }
 
   return (
-    <div className="relative flex min-h-dvh flex-col items-center justify-center px-6 py-10 text-center">
-      <div className="absolute inset-0 bg-background" aria-hidden />
-      <div className="relative z-10 max-w-md">
-        <p className="text-xs uppercase tracking-[0.2em] text-hero">Charlie</p>
-        <h1 className="mt-3 font-display text-3xl font-bold">O dia começou.</h1>
-        <p className="mt-3 text-sm text-muted-foreground">
-          Levanta, respira, e marca o primeiro hábito. A jornada não espera.
+    <div
+      data-native-keyboard-page
+      className="relative flex min-h-dvh flex-col px-5 py-10"
+      style={{
+        paddingTop: "max(2.5rem, calc(var(--safe-area-inset-top, 0px) + 1rem))",
+      }}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[#1B1B1B]" aria-hidden />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 0%, rgba(252,110,32,0.25), transparent 55%)",
+        }}
+        aria-hidden
+      />
+
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col">
+        <p className="text-center text-[11px] font-semibold uppercase tracking-[0.28em] text-hero">
+          Charlie
+        </p>
+        <h1 className="mt-3 text-center font-display text-2xl font-bold leading-tight sm:text-3xl">
+          {isLoading ? "Preparando o briefing…" : (data?.greeting ?? "Bom dia, herói.")}
+        </h1>
+        <p className="mt-3 text-center text-sm text-muted-foreground">
+          {data?.message ??
+            "Levanta. O dia já começou — marque o que importa e avance."}
         </p>
 
-        <audio
-          ref={audioRef}
-          src={src}
-          preload="auto"
-          onError={() => setMissing(true)}
-          onEnded={() => setPlaying(false)}
-          className="mt-6 w-full"
-          controls
-        />
+        <div className="mt-8 space-y-4 rounded-none border border-hero/30 bg-black/35 p-4">
+          <section>
+            <h2 className="font-display text-xs uppercase tracking-[0.18em] text-hero">Clima</h2>
+            {isLoading ? (
+              <p className="mt-2 text-sm text-white/50">Consultando o céu…</p>
+            ) : data?.weatherLine ? (
+              <p className="mt-2 text-sm text-white/85">{data.weatherLine}</p>
+            ) : (
+              <p className="mt-2 text-sm text-white/45">
+                Sem região no perfil — configure a cidade para o Charlie trazer o clima.
+              </p>
+            )}
+          </section>
 
-        {missing ? (
-          <p className="mt-2 text-xs text-amber-400">
-            Áudio não encontrado. Coloque o arquivo em{" "}
-            <code className="text-white/80">public/audio/charlie-alarm-classico.m4a</code>
-          </p>
-        ) : null}
-
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Button asChild className="shadow-hero">
-            <Link to="/habits">Ir para hábitos</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link to="/mentor">Falar com Charlie</Link>
-          </Button>
-          <Button asChild variant="ghost">
-            <Link to="/journey">Pronto</Link>
-          </Button>
+          <section>
+            <h2 className="font-display text-xs uppercase tracking-[0.18em] text-hero">
+              Principais tarefas
+            </h2>
+            {isLoading ? (
+              <p className="mt-2 text-sm text-white/50">Carregando frentes…</p>
+            ) : isError ? (
+              <p className="mt-2 text-sm text-amber-300/90">Não deu para listar agora. Siga para a jornada.</p>
+            ) : data?.tasks?.length ? (
+              <ul className="mt-2 space-y-2">
+                {data.tasks.map((t) => (
+                  <li
+                    key={`${t.kind}-${t.id}`}
+                    className={cn(
+                      "border-l-2 border-hero/70 pl-3 text-sm text-white/90",
+                    )}
+                  >
+                    <span className="text-[10px] uppercase tracking-wider text-white/40">
+                      {t.kind === "habit" ? "hábito" : "meta"}
+                    </span>
+                    <div>{t.title}</div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-white/45">Nenhuma pendência listada para hoje.</p>
+            )}
+          </section>
         </div>
 
-        <p className="mt-6 text-[11px] text-muted-foreground">
-          {playing ? "Tocando mensagem do mentor…" : "Toque em play se o áudio não iniciar sozinho."}
-        </p>
+        <div className="mt-auto pt-8">
+          <Button
+            type="button"
+            className="h-14 w-full rounded-none font-display text-base font-bold tracking-wide shadow-hero [clip-path:polygon(0_0,100%_0,100%_72%,88%_100%,0_100%)]"
+            onClick={handleLevantou}
+          >
+            LEVANTEI
+          </Button>
+          <p className="mt-3 text-center text-[11px] text-muted-foreground">
+            Fecha o ritual e abre a Jornada.
+          </p>
+        </div>
       </div>
     </div>
   );

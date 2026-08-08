@@ -23,7 +23,7 @@ public class CharlieAlarmReceiver extends BroadcastReceiver {
     ui.putExtra(CharlieCallActivity.EXTRA_CALLER, caller != null ? caller : "Charlie");
     ui.putExtra(CharlieCallActivity.EXTRA_REASON, reason != null ? reason : "Hora de subir");
     ui.putExtra(CharlieCallActivity.EXTRA_CALL_ID, callId != null ? callId : String.valueOf(System.currentTimeMillis()));
-    ui.putExtra(CharlieCallActivity.EXTRA_AUDIO_KEY, audioKey != null ? audioKey : "classico");
+    ui.putExtra(CharlieCallActivity.EXTRA_AUDIO_KEY, audioKey != null ? audioKey : "classic");
     ui.putExtra(CharlieCallActivity.EXTRA_MODE, mode != null ? mode : "alarm");
 
     CharlieCallNotifier.showIncoming(

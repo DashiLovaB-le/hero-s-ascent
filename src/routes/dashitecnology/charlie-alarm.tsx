@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   AdminError,
@@ -16,12 +16,18 @@ import {
   adminGetCharlieAlarmConfig,
   adminSetCharlieAlarmConfig,
 } from "@/lib/charlie-call/functions";
+import {
+  CHARLIE_RINGTONES,
+  normalizeRingtoneKey,
+  presentCharlieCall,
+  type CharlieRingtoneKey,
+} from "@/lib/charlie-call/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { isNativePlatform } from "@/lib/platform";
-import { presentCharlieCall } from "@/lib/charlie-call/client";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashitecnology/charlie-alarm")({
   loader: ({ context }) =>
@@ -48,12 +54,25 @@ function CharlieAlarmAdminPage() {
 
   const [enabled, setEnabled] = useState(data?.enabled ?? true);
   const [reason, setReason] = useState(data?.defaultReason ?? "Hora de subir");
-  const [audioKey, setAudioKey] = useState(data?.defaultAudioKey ?? "classico");
+  const [audioKey, setAudioKey] = useState<CharlieRingtoneKey>(
+    normalizeRingtoneKey(data?.defaultAudioKey),
+  );
+
+  useEffect(() => {
+    if (!data) return;
+    setEnabled(data.enabled);
+    setReason(data.defaultReason);
+    setAudioKey(normalizeRingtoneKey(data.defaultAudioKey));
+  }, [data]);
 
   const saveMut = useMutation({
     mutationFn: () =>
       setFn({
-        data: { enabled, defaultReason: reason, defaultAudioKey: audioKey },
+        data: {
+          enabled,
+          defaultReason: reason,
+          defaultAudioKey: normalizeRingtoneKey(audioKey),
+        },
       }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["admin", "charlie-alarm"] });
@@ -65,12 +84,15 @@ function CharlieAlarmAdminPage() {
   return (
     <AdminShell
       title="Charlie Call / Despertador"
-      subtitle="Configs fortes (kill switch, copy, áudio). Opt-in do herói fica no Perfil."
+      subtitle="Configs fortes (kill switch, copy, toque). Opt-in do herói fica no Perfil."
     >
       <StatGrid>
         <StatCard label="Feature global" value={data?.enabled ? "ON" : "OFF"} />
         <StatCard label="Heróis com alarme on" value={data?.enabledUsers ?? 0} />
-        <StatCard label="Áudio key" value={data?.defaultAudioKey ?? "classico"} />
+        <StatCard
+          label="Toque default"
+          value={normalizeRingtoneKey(data?.defaultAudioKey)}
+        />
       </StatGrid>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -84,11 +106,28 @@ function CharlieAlarmAdminPage() {
             <Input id="ca-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={80} />
           </div>
           <div className="mt-4 grid gap-2">
-            <Label htmlFor="ca-audio">audio_key</Label>
-            <Input id="ca-audio" value={audioKey} onChange={(e) => setAudioKey(e.target.value)} maxLength={40} />
+            <Label>Toque padrão (heróis novos / fallback)</Label>
+            <div className="grid gap-2">
+              {CHARLIE_RINGTONES.map((r) => (
+                <button
+                  key={r.key}
+                  type="button"
+                  onClick={() => setAudioKey(r.key)}
+                  className={cn(
+                    "flex items-center justify-between border px-3 py-2 text-left text-sm",
+                    audioKey === r.key
+                      ? "border-hero bg-hero/10 text-foreground"
+                      : "border-border text-muted-foreground",
+                  )}
+                >
+                  <span>{r.label}</span>
+                  <span className="font-mono text-[10px] opacity-60">{r.file}</span>
+                </button>
+              ))}
+            </div>
             <p className="text-xs text-white/40">
-              Arquivo esperado: <code>public/audio/charlie-alarm-{"{key}"}.m4a</code> (clássico →{" "}
-              <code>charlie-alarm-classico.m4a</code>)
+              Assets nativos:{" "}
+              <code>android/.../assets/charlie-ringtones/{"{classic|warrior|calm}"}.wav</code>
             </p>
           </div>
           <Button className="mt-4" disabled={saveMut.isPending} onClick={() => saveMut.mutate()}>
@@ -121,7 +160,8 @@ function CharlieAlarmAdminPage() {
             Simular Charlie Call
           </Button>
           <p className="mt-4 text-xs text-white/35">
-            MVP Android: full-screen call + AlarmManager exact. Core-Telecom fica no hardening Play.
+            MVP Android: full-screen call + AlarmManager exact + STREAM_ALARM. Core-Telecom fica no
+            hardening Play.
           </p>
         </Panel>
       </div>

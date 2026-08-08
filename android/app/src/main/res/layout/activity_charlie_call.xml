@@ -1,69 +1,98 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/charlie_call_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#1B1B1B"
-    android:gravity="center_horizontal"
-    android:orientation="vertical"
-    android:padding="32dp">
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="72dp"
-        android:text="chamada entrante"
-        android:textAllCaps="true"
-        android:textColor="#FC6E20"
-        android:textSize="12sp"
-        android:letterSpacing="0.12" />
-
-    <TextView
-        android:id="@+id/charlie_call_name"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="Charlie"
-        android:textColor="#FFFFFF"
-        android:textSize="36sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/charlie_call_reason"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:gravity="center"
-        android:text="Hora de subir"
-        android:textColor="#CCFFFFFF"
-        android:textSize="18sp" />
-
-    <View
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
+    android:fitsSystemWindows="false">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="48dp"
-        android:gravity="center"
-        android:orientation="horizontal">
+        android:layout_height="match_parent"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingLeft="28dp"
+        android:paddingRight="28dp"
+        android:paddingTop="48dp"
+        android:paddingBottom="40dp">
 
-        <Button
-            android:id="@+id/charlie_call_decline"
-            android:layout_width="140dp"
-            android:layout_height="56dp"
-            android:layout_marginEnd="16dp"
-            android:backgroundTint="#444444"
-            android:text="Recusar"
-            android:textColor="#FFFFFF" />
+        <TextView
+            android:id="@+id/charlie_call_eyebrow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:letterSpacing="0.08"
+            android:text="O CHARLIE ESTÁ CHAMANDO!"
+            android:textAllCaps="true"
+            android:textColor="#FC6E20"
+            android:textSize="13sp"
+            android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/charlie_call_answer"
-            android:layout_width="140dp"
-            android:layout_height="56dp"
-            android:backgroundTint="#FC6E20"
-            android:text="Atender"
-            android:textColor="#1B1B1B" />
+        <TextView
+            android:id="@+id/charlie_call_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:letterSpacing="0.06"
+            android:text="Charlie"
+            android:textColor="#FFFFFF"
+            android:textSize="40sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/charlie_call_reason"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="Hora de subir"
+            android:textColor="#CCFFFFFF"
+            android:textSize="17sp" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/charlie_call_avatar"
+                android:layout_width="220dp"
+                android:layout_height="220dp"
+                android:layout_gravity="center"
+                android:contentDescription="@string/app_name"
+                android:scaleType="centerCrop" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/charlie_call_decline"
+                android:layout_width="148dp"
+                android:layout_height="58dp"
+                android:layout_marginEnd="14dp"
+                android:background="@drawable/bg_btn_decline_chamfer"
+                android:elevation="0dp"
+                android:stateListAnimator="@null"
+                android:text="RECUSAR"
+                android:textAllCaps="true"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/charlie_call_answer"
+                android:layout_width="148dp"
+                android:layout_height="58dp"
+                android:background="@drawable/bg_btn_answer_chamfer"
+                android:elevation="0dp"
+                android:stateListAnimator="@null"
+                android:text="ATENDER"
+                android:textAllCaps="true"
+                android:textColor="#1B1B1B"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</FrameLayout>

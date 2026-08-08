@@ -7,7 +7,7 @@ create table if not exists public.charlie_alarms (
   days_of_week smallint[] not null default '{1,2,3,4,5}',
   timezone text not null default 'America/Sao_Paulo',
   snooze_minutes int not null default 5 check (snooze_minutes between 1 and 30),
-  audio_key text not null default 'classico',
+  audio_key text not null default 'classic',
   reason_text text not null default 'Hora de subir',
   updated_at timestamptz not null default now(),
   unique (user_id)
@@ -62,5 +62,5 @@ insert into public.app_settings (key, value, updated_at)
 values
   ('charlie_alarm_enabled', 'true', now()),
   ('charlie_alarm_default_reason', 'Hora de subir', now()),
-  ('charlie_alarm_default_audio_key', 'classico', now())
+  ('charlie_alarm_default_audio_key', 'classic', now())
 on conflict (key) do nothing;
