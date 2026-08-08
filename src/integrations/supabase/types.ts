@@ -1531,6 +1531,75 @@ export type Database = {
         }
         Relationships: []
       }
+      charlie_alarms: {
+        Row: {
+          id: string
+          user_id: string
+          enabled: boolean
+          time_local: string
+          days_of_week: number[]
+          timezone: string
+          snooze_minutes: number
+          audio_key: string
+          reason_text: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          enabled?: boolean
+          time_local?: string
+          days_of_week?: number[]
+          timezone?: string
+          snooze_minutes?: number
+          audio_key?: string
+          reason_text?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          enabled?: boolean
+          time_local?: string
+          days_of_week?: number[]
+          timezone?: string
+          snooze_minutes?: number
+          audio_key?: string
+          reason_text?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      charlie_alarm_events: {
+        Row: {
+          id: string
+          user_id: string
+          fired_at: string
+          outcome: string
+          platform: string
+          call_id: string | null
+          meta: Record<string, unknown>
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          fired_at?: string
+          outcome: string
+          platform?: string
+          call_id?: string | null
+          meta?: Record<string, unknown>
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          fired_at?: string
+          outcome?: string
+          platform?: string
+          call_id?: string | null
+          meta?: Record<string, unknown>
+        }
+        Relationships: []
+      }
       mentor_settings: {
         Row: {
           key: string

@@ -227,21 +227,16 @@ Preferências sensíveis ficam no device (próximo disparo) **e** no Supabase (b
 ### Agora (produto / docs)
 
 - [x] Documentar ideia (este arquivo)
-- [ ] Validar com dono do produto: Android-first ok? Snooze 5 ou 10?
-- [ ] Escrever 1 roteiro de áudio MVP e gravar (ou contratar voz)
-- [ ] Ligar este doc no índice de plans / Capacitor (§ features futuras)
-
-### Pré-Capacitor
-
-- [ ] Não implementar UI web de alarme “de verdade” que prometa despertar no browser
-- [ ] Manter Telegram voice/texto como presença matinal **leve** se quiser testar copy antes do nativo
+- [x] Validar com dono do produto: Android-first ok? Snooze 5 ou 10?
+- [ ] Escrever 1 roteiro de áudio MVP e gravar (ou contratar voz) — path: `public/audio/charlie-alarm-classico.m4a`
+- [x] Ligar este doc no índice de plans / Capacitor (§ features futuras)
 
 ### Quando Capacitor existir
 
-- [ ] Spike Fase 0 (checklist §5)
-- [ ] Schema `charlie_alarms` + RLS
-- [ ] UI Config no app
-- [ ] Plugin modo `alarm`
+- [x] Spike Fase 0 (checklist §5) — MVP Android full-screen + exact alarm (Core-Telecom = hardening)
+- [x] Schema `charlie_alarms` + RLS
+- [x] UI Config no app (Perfil) + configs fortes `/dashitecnology/charlie-alarm`
+- [x] Plugin modo `alarm`
 - [ ] Canário interno (5–20 usuários)
 - [ ] Métricas answer rate
 - [ ] iOS Fase 2

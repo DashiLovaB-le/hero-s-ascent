@@ -190,6 +190,18 @@
     display: none;
   }
 
+  /* Toasts abaixo da status bar (evita corte pela metade) */
+  html.native-shell [data-sonner-toaster][data-y-position="top"] {
+    top: max(
+      1.75rem,
+      calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 0.75rem)
+    ) !important;
+  }
+
+  html.native-shell [data-sonner-toaster] [data-sonner-toast] {
+    min-height: 3rem;
+  }
+
   /* Fundos fixos por breakpoint (position:fixed — confiável no iOS/desktop) */
   body::before {
     content: "";

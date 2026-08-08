@@ -35,9 +35,11 @@ import { Route as DashitecnologyGoalsRouteImport } from './routes/dashitecnology
 import { Route as DashitecnologyGamificationRouteImport } from './routes/dashitecnology/gamification'
 import { Route as DashitecnologyContentRouteImport } from './routes/dashitecnology/content'
 import { Route as DashitecnologyCheckinsRouteImport } from './routes/dashitecnology/checkins'
+import { Route as DashitecnologyCharlieAlarmRouteImport } from './routes/dashitecnology/charlie-alarm'
 import { Route as DashitecnologyCharlieRouteImport } from './routes/dashitecnology/charlie'
 import { Route as DashitecnologyAnalyticsRouteImport } from './routes/dashitecnology/analytics'
 import { Route as DashitecnologyAgentRouteImport } from './routes/dashitecnology/agent'
+import { Route as AlarmRitualRouteImport } from './routes/alarm.ritual'
 import { Route as AuthenticatedStoreRouteImport } from './routes/_authenticated/store'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
@@ -182,6 +184,12 @@ const DashitecnologyCheckinsRoute = DashitecnologyCheckinsRouteImport.update({
   path: '/checkins',
   getParentRoute: () => DashitecnologyRouteRoute,
 } as any)
+const DashitecnologyCharlieAlarmRoute =
+  DashitecnologyCharlieAlarmRouteImport.update({
+    id: '/charlie-alarm',
+    path: '/charlie-alarm',
+    getParentRoute: () => DashitecnologyRouteRoute,
+  } as any)
 const DashitecnologyCharlieRoute = DashitecnologyCharlieRouteImport.update({
   id: '/charlie',
   path: '/charlie',
@@ -196,6 +204,11 @@ const DashitecnologyAgentRoute = DashitecnologyAgentRouteImport.update({
   id: '/agent',
   path: '/agent',
   getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
+const AlarmRitualRoute = AlarmRitualRouteImport.update({
+  id: '/alarm/ritual',
+  path: '/alarm/ritual',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedStoreRoute = AuthenticatedStoreRouteImport.update({
   id: '/store',
@@ -265,9 +278,11 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/store': typeof AuthenticatedStoreRoute
+  '/alarm/ritual': typeof AlarmRitualRoute
   '/dashitecnology/agent': typeof DashitecnologyAgentRoute
   '/dashitecnology/analytics': typeof DashitecnologyAnalyticsRoute
   '/dashitecnology/charlie': typeof DashitecnologyCharlieRoute
+  '/dashitecnology/charlie-alarm': typeof DashitecnologyCharlieAlarmRoute
   '/dashitecnology/checkins': typeof DashitecnologyCheckinsRoute
   '/dashitecnology/content': typeof DashitecnologyContentRoute
   '/dashitecnology/gamification': typeof DashitecnologyGamificationRoute
@@ -304,9 +319,11 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/store': typeof AuthenticatedStoreRoute
+  '/alarm/ritual': typeof AlarmRitualRoute
   '/dashitecnology/agent': typeof DashitecnologyAgentRoute
   '/dashitecnology/analytics': typeof DashitecnologyAnalyticsRoute
   '/dashitecnology/charlie': typeof DashitecnologyCharlieRoute
+  '/dashitecnology/charlie-alarm': typeof DashitecnologyCharlieAlarmRoute
   '/dashitecnology/checkins': typeof DashitecnologyCheckinsRoute
   '/dashitecnology/content': typeof DashitecnologyContentRoute
   '/dashitecnology/gamification': typeof DashitecnologyGamificationRoute
@@ -345,9 +362,11 @@ export interface FileRoutesById {
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/store': typeof AuthenticatedStoreRoute
+  '/alarm/ritual': typeof AlarmRitualRoute
   '/dashitecnology/agent': typeof DashitecnologyAgentRoute
   '/dashitecnology/analytics': typeof DashitecnologyAnalyticsRoute
   '/dashitecnology/charlie': typeof DashitecnologyCharlieRoute
+  '/dashitecnology/charlie-alarm': typeof DashitecnologyCharlieAlarmRoute
   '/dashitecnology/checkins': typeof DashitecnologyCheckinsRoute
   '/dashitecnology/content': typeof DashitecnologyContentRoute
   '/dashitecnology/gamification': typeof DashitecnologyGamificationRoute
@@ -387,9 +406,11 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/profile'
     | '/store'
+    | '/alarm/ritual'
     | '/dashitecnology/agent'
     | '/dashitecnology/analytics'
     | '/dashitecnology/charlie'
+    | '/dashitecnology/charlie-alarm'
     | '/dashitecnology/checkins'
     | '/dashitecnology/content'
     | '/dashitecnology/gamification'
@@ -426,9 +447,11 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/profile'
     | '/store'
+    | '/alarm/ritual'
     | '/dashitecnology/agent'
     | '/dashitecnology/analytics'
     | '/dashitecnology/charlie'
+    | '/dashitecnology/charlie-alarm'
     | '/dashitecnology/checkins'
     | '/dashitecnology/content'
     | '/dashitecnology/gamification'
@@ -466,9 +489,11 @@ export interface FileRouteTypes {
     | '/_authenticated/onboarding'
     | '/_authenticated/profile'
     | '/_authenticated/store'
+    | '/alarm/ritual'
     | '/dashitecnology/agent'
     | '/dashitecnology/analytics'
     | '/dashitecnology/charlie'
+    | '/dashitecnology/charlie-alarm'
     | '/dashitecnology/checkins'
     | '/dashitecnology/content'
     | '/dashitecnology/gamification'
@@ -501,6 +526,7 @@ export interface RootRouteChildren {
   MaintenanceRoute: typeof MaintenanceRoute
   ObrigadoRoute: typeof ObrigadoRoute
   ParceirosRoute: typeof ParceirosRoute
+  AlarmRitualRoute: typeof AlarmRitualRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -687,6 +713,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashitecnologyCheckinsRouteImport
       parentRoute: typeof DashitecnologyRouteRoute
     }
+    '/dashitecnology/charlie-alarm': {
+      id: '/dashitecnology/charlie-alarm'
+      path: '/charlie-alarm'
+      fullPath: '/dashitecnology/charlie-alarm'
+      preLoaderRoute: typeof DashitecnologyCharlieAlarmRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
     '/dashitecnology/charlie': {
       id: '/dashitecnology/charlie'
       path: '/charlie'
@@ -707,6 +740,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashitecnology/agent'
       preLoaderRoute: typeof DashitecnologyAgentRouteImport
       parentRoute: typeof DashitecnologyRouteRoute
+    }
+    '/alarm/ritual': {
+      id: '/alarm/ritual'
+      path: '/alarm/ritual'
+      fullPath: '/alarm/ritual'
+      preLoaderRoute: typeof AlarmRitualRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/store': {
       id: '/_authenticated/store'
@@ -823,6 +863,7 @@ interface DashitecnologyRouteRouteChildren {
   DashitecnologyAgentRoute: typeof DashitecnologyAgentRoute
   DashitecnologyAnalyticsRoute: typeof DashitecnologyAnalyticsRoute
   DashitecnologyCharlieRoute: typeof DashitecnologyCharlieRoute
+  DashitecnologyCharlieAlarmRoute: typeof DashitecnologyCharlieAlarmRoute
   DashitecnologyCheckinsRoute: typeof DashitecnologyCheckinsRoute
   DashitecnologyContentRoute: typeof DashitecnologyContentRoute
   DashitecnologyGamificationRoute: typeof DashitecnologyGamificationRoute
@@ -848,6 +889,7 @@ const DashitecnologyRouteRouteChildren: DashitecnologyRouteRouteChildren = {
   DashitecnologyAgentRoute: DashitecnologyAgentRoute,
   DashitecnologyAnalyticsRoute: DashitecnologyAnalyticsRoute,
   DashitecnologyCharlieRoute: DashitecnologyCharlieRoute,
+  DashitecnologyCharlieAlarmRoute: DashitecnologyCharlieAlarmRoute,
   DashitecnologyCheckinsRoute: DashitecnologyCheckinsRoute,
   DashitecnologyContentRoute: DashitecnologyContentRoute,
   DashitecnologyGamificationRoute: DashitecnologyGamificationRoute,
@@ -880,6 +922,7 @@ const rootRouteChildren: RootRouteChildren = {
   MaintenanceRoute: MaintenanceRoute,
   ObrigadoRoute: ObrigadoRoute,
   ParceirosRoute: ParceirosRoute,
+  AlarmRitualRoute: AlarmRitualRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

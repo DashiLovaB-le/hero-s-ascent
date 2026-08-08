@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { initNativeShell, isNativePlatform } from "@/lib/platform";
 import { attachNativeOAuthDeepLinkListener } from "@/lib/native-oauth";
 import { attachNativePushTapHandler } from "@/notifications/push-native-client";
+import { attachCharlieCallListeners } from "@/lib/charlie-call/client";
 
 /** Boot do shell Capacitor — no-op no browser. */
 export function NativeShellHost() {
@@ -12,7 +13,6 @@ export function NativeShellHost() {
   useEffect(() => {
     if (!isNativePlatform()) return;
     void initNativeShell();
-    // Rede de segurança: se a WebView abrir em "/", manda para a jornada.
     const path = window.location.pathname.replace(/\/+$/, "") || "/";
     if (path === "/") {
       void router.navigate({ to: "/journey", replace: true });
@@ -23,13 +23,34 @@ export function NativeShellHost() {
     if (!isNativePlatform()) return;
     let dispose: (() => void) | undefined;
     void (async () => {
+      dispose = await attachCharlieCallListeners({
+        onAnswered: (e) => {
+          void router.navigate({
+            to: "/alarm/ritual",
+            search: {
+              callId: e.callId,
+              audioKey: "classico",
+              mode: e.mode || "alarm",
+            },
+            replace: true,
+          } as never);
+        },
+      });
+    })();
+    return () => dispose?.();
+  }, [router]);
+
+  useEffect(() => {
+    if (!isNativePlatform()) return;
+    let dispose: (() => void) | undefined;
+    void (async () => {
       dispose = await attachNativeOAuthDeepLinkListener({
         onSuccess: () => {
-          void router.navigate({ to: "/auth", replace: true });
+          void router.navigate({ to: "/auth", replace: true } as never);
         },
         onError: (message) => {
           toast.error(message);
-          void router.navigate({ to: "/auth", replace: true });
+          void router.navigate({ to: "/auth", replace: true } as never);
         },
       });
     })();

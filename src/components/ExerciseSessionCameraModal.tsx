@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useExerciseCamera } from "@/lib/useExerciseCamera";
 import { usePushupPoseTracker } from "@/lib/exercise/usePushupPoseTracker";
-import { requestSessionWakeLock } from "@/lib/platform";
+import { isNativePlatform, requestSessionWakeLock } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 
 export type ExerciseSessionCameraModalProps = {
@@ -134,6 +134,8 @@ export function ExerciseSessionCameraModal({
           ? "text-sky-200"
           : "text-white/95";
 
+  const native = isNativePlatform();
+
   return (
     <Dialog
       open={open}
@@ -142,9 +144,12 @@ export function ExerciseSessionCameraModal({
       }}
     >
       <DialogContent
+        data-native-exercise-session={native ? "" : undefined}
         className={cn(
           "flex h-[min(96dvh,920px)] w-[min(100vw-1rem,42rem)] max-w-none translate-x-[-50%] translate-y-[-50%] flex-col gap-0 overflow-hidden border-transparent bg-[#121212] p-0 sm:w-[min(100vw-2rem,48rem)]",
-          "[&>button]:right-3 [&>button]:top-3 [&>button]:z-30 [&>button]:bg-black/50 [&>button]:p-1.5 [&>button]:text-white",
+          native
+            ? "top-0 h-[100dvh] max-h-[100dvh] w-screen max-w-none translate-y-0 rounded-none sm:w-screen [&>button]:right-3 [&>button]:top-[max(0.85rem,calc(var(--safe-area-inset-top,env(safe-area-inset-top,0px))+0.4rem))] [&>button]:z-30 [&>button]:bg-black/50 [&>button]:p-1.5 [&>button]:text-white"
+            : "[&>button]:right-3 [&>button]:top-3 [&>button]:z-30 [&>button]:bg-black/50 [&>button]:p-1.5 [&>button]:text-white",
         )}
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => {
@@ -195,7 +200,14 @@ export function ExerciseSessionCameraModal({
             </div>
           ) : null}
 
-          <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/80 to-transparent px-4 pb-10 pt-4">
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/80 to-transparent px-4 pb-10",
+              native
+                ? "pt-[max(1.35rem,calc(var(--safe-area-inset-top,env(safe-area-inset-top,0px))+0.55rem))]"
+                : "pt-4",
+            )}
+          >
             <div className="flex items-start justify-between gap-3 pr-10">
               <div>
                 <p className="text-[0.65rem] uppercase tracking-[0.24em] text-hero">
@@ -286,7 +298,13 @@ export function ExerciseSessionCameraModal({
           </div>
         </div>
 
-        <div className="shrink-0 space-y-3 border-t border-white/10 bg-card px-4 py-3">
+        <div
+          className={cn(
+            "shrink-0 space-y-3 border-t border-white/10 bg-card px-4 py-3",
+            native &&
+              "pb-[max(0.85rem,calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))+0.35rem))]",
+          )}
+        >
           <div className="grid grid-cols-3 gap-2 text-center text-xs text-muted-foreground">
             <div>
               <p className="font-mono text-lg text-foreground">

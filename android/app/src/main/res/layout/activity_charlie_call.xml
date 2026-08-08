@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1B1B1B"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="32dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="72dp"
+        android:text="chamada entrante"
+        android:textAllCaps="true"
+        android:textColor="#FC6E20"
+        android:textSize="12sp"
+        android:letterSpacing="0.12" />
+
+    <TextView
+        android:id="@+id/charlie_call_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="Charlie"
+        android:textColor="#FFFFFF"
+        android:textSize="36sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/charlie_call_reason"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:text="Hora de subir"
+        android:textColor="#CCFFFFFF"
+        android:textSize="18sp" />
+
+    <View
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="48dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/charlie_call_decline"
+            android:layout_width="140dp"
+            android:layout_height="56dp"
+            android:layout_marginEnd="16dp"
+            android:backgroundTint="#444444"
+            android:text="Recusar"
+            android:textColor="#FFFFFF" />
+
+        <Button
+            android:id="@+id/charlie_call_answer"
+            android:layout_width="140dp"
+            android:layout_height="56dp"
+            android:backgroundTint="#FC6E20"
+            android:text="Atender"
+            android:textColor="#1B1B1B" />
+    </LinearLayout>
+</LinearLayout>
