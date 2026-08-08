@@ -12,7 +12,12 @@ export function NativeShellHost() {
   useEffect(() => {
     if (!isNativePlatform()) return;
     void initNativeShell();
-  }, []);
+    // Rede de segurança: se a WebView abrir em "/", manda para a jornada.
+    const path = window.location.pathname.replace(/\/+$/, "") || "/";
+    if (path === "/") {
+      void router.navigate({ to: "/journey", replace: true });
+    }
+  }, [router]);
 
   useEffect(() => {
     if (!isNativePlatform()) return;

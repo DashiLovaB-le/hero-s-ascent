@@ -139,14 +139,37 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Capacitor: safe area SUPERIOR apenas (status bar / notch) */
-  html.native-shell {
-    padding-top: env(safe-area-inset-top, 0px);
-    box-sizing: border-box;
-  }
+  /* Capacitor / nativo — NÃO usar padding no html (cria faixa cinza sob a status bar).
+     Safe area vai no conteúdo; páginas full-bleed (auth) pintam o fundo na inset. */
   html.native-shell,
   html.native-shell body {
     background-color: #1b1b1b;
+  }
+
+  /* Login (/auth): background cobre a status bar; padding empurra só o conteúdo */
+  html.native-shell [data-native-auth-page] {
+    box-sizing: border-box;
+    min-height: 100dvh;
+    padding-top: max(
+      2.5rem,
+      calc(var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) + 1rem)
+    );
+  }
+
+  /* Shell autenticado: conteúdo abaixo da status bar (wallpaper fixed continua full-bleed) */
+  html.native-shell [data-native-app-shell] {
+    padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+    box-sizing: border-box;
+  }
+
+  /* Teclado aberto: páginas full-height alinhadas ao topo (evita “buraco” cinza) */
+  html.native-shell.keyboard-open [data-native-keyboard-page] {
+    justify-content: flex-start !important;
+    padding-top: max(
+      0.75rem,
+      var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
+    ) !important;
+    padding-bottom: 0.75rem;
   }
 
   /* Fundos fixos por breakpoint (position:fixed — confiável no iOS/desktop) */

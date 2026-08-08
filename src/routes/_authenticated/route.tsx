@@ -146,6 +146,7 @@ function AuthedLayout() {
 
   return (
     <div
+      data-native-app-shell
       className={`relative isolate min-h-screen ${mentorFocus ? "pb-0" : "pb-28 md:pb-0"}`}
     >
       {/* z-0 no isolate = acima do body, abaixo do conteúdo */}

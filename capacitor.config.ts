@@ -10,7 +10,8 @@ const config: CapacitorConfig = {
   webDir: "www",
   server: {
     // Fase interna: carrega a web canônica (não danifica o build web).
-    url: "https://v-project-rho.vercel.app",
+    // Nativo abre em /journey (não na landing).
+    url: "https://v-project-rho.vercel.app/journey",
     cleartext: false,
   },
   plugins: {
@@ -22,6 +23,16 @@ const config: CapacitorConfig = {
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
+    },
+    // Cap 8 + Android 15/16 (edge-to-edge): SystemBars cuida do IME via padding.
+    // NÃO usar adjustResize no Manifest — evita gap cinza (padding duplo do teclado).
+    SystemBars: {
+      insetsHandling: "css",
+      style: "DARK",
+    },
+    Keyboard: {
+      // SystemBars já redimensiona; não aplicar workaround extra
+      resizeOnFullScreen: false,
     },
   },
   android: {

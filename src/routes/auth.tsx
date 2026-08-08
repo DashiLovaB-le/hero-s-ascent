@@ -199,7 +199,9 @@ function AuthPage() {
 
   return (
     <div
-      className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-4 py-10"
+      data-native-auth-page
+      data-native-keyboard-page
+      className="relative flex min-h-dvh flex-col items-center justify-center overflow-x-hidden overflow-y-auto px-4 py-10"
       style={{
         backgroundImage: "url('/porta-login.png')",
         backgroundSize: "cover",

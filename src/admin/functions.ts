@@ -7,11 +7,33 @@ import { getSupabasePublicEnv } from "@/integrations/supabase/env";
 import { WALLPAPERS } from "@/lib/wallpapers";
 import { recomputeUserMl } from "@/lib/ml/recompute";
 import { runProductNotificationJobs } from "@/notifications/jobs";
+import { createNotification } from "@/notifications/create";
 import { runCfAndAgentJobs } from "@/lib/ml/agent-jobs";
 import { hojeISO, addDaysToDateKey, calendarDateInTz } from "@/lib/datetime";
 
 async function withAdmin(userId: string) {
   await assertIsAdmin(userId);
+}
+
+async function listBroadcastRecipientIds(audience: "all" | "onboarding_done"): Promise<string[]> {
+  const ids: string[] = [];
+  const pageSize = 500;
+  let from = 0;
+
+  for (;;) {
+    let query = supabaseAdmin.from("profiles").select("id").order("id", { ascending: true });
+    if (audience === "onboarding_done") {
+      query = query.eq("onboarding_completo", true);
+    }
+    const { data, error } = await query.range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    if (!data?.length) break;
+    for (const row of data) ids.push(row.id);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return ids;
 }
 
 export type AdminUserRow = {
@@ -964,6 +986,94 @@ export const adminNotificationsOverview = createServerFn({ method: "GET" })
     }
 
     return { notifications: data ?? [], byTipo, unread };
+  });
+
+const broadcastSchema = z.object({
+  titulo: z.string().trim().min(1).max(120),
+  corpo: z.string().trim().max(2000).optional().nullable(),
+  href: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .nullable()
+    .refine((v) => !v || v.startsWith("/"), "O link interno deve começar com /"),
+  audience: z.enum(["all", "onboarding_done"]),
+  dryRun: z.boolean().optional().default(false),
+  confirm: z.string().optional(),
+});
+
+/**
+ * Envia notificação tipo `system` para todos (ou só onboarding completo).
+ * dryRun=true só conta destinatários. Envio exige confirm === "ENVIAR".
+ * Fan-out: inbox + Web Push + push nativo + Telegram (opt-in), via createNotification.
+ */
+export const adminBroadcastNotification = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((i: unknown) => broadcastSchema.parse(i))
+  .handler(async ({ context, data }) => {
+    await withAdmin(context.userId);
+
+    const recipients = await listBroadcastRecipientIds(data.audience);
+
+    if (data.dryRun) {
+      return {
+        dryRun: true as const,
+        audience: data.audience,
+        recipients: recipients.length,
+        sent: 0,
+        failed: 0,
+        errors: [] as string[],
+      };
+    }
+
+    if (data.confirm !== "ENVIAR") {
+      throw new Error('Confirme digitando ENVIAR para disparar o broadcast.');
+    }
+    if (recipients.length === 0) {
+      throw new Error("Nenhum destinatário encontrado para este público.");
+    }
+
+    const titulo = data.titulo.trim();
+    const corpo = data.corpo?.trim() || undefined;
+    const href = data.href?.trim() || "/journey";
+    const metadata = { href, source: "admin_broadcast" };
+
+    let sent = 0;
+    let failed = 0;
+    const errors: string[] = [];
+    const concurrency = 8;
+
+    for (let i = 0; i < recipients.length; i += concurrency) {
+      const chunk = recipients.slice(i, i + concurrency);
+      const results = await Promise.all(
+        chunk.map((userId) =>
+          createNotification({
+            userId,
+            tipo: "system",
+            titulo,
+            corpo,
+            metadata,
+          }),
+        ),
+      );
+      for (const r of results) {
+        if (r.ok) sent += 1;
+        else {
+          failed += 1;
+          if (errors.length < 8 && "error" in r && r.error) errors.push(r.error);
+        }
+      }
+    }
+
+    return {
+      dryRun: false as const,
+      audience: data.audience,
+      recipients: recipients.length,
+      sent,
+      failed,
+      errors,
+    };
   });
 
 export const adminTelegramOverview = createServerFn({ method: "GET" })

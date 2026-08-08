@@ -87,15 +87,25 @@ npm run cap:build:apk
 | App não abre após login | Intent-filter / APK velho | Rebuild APK com Manifest atualizado |
 | `code verifier not found` | PKCE perdido (storage limpo no meio) | Não limpe dados do app durante o login; refaça o fluxo |
 
-## Push nativo (FCM) — pendente (não rebuild agora)
+## Push nativo (FCM HTTP v1)
 
-1. Crie app Android no Firebase (`com.vproject.app`)
-2. Baixe `google-services.json` → `android/app/google-services.json` (não commitiar)
-3. No servidor (Vercel / `.env`): `FCM_SERVER_KEY` (Cloud Messaging API legacy server key)
+A API **Cloud Messaging (legacy)** está desativada no Firebase. O servidor usa **FCM HTTP v1** + service account.
+
+1. Confirme `android/app/google-services.json` (projeto `vproject-b1ac6`, package `com.vproject.app`) — não commitiar
+2. Firebase Console → ⚙️ Project settings → **Service accounts** → **Generate new private key** (JSON)
+3. No `.env` / Vercel:
+   ```
+   FIREBASE_PROJECT_ID=vproject-b1ac6
+   FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"vproject-b1ac6",...}
+   ```
+   Localmente também pode usar arquivo:
+   ```
+   FIREBASE_SERVICE_ACCOUNT_PATH=./secrets/firebase-service-account.json
+   ```
 4. No app: Perfil → Ativar push neste aparelho
-5. Tokens ficam em `push_devices`; Web Push continua em `push_subscriptions`
+5. Tokens ficam em `push_devices`; Web Push continua em `push_subscriptions` (VAPID próprio — **não** use o certificado “push da Web” do Firebase como FCM_SERVER_KEY)
 
-Sem `google-services.json` o shell abre, mas o registro FCM falha (esperado).
+Sem service account o shell abre, mas o envio FCM no servidor é no-op.
 
 ## Web
 

@@ -1,14 +1,21 @@
 import { useRef } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { CheckItem, SlashLabel, TechMark } from "@/components/landing/LandingChrome";
 import { LandingMobileGallery } from "@/components/landing/LandingMobileGallery";
 import { LandingCharlieVersions } from "@/components/landing/LandingCharlieVersions";
 import { LandingFlexaoSection } from "@/components/landing/LandingFlexaoSection";
 import { useLandingGsap } from "@/components/landing/useLandingGsap";
+import { isNativePlatform } from "@/lib/platform";
 
 export const Route = createFileRoute("/")({
   ssr: false,
+  beforeLoad: () => {
+    // App nativo: landing não faz sentido — entra direto na jornada.
+    if (isNativePlatform()) {
+      throw redirect({ to: "/journey" });
+    }
+  },
   component: Landing,
 });
 

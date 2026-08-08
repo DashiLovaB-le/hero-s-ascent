@@ -54,7 +54,7 @@ export async function ensureCapacitor(): Promise<CapacitorBridge | null> {
   return loadCapacitor();
 }
 
-/** Splash / status bar / app listeners — só nativo. */
+/** Splash / system bars / teclado / app listeners — só nativo. */
 export async function initNativeShell(): Promise<void> {
   if (typeof window === "undefined") return;
   const cap = await loadCapacitor();
@@ -62,15 +62,41 @@ export async function initNativeShell(): Promise<void> {
 
   document.documentElement.classList.add("native-shell");
 
+  // Cap 8: SystemBars (edge-to-edge). StatusBar.overlaysWebView não funciona no Android 15/16.
+  try {
+    const { SystemBars, SystemBarsStyle } = await import("@capacitor/core");
+    await SystemBars.setStyle({ style: SystemBarsStyle.Dark });
+  } catch (e) {
+    console.warn("[native] systembars", e);
+  }
+
   try {
     const { StatusBar, Style } = await import("@capacitor/status-bar");
-    // Não desenhar sob a status bar — safe area superior nativa
-    await StatusBar.setOverlaysWebView({ overlay: false });
     await StatusBar.setStyle({ style: Style.Dark });
+    // Best-effort em Android ≤14; no-op em 15/16
     await StatusBar.setBackgroundColor({ color: "#1B1B1B" });
-    await StatusBar.show();
   } catch (e) {
     console.warn("[native] statusbar", e);
+  }
+
+  try {
+    const { Keyboard } = await import("@capacitor/keyboard");
+    const root = document.documentElement;
+    const onShow = () => {
+      root.classList.add("keyboard-open");
+      // Garante o campo focado visível sem “pulo” estranho
+      requestAnimationFrame(() => {
+        const el = document.activeElement;
+        if (el instanceof HTMLElement) {
+          el.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+        }
+      });
+    };
+    const onHide = () => root.classList.remove("keyboard-open");
+    await Keyboard.addListener("keyboardDidShow", onShow);
+    await Keyboard.addListener("keyboardDidHide", onHide);
+  } catch (e) {
+    console.warn("[native] keyboard", e);
   }
 
   try {

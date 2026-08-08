@@ -11,6 +11,7 @@ export const TELEGRAM_NOTIFY_TIPOS = new Set([
   "habit_reminder",
   "streak_risk",
   "agent_initiative",
+  "system",
 ]);
 
 export function getTelegramBotToken(): string | undefined {
