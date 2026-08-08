@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useExerciseCamera } from "@/lib/useExerciseCamera";
 import { usePushupPoseTracker } from "@/lib/exercise/usePushupPoseTracker";
+import { requestSessionWakeLock } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 
 export type ExerciseSessionCameraModalProps = {
@@ -53,6 +54,25 @@ export function ExerciseSessionCameraModal({
   });
 
   const live = open && state === "live" && !error;
+
+  // Sessão de flexão: manter tela acesa (mobile / nativo)
+  useEffect(() => {
+    if (!open) return;
+    let release: (() => void) | undefined;
+    let cancelled = false;
+    void (async () => {
+      const r = await requestSessionWakeLock();
+      if (cancelled) {
+        r();
+        return;
+      }
+      release = r;
+    })();
+    return () => {
+      cancelled = true;
+      release?.();
+    };
+  }, [open]);
 
   const { session, ready, poseError, recalibrate } = usePushupPoseTracker({
     enabled: live,

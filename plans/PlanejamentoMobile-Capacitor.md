@@ -231,13 +231,19 @@ Um APK/IPA que só abre `WebView.loadUrl(produção)` **não** garante o funcion
 
 ### Fase 3 — Câmera e flexão (semana 2–4)
 
-- [ ] Permissões `CAMERA` / rationale em PT-BR
-- [ ] Validar pipeline atual: framing → calibração → contagem MediaPipe
+- [x] Permissões `CAMERA` / rationale em PT-BR (`AndroidManifest` + `ensureCameraPermission`)
+- [ ] Validar pipeline atual: framing → calibração → contagem MediaPipe **no APK**
 - [ ] Medir: FPS, aquecimento, falsos positivos, crash em background
-- [ ] UX: bloquear rotação se necessário; manter tela acesa na sessão
+- [x] UX: manter tela acesa na sessão (`requestSessionWakeLock`)
 - [ ] Se falhar critérios (§8): spike ML Kit / pose nativa (Fase 3b)
 
 **Saída:** sessão de flexão usável no dia a dia no Android alvo.
+
+**Notas (2026-08-08)**
+- Pipeline web (MediaPipe + `getUserMedia`) reutilizado no WebView — sem gravar vídeo
+- Bridge: `@capacitor/camera` só para permissão nativa; preview continua via WebRTC
+- Resolução ideal 960×540 no mobile para performance
+- Teste manual necessário no device após rebuild do APK
 
 ### Fase 4 — Push nativo (semana 3–5)
 

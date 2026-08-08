@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Bell, Check } from "lucide-react";
+import { Bell, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -13,6 +13,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { isNativePlatform } from "@/lib/platform";
 import {
   markAllNotificationsRead,
   markNotificationRead,
@@ -104,6 +105,7 @@ export function NotificationBell() {
   }
 
   const badge = unread > 99 ? "99+" : unread > 0 ? String(unread) : null;
+  const native = isNativePlatform();
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -124,22 +126,40 @@ export function NotificationBell() {
       </SheetTrigger>
       <SheetContent
         side="right"
-        className="cp-panel flex w-full flex-col border border-transparent bg-card/95 p-0 sm:max-w-md"
+        data-native-notif-sheet={native ? "" : undefined}
+        className={cn(
+          "cp-panel flex w-full flex-col border border-transparent bg-card/95 p-0 sm:max-w-md",
+          native && "native-notif-sheet",
+        )}
       >
         <SheetHeader className="space-y-3 border-b border-border px-5 py-4 text-left">
-          <div className="flex items-center justify-between gap-2 pr-8">
+          <div className={cn("flex items-center justify-between gap-2", native ? "pr-2" : "pr-8")}>
             <SheetTitle className="font-display text-base">Notificações</SheetTitle>
-            {unread > 0 ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 text-xs text-muted-foreground"
-                disabled={markAll.isPending}
-                onClick={() => markAll.mutate()}
-              >
-                Marcar todas
-              </Button>
-            ) : null}
+            <div className="flex shrink-0 items-center gap-1">
+              {unread > 0 ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-muted-foreground"
+                  disabled={markAll.isPending}
+                  onClick={() => markAll.mutate()}
+                >
+                  Marcar todas
+                </Button>
+              ) : null}
+              {native ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 text-foreground"
+                  aria-label="Fechar notificações"
+                  onClick={() => setOpen(false)}
+                >
+                  <X className="h-5 w-5" strokeWidth={2.5} />
+                </Button>
+              ) : null}
+            </div>
           </div>
           <SheetDescription className="text-xs">
             Avisos da jornada e do Charlie.

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ensureCameraPermission } from "@/lib/platform";
 
 export type ExerciseCameraState = "idle" | "starting" | "live" | "error";
 
@@ -27,8 +28,8 @@ export function useExerciseCamera(opts: UseExerciseCameraOptions) {
     const stream = streamRef.current;
     if (stream) {
       for (const track of stream.getTracks()) track.stop();
-      streamRef.current = null;
     }
+    streamRef.current = null;
   }, []);
 
   const stop = useCallback(() => {
@@ -39,7 +40,7 @@ export function useExerciseCamera(opts: UseExerciseCameraOptions) {
   }, [stopTracks, videoEl]);
 
   const start = useCallback(async () => {
-    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setError("Este dispositivo/navegador não permite acesso à câmera.");
       setState("error");
       return;
@@ -51,12 +52,20 @@ export function useExerciseCamera(opts: UseExerciseCameraOptions) {
     setState("starting");
 
     try {
+      const perm = await ensureCameraPermission();
+      if (!perm.ok) {
+        setError(perm.message);
+        setState("error");
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           facingMode: { ideal: facingMode },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          // Mobile: resolução moderada = MediaPipe mais estável / menos thermal throttle
+          width: { ideal: 960 },
+          height: { ideal: 540 },
         },
       });
       streamRef.current = stream;
@@ -65,7 +74,7 @@ export function useExerciseCamera(opts: UseExerciseCameraOptions) {
     } catch (e) {
       const msg =
         e instanceof DOMException && e.name === "NotAllowedError"
-          ? "Permissão da câmera negada. Libere o acesso nas configurações do navegador."
+          ? "Permissão da câmera negada. Libere o acesso nas configurações do app ou do navegador."
           : e instanceof Error
             ? e.message
             : "Não foi possível abrir a câmera.";
