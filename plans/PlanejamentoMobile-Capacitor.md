@@ -13,7 +13,59 @@ Alinhado ao estado do app em agosto 2026 (TanStack Start, Supabase, Charlie, fle
 | **Alternativa rejeitada (MVP shell)** | WebView “cru” sem plugins |
 | **Alternativa adiada** | App nativo 100% (React Native / Flutter) do zero |
 
-**Documento irmão:** [`ResumoAplicacao.md`](./ResumoAplicacao.md) · flexão: [`ExerciciosValidados-Flexao.md`](./ExerciciosValidados-Flexao.md) · push: [`PlanejamentoNotificacoes.md`](./PlanejamentoNotificacoes.md)
+**Documento irmão:** [`ResumoAplicacao.md`](./ResumoAplicacao.md) · flexão: [`ExerciciosValidados-Flexao.md`](./ExerciciosValidados-Flexao.md) · push: [`PlanejamentoNotificacoes.md`](./PlanejamentoNotificacoes.md) · call/alarme: [`Charlie-Call-Nativo.md`](./Charlie-Call-Nativo.md) · [`Charlie-Despertador.md`](./Charlie-Despertador.md)
+
+---
+
+## 0. Garantia: Capacitor **não** danifica a web
+
+**Resposta curta:** com as regras abaixo, **não**. A web em Vercel permanece canônica e independente do binário das lojas.
+
+### 0.1 O que já está decidido (protege a web)
+
+| Regra | Onde no plano |
+| --- | --- |
+| Web = fonte da verdade de features/UI/server fns | §3.1 |
+| Capacitor = container + bridges, não fork do produto | §3.1 |
+| Mesmo código React/TanStack no shell | §1, §4 |
+| APIs nativas só com `Capacitor.isNativePlatform()` | §11 |
+| Google OAuth **fora** do WebView | §3.2, §7.1, Fase 2 |
+| Admin `/dashitecnology` fora do app store | §4, §9 |
+| Drift web×mobile listado como risco | §10 |
+
+### 0.2 Regras duras (obrigatórias na implementação)
+
+1. **Nunca** remover ou quebrar caminho web para “fazer o app funcionar”.
+2. Todo uso de plugin Capacitor passa por um helper (`src/lib/platform.ts` ou similar):
+   - web → no-op / fallback browser
+   - native → plugin
+3. **Proibido** `import` top-level de `@capacitor/*` em rotas compartilhadas sem dynamic import ou guard — evita bundle web quebrado / erros em SSR.
+4. Auth Google: web continua fluxo browser atual; nativo só adiciona Custom Tabs / redirect scheme — **dois caminhos, uma sessão Supabase**.
+5. Push: no web segue Web Push; no nativo FCM/APNs. Deduplicar envio (§10) — não desligar Web Push “porque tem app”.
+6. Deep links (`vproject://`) só afetam nativo; URLs `https://` da produção intactas.
+7. Feature flags / build flags podem **esconder** UI no app; não podem **apagar** código web.
+8. PR que toca Capacitor inclui smoke **web** (login, jornada, hábitos, Charlie) antes do merge.
+
+### 0.3 Onde ainda **não** estamos “prontos” (gaps honestos)
+
+O **documento** está bem encaminhado; o **repositório ainda não** tem o shell. Até existir código Capacitor, estes itens são dívida consciente:
+
+| Gap | Risco se ignorar | Mitigação |
+| --- | --- | --- |
+| Não existe `src/lib/platform.ts` (ou equivalente) | Devs chamam plugin direto e quebram web/SSR | Criar na Fase 1, dia 1 |
+| TanStack Start → assets no binário (§5 B) ainda é TBD | Build mobile malfeito pode forçar hacks no web | Começar Live URL (A); formalizar export SPA antes de B |
+| Sem checklist CI “web não regressou” | Merge mobile quebra produção web | Script smoke + checklist PR (§0.2 item 8) |
+| Charlie Call / Despertador | Tentação de meter nativo cedo demais | Só **depois** Fases 1–4; ver docs irmãos |
+| Live update / Capgo | Dois “mundos” de versão JS | Fora da v1 |
+
+### 0.4 Veredito de preparação
+
+| Pergunta | Status |
+| --- | --- |
+| Arquitetura evita danificar a web? | **Sim** (web canônico + flags) |
+| Regras anti-regressão explícitas? | **Sim** (esta §0) |
+| Código Capacitor já isolado? | **Não** — ainda não iniciado |
+| Prontos para implementar shell sem medo? | **Sim**, desde que Fase 1 siga §0.2 |
 
 ---
 
@@ -157,15 +209,16 @@ Um APK/IPA que só abre `WebView.loadUrl(produção)` **não** garante o funcion
 
 ### Fase 1 — Shell Capacitor Android (semana 1–2)
 
+- [ ] Criar `src/lib/platform.ts` (isNative / getPlatform / safe wrappers) **antes** de plugins
 - [ ] `npm create` / add `@capacitor/core` `@capacitor/android`
 - [ ] Configurar `capacitor.config` (appId, appName, server.url opcional)
 - [ ] Splash, ícone, status bar, safe areas (notch)
   - **Ícone do app:** usar `public/charlie-ico.ico` como arte-fonte (converter para densidades Android: mdpi…xxxhdpi / adaptive icon no Android Studio ou `@capacitor/assets`)
-
 - [ ] Build interno (APK/AAB) apontando para staging ou produção
-- [ ] Smoke test: login e-mail, jornada, hábitos, Charlie, metas, perfil
+- [ ] Smoke test **nativo:** login e-mail, jornada, hábitos, Charlie, metas, perfil
+- [ ] Smoke test **web** (produção ou preview): mesmos fluxos — confirmar zero regressão
 
-**Saída:** herói abre o app e usa o core **sem** câmera/push ainda.
+**Saída:** herói abre o app e usa o core **sem** câmera/push ainda; web inalterada.
 
 ### Fase 2 — Auth Google seguro (semana 2)
 
@@ -328,7 +381,9 @@ Se **flexão** falhar os alvos em devices fracos após tuning: abrir spike **Fas
 | Apple rejeita “wrapper” | Sem iOS | Assets no binário + valor nativo (push/câmera) + metadata honesta |
 | OAuth mal configurado | Churn no onboarding | Checklist Redirect URLs + teste em release build (não só debug) |
 | Dois canais de push (Web + nativo) | Spam duplicado | Preferência por plataforma; dedupe por `notification` id |
-| Drift web × mobile | Bugs só num dos lados | Mesmo QA script; feature flags; smoke checklist por release |
+| Drift web × mobile | Bugs só num dos lados | Mesmo QA script; feature flags; smoke checklist por release (**web + nativo**) |
+| Plugin Capacitor importado sem guard | Erro/SSR quebrado no web | Só via `platform.ts`; dynamic import |
+| “Ajuste rápido” que remove fluxo web | Web produção piora | Regra §0.2 — PR bloqueada se web regressar |
 | Pagamentos nas lojas vs Kiwify | Rejeição / chargeback | Decidir modelo antes do IAP; ver `Assinatura-Kiwify.md` |
 
 ---
@@ -356,17 +411,20 @@ Usar para: pedir permissão de câmera, registrar push token, esconder Web Push 
 
 ## 12. Ordem de prioridade (resumo executivo)
 
-1. **Capacitor Android** com core do produto  
+1. **Capacitor Android** com core do produto (+ `platform.ts` + smoke web)  
 2. **Google OAuth** via browser nativo  
 3. **Câmera / flexão** validada em devices reais  
 4. **Push nativo** (FCM) alinhado aos jobs atuais  
 5. Polimento Play Store  
 6. **iOS** só depois do Android estável  
-7. Pose nativa / RN **somente** se a métrica da flexão exigir  
+7. **Charlie Call** nativo → depois **Despertador** (docs irmãos)  
+8. Pose nativa / RN **somente** se a métrica da flexão exigir  
 
 ---
 
 ## 13. Checklist rápido “estamos prontos para Capacitor?”
+
+### Preparação (contas / produto)
 
 - [ ] Build web estável em produção  
 - [ ] Flexão ok no Chrome Android (baseline)  
@@ -375,6 +433,13 @@ Usar para: pedir permissão de câmera, registrar push token, esconder Web Push 
 - [ ] Decisão Live URL vs assets (§5)  
 - [ ] Dono do app na Play (organização / conta)  
 - [ ] Alguém com device físico para QA semanal  
+
+### Proteção da web (antes do 1º merge Capacitor)
+
+- [ ] Helper `platform.ts` combinado  
+- [ ] Regra de PR: smoke web obrigatório  
+- [ ] Nenhum plugin sem guard no código compartilhado  
+- [ ] Live URL (A) na fase interna — evita forçar mudanças no pipeline web cedo demais  
 
 ---
 
@@ -388,6 +453,7 @@ Usar para: pedir permissão de câmera, registrar push token, esconder Web Push 
 | **FCM / APNs** | Push Google / Apple |
 | **Live URL** | Shell que carrega o site em produção |
 | **Web canônico** | Este repositório web é a fonte das features |
+| **platform.ts** | Camada única de detecção native/web + wrappers seguros |
 
 ---
 
@@ -396,12 +462,13 @@ Usar para: pedir permissão de câmera, registrar push token, esconder Web Push 
 Quando for **implementar** (não só planejar):
 
 1. Criar branch `feat/mobile-capacitor-android`
-2. Adicionar Capacitor + projeto Android
-3. Rodar smoke (§6 Fase 1) em um device físico
+2. Adicionar `src/lib/platform.ts` + Capacitor + projeto Android
+3. Rodar smoke nativo (§6 Fase 1) **e** smoke web (§0.2)
 4. Só então abrir Fase 2 (Google) e Fase 3 (câmera)
+5. Call / Despertador só após push nativo estável
 
 Até lá, este documento é a **bússola**: web primeiro, Capacitor como shell inteligente, nativo puro só sob evidência.
 
 ---
 
-*Plano vivo. Ao mudar auth, push ou o pipeline de exercícios, atualize as seções 4, 6–8 e 10.*
+*Plano vivo. Ao mudar auth, push ou o pipeline de exercícios, atualize as seções 0, 4, 6–8 e 10.*

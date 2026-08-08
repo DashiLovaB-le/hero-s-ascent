@@ -52,3 +52,14 @@ __pycache__/
 *.py[cod]
 *.class
 
+# Capacitor / Android
+android/.gradle/
+android/app/build/
+android/build/
+android/capacitor-cordova-android-plugins/build/
+android/local.properties
+android/app/google-services.json
+*.keystore
+*.jks
+www/.gitkeep
+

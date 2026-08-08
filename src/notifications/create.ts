@@ -2,6 +2,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { maybeSendTelegramNotification } from "@/notifications/telegram";
 import { maybeSendWebPushNotification } from "@/notifications/push";
+import { maybeSendNativePushNotification } from "@/notifications/push-native";
 import {
   intensityFromRisks,
   isCharlieVoiceTipo,
@@ -113,6 +114,13 @@ export async function createNotification(input: {
       metadata: input.metadata,
     }),
     maybeSendWebPushNotification({
+      userId: input.userId,
+      tipo: input.tipo,
+      titulo: voiced.titulo,
+      corpo: voiced.corpo,
+      metadata: input.metadata,
+    }),
+    maybeSendNativePushNotification({
       userId: input.userId,
       tipo: input.tipo,
       titulo: voiced.titulo,

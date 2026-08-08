@@ -139,6 +139,16 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  /* Capacitor: safe area SUPERIOR apenas (status bar / notch) */
+  html.native-shell {
+    padding-top: env(safe-area-inset-top, 0px);
+    box-sizing: border-box;
+  }
+  html.native-shell,
+  html.native-shell body {
+    background-color: #1b1b1b;
+  }
+
   /* Fundos fixos por breakpoint (position:fixed — confiável no iOS/desktop) */
   body::before {
     content: "";

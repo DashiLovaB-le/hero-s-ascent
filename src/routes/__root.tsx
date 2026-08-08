@@ -17,6 +17,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { XpGainPopupHost } from "@/components/XpGainPopup";
 import { TikTokPixel } from "@/components/TikTokPixel";
 import { PageViewTracker } from "@/components/PageViewTracker";
+import { NativeShellHost } from "@/components/NativeShellHost";
 import {
   getMaintenanceStatus,
   canBypassMaintenance,
@@ -141,7 +142,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "V-Project" },
       {
         name: "description",
@@ -235,6 +236,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <TikTokPixel />
       <PageViewTracker />
+      <NativeShellHost />
       <Outlet />
       <Toaster richColors position="top-center" />
       <XpGainPopupHost />

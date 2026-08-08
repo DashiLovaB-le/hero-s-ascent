@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { clearAllSupabaseAuthStorage, getSupabasePublicEnv } from "@/integrations/supabase/env";
 import { getJwtProjectRef } from "@/integrations/supabase/auth-session";
+import { startGoogleOAuth } from "@/lib/native-oauth";
 import { AuthDoorOverlay } from "@/components/auth/AuthDoorOverlay";
 import { AuthWelcomeDialog } from "@/components/auth/AuthWelcomeDialog";
 import { AuthTerminal2D } from "@/components/auth/AuthTerminal2D";
@@ -171,12 +172,7 @@ function AuthPage() {
     } catch {
       /* ignore */
     }
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth`,
-      },
-    });
+    const { error } = await startGoogleOAuth();
     if (error) {
       setLoading(false);
       try {
@@ -184,8 +180,10 @@ function AuthPage() {
       } catch {
         /* ignore */
       }
-      return toast.error(error.message || "Erro ao entrar com Google.");
+      return toast.error(error);
     }
+    // Web: o browser redireciona sozinho. Nativo: Custom Tabs + deep link
+    // (attachNativeOAuthDeepLinkListener em NativeShellHost).
   }
 
   const locked = loading || welcomeOpen || doorActive || terminalExiting;

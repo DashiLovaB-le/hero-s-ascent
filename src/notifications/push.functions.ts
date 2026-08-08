@@ -53,9 +53,22 @@ export const getNotificationSettings = createServerFn({ method: "POST" })
       .eq("user_id", context.userId);
     if (cErr) throw new Error(cErr.message);
 
+    const { count: nativeCount, error: nErr } = await context.supabase
+      .from("push_devices")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", context.userId)
+      .eq("enabled", true);
+    if (nErr) {
+      // tabela pode não existir ainda em ambientes atrasados
+      if (!/push_devices|schema cache|does not exist/i.test(nErr.message)) {
+        throw new Error(nErr.message);
+      }
+    }
+
     return {
       settings: data ?? { user_id: context.userId, ...DEFAULT_SETTINGS },
       subscriptionCount: count ?? 0,
+      nativeDeviceCount: nativeCount ?? 0,
       vapidConfigured: Boolean(getVapidPublicKey()),
       vapid: analyzeVapidPublicKey(getVapidPublicKey()),
     };
@@ -175,7 +188,13 @@ export const removePushSubscription = createServerFn({ method: "POST" })
       .select("id", { count: "exact", head: true })
       .eq("user_id", context.userId);
 
-    if ((count ?? 0) === 0) {
+    const { count: nativeCount } = await context.supabase
+      .from("push_devices")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", context.userId)
+      .eq("enabled", true);
+
+    if ((count ?? 0) === 0 && (nativeCount ?? 0) === 0) {
       await context.supabase
         .from("notification_settings")
         .update({ push_enabled: false })
@@ -183,4 +202,106 @@ export const removePushSubscription = createServerFn({ method: "POST" })
     }
 
     return { ok: true as const, remaining: count ?? 0 };
+  });
+
+export const saveNativePushDevice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z
+      .object({
+        token: z.string().trim().min(8).max(512),
+        platform: z.enum(["android", "ios"]),
+      })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase.from("push_devices").upsert(
+      {
+        user_id: context.userId,
+        token: data.token,
+        platform: data.platform,
+        enabled: true,
+        last_seen_at: new Date().toISOString(),
+      },
+      { onConflict: "token" },
+    );
+    if (error) throw new Error(error.message);
+
+    const { data: existing, error: readErr } = await context.supabase
+      .from("notification_settings")
+      .select("user_id")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (readErr) throw new Error(readErr.message);
+
+    if (!existing) {
+      const { error: sErr } = await context.supabase.from("notification_settings").insert({
+        user_id: context.userId,
+        ...DEFAULT_SETTINGS,
+        push_enabled: true,
+      });
+      if (sErr) throw new Error(sErr.message);
+    } else {
+      const { error: sErr } = await context.supabase
+        .from("notification_settings")
+        .update({ push_enabled: true })
+        .eq("user_id", context.userId);
+      if (sErr) throw new Error(sErr.message);
+    }
+
+    return { ok: true as const };
+  });
+
+export const removeNativePushDevice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) =>
+    z
+      .object({
+        token: z.string().trim().min(8).max(512).optional(),
+        all: z.boolean().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    if (data.all) {
+      const { error } = await context.supabase
+        .from("push_devices")
+        .delete()
+        .eq("user_id", context.userId);
+      if (error) throw new Error(error.message);
+    } else if (data.token) {
+      const { error } = await context.supabase
+        .from("push_devices")
+        .delete()
+        .eq("user_id", context.userId)
+        .eq("token", data.token);
+      if (error) throw new Error(error.message);
+    } else {
+      throw new Error("Informe token ou all.");
+    }
+
+    const [{ count: webCount }, { count: nativeCount }] = await Promise.all([
+      context.supabase
+        .from("push_subscriptions")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", context.userId),
+      context.supabase
+        .from("push_devices")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", context.userId)
+        .eq("enabled", true),
+    ]);
+
+    if ((webCount ?? 0) === 0 && (nativeCount ?? 0) === 0) {
+      await context.supabase
+        .from("notification_settings")
+        .update({ push_enabled: false })
+        .eq("user_id", context.userId);
+    }
+
+    return {
+      ok: true as const,
+      remainingWeb: webCount ?? 0,
+      remainingNative: nativeCount ?? 0,
+    };
   });

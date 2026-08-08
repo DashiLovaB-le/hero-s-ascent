@@ -11,9 +11,20 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "postinstall": "patch-package",
-    "test:ml": "tsx --test src/lib/ml/features.test.ts src/lib/ml/adaptive.test.ts src/lib/ml/agent.test.ts src/lib/datetime.test.ts src/mentor/context.cycle.test.ts"
+    "test:ml": "tsx --test src/lib/ml/features.test.ts src/lib/ml/adaptive.test.ts src/lib/ml/agent.test.ts src/lib/datetime.test.ts src/mentor/context.cycle.test.ts src/notifications/charlie-telegram-voice.test.ts",
+    "cap:sync": "npx cap sync",
+    "cap:open:android": "npx cap open android",
+    "cap:build:apk": "npx cap sync android && cd android && gradlew.bat assembleDebug --no-daemon",
+    "cap:build:aab": "cd android && gradlew.bat bundleRelease --no-daemon"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/keyboard": "^8.0.5",
+    "@capacitor/push-notifications": "^8.1.2",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
     "@hookform/resolvers": "^5.2.2",
     "@lovable.dev/cloud-auth-js": "^1.1.2",
     "@mediapipe/tasks-vision": "^0.10.32",
@@ -86,6 +97,9 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.0",
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "^2.7.6",
     "@types/node": "^22.16.5",
@@ -93,6 +107,7 @@
     "@types/react-dom": "^19.2.0",
     "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^5.2.0",
+    "decode-ico": "^0.4.1",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
@@ -102,6 +117,7 @@
     "nitro": "3.0.260603-beta",
     "patch-package": "^8.0.1",
     "prettier": "^3.7.3",
+    "sharp": "^0.35.3",
     "tsx": "^4.23.1",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
