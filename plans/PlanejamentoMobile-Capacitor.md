@@ -48,15 +48,15 @@ Alinhado ao estado do app em agosto 2026 (TanStack Start, Supabase, Charlie, fle
 
 ### 0.3 Onde ainda **não** estamos “prontos” (gaps honestos)
 
-O **documento** está bem encaminhado; o **repositório ainda não** tem o shell. Até existir código Capacitor, estes itens são dívida consciente:
+Atualizado **2026-08-08**: shell Android + Live URL já existem. Dívida restante:
 
-| Gap | Risco se ignorar | Mitigação |
+| Gap | Status | Mitigação |
 | --- | --- | --- |
-| Não existe `src/lib/platform.ts` (ou equivalente) | Devs chamam plugin direto e quebram web/SSR | Criar na Fase 1, dia 1 |
-| TanStack Start → assets no binário (§5 B) ainda é TBD | Build mobile malfeito pode forçar hacks no web | Começar Live URL (A); formalizar export SPA antes de B |
-| Sem checklist CI “web não regressou” | Merge mobile quebra produção web | Script smoke + checklist PR (§0.2 item 8) |
-| Charlie Call / Despertador | Tentação de meter nativo cedo demais | Só **depois** Fases 1–4; ver docs irmãos |
-| Live update / Capgo | Dois “mundos” de versão JS | Fora da v1 |
+| `src/lib/platform.ts` | **Feito** | Guards nativo/web em uso |
+| TanStack Start → assets no binário (§5 B) | Ainda TBD | Live URL (A) em produção interna; formalizar B antes da Play |
+| Checklist CI “web não regressou” | Pendente | Script smoke + checklist PR (§0.2 item 8) |
+| Charlie Call / Despertador | **MVP Android feito** (AlarmManager + tela full-screen; Core-Telecom/CallKit = hardening) | Ver docs irmãos; Play hardening depois |
+| Live update / Capgo | Fora da v1 | — |
 
 ### 0.4 Veredito de preparação
 
@@ -64,8 +64,8 @@ O **documento** está bem encaminhado; o **repositório ainda não** tem o shell
 | --- | --- |
 | Arquitetura evita danificar a web? | **Sim** (web canônico + flags) |
 | Regras anti-regressão explícitas? | **Sim** (esta §0) |
-| Código Capacitor já isolado? | **Não** — ainda não iniciado |
-| Prontos para implementar shell sem medo? | **Sim**, desde que Fase 1 siga §0.2 |
+| Código Capacitor já isolado? | **Sim** — `platform.ts` + `android/` + Live URL |
+| Shell Android interno usável? | **Sim** (APK Live URL → `…/journey`) |
 
 ---
 
@@ -201,61 +201,72 @@ Um APK/IPA que só abre `WebView.loadUrl(produção)` **não** garante o funcion
 
 ### Fase 0 — Pré-requisitos (1–3 dias)
 
-- [ ] Congelar lista de rotas **incluídas** no app mobile (ex.: sem `/dashitecnology`)
-- [ ] Definir `APP_PUBLIC_URL` / deep links (`vproject://` ou universal links)
-- [ ] Contas: Google Cloud (OAuth Android/iOS), Firebase (FCM), Apple Developer (quando iOS)
+- [x] Congelar lista de rotas **incluídas** no app mobile (nativo abre em `/journey`; admin só web)
+- [x] Definir deep links (`com.vproject.app://auth` no Manifest + OAuth nativo)
+- [x] Contas: Google Cloud (OAuth Android) + Firebase (FCM) no projeto Android
 - [ ] Device farm mínimo: 1 Android médio + 1 Android fraco; depois 1 iPhone
-- [ ] Critérios de aceite da flexão no mobile (ver §8)
+- [x] Critérios de aceite da flexão no mobile (ver §8) — baseline documentado
+- [ ] Apple Developer (quando iOS)
 
 ### Fase 1 — Shell Capacitor Android (semana 1–2)
 
-- [ ] Criar `src/lib/platform.ts` (isNative / getPlatform / safe wrappers) **antes** de plugins
-- [ ] `npm create` / add `@capacitor/core` `@capacitor/android`
-- [ ] Configurar `capacitor.config` (appId, appName, server.url opcional)
-- [ ] Splash, ícone, status bar, safe areas (notch)
-  - **Ícone do app:** usar `public/charlie-ico.ico` como arte-fonte (converter para densidades Android: mdpi…xxxhdpi / adaptive icon no Android Studio ou `@capacitor/assets`)
-- [ ] Build interno (APK/AAB) apontando para staging ou produção
-- [ ] Smoke test **nativo:** login e-mail, jornada, hábitos, Charlie, metas, perfil
-- [ ] Smoke test **web** (produção ou preview): mesmos fluxos — confirmar zero regressão
+- [x] Criar `src/lib/platform.ts` (isNative / getPlatform / safe wrappers) **antes** de plugins
+- [x] Add `@capacitor/core` + projeto `android/`
+- [x] Configurar `capacitor.config.ts` (`com.vproject.app`, Live URL produção `/journey`)
+- [x] Splash, ícone (`charlie-ico`), status bar / SystemBars, safe areas (notch)
+- [x] Build interno (APK) apontando para produção (Live URL)
+- [x] Smoke test **nativo:** login, jornada, hábitos, Charlie, metas, perfil, flexão, despertador
+- [ ] Smoke test **web** formal / checklist CI por release (produção inalterada na prática)
 
-**Saída:** herói abre o app e usa o core **sem** câmera/push ainda; web inalterada.
+**Saída:** ✅ herói abre o APK e usa o core; web continua canônica via Live URL.
 
 ### Fase 2 — Auth Google seguro (semana 2)
 
-- [ ] Fluxo OAuth fora do WebView (Custom Tabs / Browser plugin)
-- [ ] Redirect URIs no Supabase + Google Cloud para o scheme do app
-- [ ] Testar: login, logout, troca de conta, cold start com sessão
-- [ ] Documentar edge case: usuário só Google definindo senha no `/profile`
+- [x] Fluxo OAuth fora do WebView (`@capacitor/browser` + `src/lib/native-oauth.ts`)
+- [x] Redirect URIs / scheme do app (`com.vproject.app://auth`)
+- [x] Login / cold start com sessão no shell
+- [ ] Revalidar em release build: logout, troca de conta, edge case só-Google + senha no `/profile`
 
-**Saída:** Google login confiável no Android Capacitor.
+**Saída:** ✅ Google login via Custom Tabs no Android Capacitor (revalidar em release).
 
 ### Fase 3 — Câmera e flexão (semana 2–4)
 
 - [x] Permissões `CAMERA` / rationale em PT-BR (`AndroidManifest` + `ensureCameraPermission`)
-- [ ] Validar pipeline atual: framing → calibração → contagem MediaPipe **no APK**
-- [ ] Medir: FPS, aquecimento, falsos positivos, crash em background
+- [x] Validar pipeline atual: framing → calibração → contagem MediaPipe **no APK** (OK em device)
+- [ ] Medir formalmente: FPS, aquecimento, falsos positivos, crash em background (§8)
 - [x] UX: manter tela acesa na sessão (`requestSessionWakeLock`)
-- [ ] Se falhar critérios (§8): spike ML Kit / pose nativa (Fase 3b)
+- [ ] Se falhar critérios (§8): spike ML Kit / pose nativa (Fase 3b) — **não necessário ainda**
 
-**Saída:** sessão de flexão usável no dia a dia no Android alvo.
+**Saída:** ✅ sessão de flexão usável no Android alvo (métricas §8 ainda a formalizar em farm).
 
 **Notas (2026-08-08)**
 - Pipeline web (MediaPipe + `getUserMedia`) reutilizado no WebView — sem gravar vídeo
 - Bridge: `@capacitor/camera` só para permissão nativa; preview continua via WebRTC
 - Resolução ideal 960×540 no mobile para performance
-- Teste manual necessário no device após rebuild do APK
+- Teclado / safe-area: `adjustNothing` + SystemBars CSS insets
 
 ### Fase 4 — Push nativo (semana 3–5)
 
-- [ ] Plugin Push Notifications + Firebase no Android
-- [ ] Backend: registrar device token (nova tabela ou coluna) ligado a `user_id`
-- [ ] Espelhar tipos críticos já usados no Telegram/Web Push:
-  - `habit_reminder`, `streak_risk`, `mentor_challenge*`, `agent_initiative`
-- [ ] Quiet hours / anti-spam: reutilizar regras de `notification-jobs`
-- [ ] Opt-in na UI de perfil (ao lado do Web Push)
+- [x] Plugin Push Notifications + Firebase no Android
+- [x] Backend: `push_devices` + registro de token (`registerNativePushToken` / `push.functions`)
+- [x] Fan-out FCM alinhado aos jobs / tipos de notificação existentes
+- [x] Quiet hours / anti-spam: reutilizar regras de `notification-jobs`
+- [x] Opt-in na UI de perfil (`PushSettingsCard` — Web Push vs nativo)
 - [ ] iOS APNs na fase iOS (certificados, capability Push)
+- [ ] QA com app totalmente morto / Doze em devices fracos
 
-**Saída:** lembretes chegam com app fechado no Android.
+**Saída:** ✅ pipeline FCM no Android; endurecer QA de background antes da Play.
+
+### Fase 4b — Charlie Call / Despertador (MVP Android) — **feito 2026-08-08**
+
+- [x] Plugin Capacitor `CharlieCall` + Activity full-screen (lock screen)
+- [x] `AlarmManager` exact + boot reschedule + permissões de alarme
+- [x] Toque `STREAM_ALARM` com 3 opções (`classic` / `warrior` / `calm`)
+- [x] UI chamada: texto, avatar Charlie com pulse, botões chanfrados, fonte Chakra Petch
+- [x] Pós-ATENDER: ritual `/alarm/ritual` (saudação + clima + tarefas) → **LEVANTEI** → `/journey`
+- [x] Opt-in Perfil + kill switch Dashi (`/dashitecnology/charlie-alarm`) + tabelas Supabase
+- [ ] Hardening Play: Core-Telecom (Android) / CallKit (iOS) — ver docs irmãos
+- [ ] Substituir WAV placeholder pelos toques finais de produto
 
 ### Fase 5 — Polimento store Android (semana 5–6)
 
@@ -265,6 +276,7 @@ Um APK/IPA que só abre `WebView.loadUrl(produção)` **não** garante o funcion
 - [ ] Remover rotas admin do bundle ou bloquear por user-agent/build flag
 - [ ] Crash reporting (Sentry ou similar)
 - [ ] Internal testing → closed → production
+- [ ] Trocar Live URL (A) → assets no binário (B) se a Play exigir
 
 ### Fase 6 — iOS (após Android estável)
 
@@ -272,6 +284,7 @@ Um APK/IPA que só abre `WebView.loadUrl(produção)` **não** garante o funcion
 - [ ] OAuth / Universal Links
 - [ ] Câmera + pose (Safari WebView ≠ Chrome — revalidar MediaPipe)
 - [ ] APNs
+- [ ] Charlie Call / Despertador (CallKit)
 - [ ] Review Guidelines: câmera, conta, pagamentos futuros
 
 ### Fase 7 — Evolução (só se necessário)
@@ -280,6 +293,7 @@ Um APK/IPA que só abre `WebView.loadUrl(produção)` **não** garante o funcion
 - [ ] Módulo nativo de pose se MediaPipe não bastar
 - [ ] Avaliar RN só para módulo de exercício (micro-app) se fizer sentido
 - [ ] IAP vs checkout web (Kiwify) alinhado às regras das lojas
+- [ ] Charlie Call Core-Telecom (substituir/complementar AlarmManager full-screen)
 
 ---
 
@@ -417,13 +431,13 @@ Usar para: pedir permissão de câmera, registrar push token, esconder Web Push 
 
 ## 12. Ordem de prioridade (resumo executivo)
 
-1. **Capacitor Android** com core do produto (+ `platform.ts` + smoke web)  
-2. **Google OAuth** via browser nativo  
-3. **Câmera / flexão** validada em devices reais  
-4. **Push nativo** (FCM) alinhado aos jobs atuais  
-5. Polimento Play Store  
-6. **iOS** só depois do Android estável  
-7. **Charlie Call** nativo → depois **Despertador** (docs irmãos)  
+1. ~~**Capacitor Android** com core do produto (+ `platform.ts`)~~ ✅  
+2. ~~**Google OAuth** via browser nativo~~ ✅  
+3. ~~**Câmera / flexão** no APK~~ ✅ (métricas §8 a formalizar)  
+4. ~~**Push nativo** (FCM)~~ ✅ (QA Doze/background pendente)  
+5. ~~**Charlie Despertador** MVP Android~~ ✅ (Core-Telecom/CallKit = depois)  
+6. **Polimento Play Store** + assets no binário se necessário  
+7. **iOS** só depois do Android estável na loja  
 8. Pose nativa / RN **somente** se a métrica da flexão exigir  
 
 ---
@@ -432,20 +446,20 @@ Usar para: pedir permissão de câmera, registrar push token, esconder Web Push 
 
 ### Preparação (contas / produto)
 
-- [ ] Build web estável em produção  
-- [ ] Flexão ok no Chrome Android (baseline)  
+- [x] Build web estável em produção  
+- [x] Flexão ok no Chrome Android / APK (baseline)  
 - [ ] Política de privacidade menciona câmera on-device  
-- [ ] Conta Google Cloud + SHA-1 do keystore  
-- [ ] Decisão Live URL vs assets (§5)  
+- [x] Conta Google Cloud + Firebase no Android  
+- [x] Decisão Live URL vs assets (§5) — **A agora; B na Play**  
 - [ ] Dono do app na Play (organização / conta)  
-- [ ] Alguém com device físico para QA semanal  
+- [x] Alguém com device físico para QA  
 
 ### Proteção da web (antes do 1º merge Capacitor)
 
-- [ ] Helper `platform.ts` combinado  
-- [ ] Regra de PR: smoke web obrigatório  
-- [ ] Nenhum plugin sem guard no código compartilhado  
-- [ ] Live URL (A) na fase interna — evita forçar mudanças no pipeline web cedo demais  
+- [x] Helper `platform.ts` combinado  
+- [ ] Regra de PR: smoke web obrigatório (formalizar)  
+- [x] Nenhum plugin sem guard no código compartilhado  
+- [x] Live URL (A) na fase interna — evita forçar mudanças no pipeline web cedo demais  
 
 ---
 
@@ -465,16 +479,16 @@ Usar para: pedir permissão de câmera, registrar push token, esconder Web Push 
 
 ## 15. Próximo passo concreto
 
-Quando for **implementar** (não só planejar):
+**Estado (2026-08-08):** Fases 1–4 + Despertador MVP Android estão no repo. Próximo foco:
 
-1. Criar branch `feat/mobile-capacitor-android`
-2. Adicionar `src/lib/platform.ts` + Capacitor + projeto Android
-3. Rodar smoke nativo (§6 Fase 1) **e** smoke web (§0.2)
-4. Só então abrir Fase 2 (Google) e Fase 3 (câmera)
-5. Call / Despertador só após push nativo estável
+1. Deploy web + rebuild APK (Live URL pega o ritual/toques novos)
+2. Colocar os 3 toques finais em `android/.../assets/charlie-ringtones/`
+3. Polimento Play (Fase 5): privacy, Data safety, screenshots, internal testing
+4. Formalizar smoke web em PR + métricas de flexão (§8) em 1–2 devices
+5. iOS / Core-Telecom / CallKit só depois do Android estável na loja
 
-Até lá, este documento é a **bússola**: web primeiro, Capacitor como shell inteligente, nativo puro só sob evidência.
+Bússola continua: **web canônico**, Capacitor como shell, nativo puro só sob evidência.
 
 ---
 
-*Plano vivo. Ao mudar auth, push ou o pipeline de exercícios, atualize as seções 0, 4, 6–8 e 10.*
+*Plano vivo. Ao mudar auth, push, exercícios ou despertador, atualize as seções 0, 4, 6–8 e 10.*

@@ -28,6 +28,7 @@ import { loadCheckinsForMentor } from "@/lib/checkins.functions";
 import { addDaysToDateKey, calendarDateInTz, hourInTz, hojeISO } from "@/lib/datetime";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { assembleMentorGoals } from "@/lib/mentor-goals";
+import { resolveHabitXpReward } from "@/lib/habit-xp";
 
 type Client = SupabaseClient<Database>;
 
@@ -261,7 +262,7 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
         .maybeSingle(),
       supabase
         .from("habits")
-        .select("id, titulo, atributo, categoria, goal_id, ativo")
+        .select("id, titulo, descricao, atributo, categoria, goal_id, ativo")
         .eq("user_id", userId)
         .eq("ativo", true),
       supabase
@@ -443,6 +444,7 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
       id: h.id,
       titulo: h.titulo,
       atributo: h.atributo,
+      descricao: (h as { descricao?: string | null }).descricao ?? null,
     })),
     goals: mentorGoals,
     completedTodayIds: (todayRes.data ?? []).map((r) => r.habit_id),
@@ -1447,13 +1449,14 @@ export const respondMentorHabitSuggestion = createServerFn({ method: "POST" })
         throw new Error("Você já tem um hábito parecido. Recuse ou ajuste o título.");
       }
 
+      const xp = await resolveHabitXpReward();
       const { data: row, error: hErr } = await supabase
         .from("habits")
         .insert({
           user_id: userId,
           titulo: pending.titulo,
           descricao: pending.descricao ?? undefined,
-          xp_recompensa: pending.xp_recompensa,
+          xp_recompensa: xp,
           atributo,
           categoria: categoria ?? undefined,
         })

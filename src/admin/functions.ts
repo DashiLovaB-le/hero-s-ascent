@@ -10,6 +10,12 @@ import { runProductNotificationJobs } from "@/notifications/jobs";
 import { createNotification } from "@/notifications/create";
 import { runCfAndAgentJobs } from "@/lib/ml/agent-jobs";
 import { hojeISO, addDaysToDateKey, calendarDateInTz } from "@/lib/datetime";
+import {
+  HABIT_XP_MAX,
+  HABIT_XP_MIN,
+  resolveHabitXpReward,
+  setHabitXpReward,
+} from "@/lib/habit-xp";
 
 async function withAdmin(userId: string) {
   await assertIsAdmin(userId);
@@ -753,7 +759,31 @@ export const adminGamification = createServerFn({ method: "GET" })
         unlock: w.unlock,
         usage: wallpaperUsage[w.id] ?? 0,
       })),
+      habitXpReward: await resolveHabitXpReward(),
     };
+  });
+
+export const adminSetHabitXpReward = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((i: unknown) =>
+    z
+      .object({
+        xp: z.number().int().min(HABIT_XP_MIN).max(HABIT_XP_MAX),
+        syncExisting: z.boolean().optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ context, data }) => {
+    await withAdmin(context.userId);
+    const value = await setHabitXpReward(data.xp, context.userId);
+    if (data.syncExisting) {
+      const { error } = await supabaseAdmin
+        .from("habits")
+        .update({ xp_recompensa: value })
+        .is("exercise_type_id", null);
+      if (error) throw new Error(error.message);
+    }
+    return { habitXpReward: value };
   });
 
 export const adminCharlieOverview = createServerFn({ method: "GET" })

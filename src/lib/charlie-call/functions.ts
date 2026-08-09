@@ -144,7 +144,7 @@ export type MorningBriefing = {
   heroName: string;
   message: string;
   weatherLine: string | null;
-  tasks: Array<{ id: string; title: string; kind: "habit" | "goal" }>;
+  tasks: Array<{ id: string; title: string; detail?: string | null; kind: "habit" | "goal" }>;
 };
 
 export const getMorningBriefing = createServerFn({ method: "GET" })
@@ -163,7 +163,7 @@ export const getMorningBriefing = createServerFn({ method: "GET" })
           .maybeSingle(),
         supabase
           .from("habits")
-          .select("id, titulo, ativo")
+          .select("id, titulo, descricao, ativo")
           .eq("user_id", userId)
           .eq("ativo", true)
           .order("created_at", { ascending: true })
@@ -212,11 +212,17 @@ export const getMorningBriefing = createServerFn({ method: "GET" })
     const pendingHabits = (habits ?? [])
       .filter((h) => !done.has(h.id))
       .slice(0, 5)
-      .map((h) => ({ id: h.id, title: h.titulo, kind: "habit" as const }));
+      .map((h) => ({
+        id: h.id,
+        title: h.titulo,
+        detail: (h as { descricao?: string | null }).descricao?.trim() || null,
+        kind: "habit" as const,
+      }));
 
     const pendingGoals = (goals ?? []).slice(0, 3).map((g) => ({
       id: g.id,
       title: g.titulo,
+      detail: null as string | null,
       kind: "goal" as const,
     }));
 

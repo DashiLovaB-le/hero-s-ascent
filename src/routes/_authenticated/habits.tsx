@@ -23,9 +23,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { showXpGainPopup } from "@/components/XpGainPopup";
+import { HABIT_XP_DEFAULT } from "@/lib/habit-xp";
 
 export const Route = createFileRoute("/_authenticated/habits")({
   loader: ({ context }) => context.queryClient.ensureQueryData(journeyQueryOptions()),
@@ -44,7 +46,7 @@ type HabitCategory = NonNullable<HabitRow["categoria"]>;
 
 type HabitFormValues = {
   titulo: string;
-  xp_recompensa: number;
+  descricao?: string | null;
   atributo: HabitAttr;
   categoria?: HabitCategory;
 };
@@ -239,6 +241,7 @@ function HabitsPage() {
               </DialogHeader>
               <HabitForm
                 submitLabel="Criar hábito"
+                habitXpReward={data.habitXpReward ?? HABIT_XP_DEFAULT}
                 onSubmit={(v) => createM.mutate(v)}
                 loading={createM.isPending}
               />
@@ -263,8 +266,11 @@ function HabitsPage() {
                     setSuggestions(next);
                   }}
                 />
+                {h.descricao ? (
+                  <p className="text-xs text-muted-foreground">{h.descricao}</p>
+                ) : null}
                 <p className="text-xs text-muted-foreground">
-                  {ATRIBUTO_LABELS[h.atributo]} · +{h.xp_recompensa} XP
+                  {ATRIBUTO_LABELS[h.atributo]} · +{data.habitXpReward ?? h.xp_recompensa} XP
                 </p>
                 <Button
                   size="sm"
@@ -301,6 +307,7 @@ function HabitsPage() {
             <HabitForm
               key={editing.id}
               initial={editing}
+              habitXpReward={data.habitXpReward ?? HABIT_XP_DEFAULT}
               submitLabel="Salvar"
               onSubmit={(v) => updateM.mutate({ id: editing.id, ...v })}
               loading={updateM.isPending}
@@ -350,8 +357,11 @@ function HabitsPage() {
                 <li key={h.id} className="flex items-center justify-between gap-3 py-3">
                   <div className="min-w-0">
                     <p className="font-medium">{h.titulo}</p>
+                    {h.descricao?.trim() ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{h.descricao}</p>
+                    ) : null}
                     <p className="text-xs text-muted-foreground">
-                      {ATRIBUTO_LABELS[h.atributo]} · +{h.xp_recompensa} XP
+                      {ATRIBUTO_LABELS[h.atributo]} · +{data.habitXpReward ?? HABIT_XP_DEFAULT} XP
                       {h.categoria ? ` · ${h.categoria}` : ""}
                     </p>
                   </div>
@@ -399,17 +409,19 @@ function HabitsPage() {
 
 function HabitForm({
   initial,
+  habitXpReward = HABIT_XP_DEFAULT,
   onSubmit,
   loading,
   submitLabel,
 }: {
-  initial?: Pick<HabitRow, "titulo" | "xp_recompensa" | "atributo" | "categoria">;
+  initial?: Pick<HabitRow, "titulo" | "descricao" | "atributo" | "categoria">;
+  habitXpReward?: number;
   onSubmit: (v: HabitFormValues) => void;
   loading: boolean;
   submitLabel: string;
 }) {
   const [titulo, setTitulo] = useState(initial?.titulo ?? "");
-  const [xp, setXp] = useState(initial?.xp_recompensa ?? 10);
+  const [descricao, setDescricao] = useState(initial?.descricao ?? "");
   const [atributo, setAtributo] = useState<HabitAttr>(initial?.atributo ?? "disciplina");
   const [categoria, setCategoria] = useState<HabitCategory | "">(
     (initial?.categoria as HabitCategory | undefined) ?? "",
@@ -422,7 +434,7 @@ function HabitForm({
         e.preventDefault();
         onSubmit({
           titulo,
-          xp_recompensa: xp,
+          descricao: descricao.trim() || null,
           atributo,
           ...(categoria ? { categoria } : {}),
         });
@@ -433,15 +445,21 @@ function HabitForm({
         <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} required minLength={2} />
       </div>
       <div className="space-y-2">
-        <Label>XP</Label>
-        <Input
-          type="number"
-          min={5}
-          max={50}
-          value={xp}
-          onChange={(e) => setXp(Number(e.target.value))}
+        <Label>Detalhes (opcional)</Label>
+        <Textarea
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          maxLength={280}
+          rows={3}
+          placeholder="Como você faz esse hábito? Ex.: 10 min sem celular após acordar."
         />
+        <p className="text-[11px] text-muted-foreground">
+          O Charlie usa isso para entender melhor o contexto.
+        </p>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Recompensa fixa do sistema: <span className="font-medium text-foreground">+{habitXpReward} XP</span>
+      </p>
       <div className="space-y-2">
         <Label>Atributo</Label>
         <Select value={atributo} onValueChange={(v) => setAtributo(v as HabitAttr)}>

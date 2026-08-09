@@ -109,6 +109,9 @@ function AlarmRitualPage() {
                       {t.kind === "habit" ? "hábito" : "meta"}
                     </span>
                     <div>{t.title}</div>
+                    {t.detail ? (
+                      <p className="mt-0.5 text-xs text-white/50">{t.detail}</p>
+                    ) : null}
                   </li>
                 ))}
               </ul>

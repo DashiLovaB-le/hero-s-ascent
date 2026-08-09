@@ -19,7 +19,7 @@ type AttrRow = {
   lideranca: number;
 };
 
-type HabitRow = { id: string; titulo: string; atributo: string };
+type HabitRow = { id: string; titulo: string; atributo: string; descricao?: string | null };
 type CompletionRow = { habit_id: string; dia: string };
 type MemoryRow = { content: string; importance: number };
 type ChallengeRow = { titulo: string; status: string; descricao: string };
@@ -246,7 +246,10 @@ export function buildMentorContextBlock(input: MentorContextInput): string {
   );
 
   const habitsWithIds = input.habits
-    .map((h) => `${h.titulo} [id=${h.id}]`)
+    .map((h) => {
+      const detail = h.descricao?.trim() ? ` — ${h.descricao.trim()}` : "";
+      return `${h.titulo}${detail} [id=${h.id}]`;
+    })
     .join("; ");
 
   return [
@@ -412,7 +415,7 @@ DESAFIOS vs HÁBITOS NOVOS (discernimento obrigatório)
 - NUNCA emita challenge e habit_suggestion na mesma resposta. Escolha um.
 - Se a ideia for permanente/recorrente → habit_suggestion (não challenge). Se for temporal → challenge.
 - Desafio: só quando fizer sentido narrativo; no máximo um; obedeça a POLÍTICA ADAPTATIVA; habit_id EXATO da lista se vincular; titulo_recompensa é simbólico.
-- Hábito novo: só se "Pode propor habit_suggestion" = SIM; título diferente dos já listados; xp_recompensa entre 5 e 50; atributo válido; categoria opcional.
+- Hábito novo: só se "Pode propor habit_suggestion" = SIM; título diferente dos já listados; descricao concreta opcional; xp_recompensa fixo do sistema (ignore valores inventados); atributo válido; categoria opcional.
 - O herói precisa ACEITAR habit_suggestion no app para o hábito entrar na lista — não diga que já foi criado.
 
 FORMATO DE RESPOSTA (obrigatório — JSON válido, sem markdown fora do JSON)

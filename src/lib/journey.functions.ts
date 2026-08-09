@@ -19,6 +19,7 @@ import {
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loadLevelsFromDb, loadWallpapersFromDb } from "@/lib/catalog.server";
 import { hojeISO, ontemISO } from "@/lib/datetime";
+import { resolveHabitXpReward } from "@/lib/habit-xp";
 
 type Client = SupabaseClient<Database>;
 
@@ -141,9 +142,10 @@ export const getJourney = createServerFn({ method: "POST" })
       throw new Error("Não foi possível inicializar seu perfil de herói. Tente sair e entrar de novo.");
     }
 
-    const [levels, wallpapers] = await Promise.all([
+    const [levels, wallpapers, habitXpReward] = await Promise.all([
       loadLevelsFromDb(),
       loadWallpapersFromDb(),
+      resolveHabitXpReward(),
     ]);
 
     return {
@@ -154,6 +156,7 @@ export const getJourney = createServerFn({ method: "POST" })
       achievements: achRes.data ?? [],
       levels,
       wallpapers,
+      habitXpReward,
     };
   });
 
@@ -250,7 +253,7 @@ export const completeHabit = createServerFn({ method: "POST" })
     const prof = profRes.data;
     if (!prof) throw new Error("Perfil não encontrado");
 
-    const xp = habit.xp_recompensa ?? 10;
+    const xp = await resolveHabitXpReward();
     const ontemStr = ontemISO();
 
     let streak = prof.streak_atual;
@@ -388,8 +391,7 @@ export const createHabit = createServerFn({ method: "POST" })
     z
       .object({
         titulo: z.string().trim().min(2).max(80),
-        descricao: z.string().trim().max(280).optional(),
-        xp_recompensa: z.number().int().min(5).max(50).default(10),
+        descricao: z.string().trim().max(280).optional().nullable(),
         atributo: z.enum([
           "forca",
           "disciplina",
@@ -409,9 +411,18 @@ export const createHabit = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     await requireOnboardingComplete(supabase as Client, userId);
+    const xp = await resolveHabitXpReward();
+    const descricao = data.descricao?.trim() ? data.descricao.trim() : null;
     const { data: row, error } = await supabase
       .from("habits")
-      .insert({ user_id: userId, ...data })
+      .insert({
+        user_id: userId,
+        titulo: data.titulo,
+        descricao,
+        atributo: data.atributo,
+        categoria: data.categoria,
+        xp_recompensa: xp,
+      })
       .select(HABIT_COLS)
       .single();
     if (error) throw new Error(error.message);
@@ -426,8 +437,7 @@ export const updateHabit = createServerFn({ method: "POST" })
       .object({
         id: z.string().uuid(),
         titulo: z.string().trim().min(2).max(80),
-        descricao: z.string().trim().max(280).optional(),
-        xp_recompensa: z.number().int().min(5).max(50),
+        descricao: z.string().trim().max(280).optional().nullable(),
         atributo: z.enum([
           "forca",
           "disciplina",
@@ -448,10 +458,12 @@ export const updateHabit = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     await requireOnboardingComplete(supabase as Client, userId);
-    const { id, ...fields } = data;
+    const xp = await resolveHabitXpReward();
+    const { id, descricao: rawDesc, ...rest } = data;
+    const descricao = rawDesc?.trim() ? rawDesc.trim() : null;
     const { data: row, error } = await supabase
       .from("habits")
-      .update(fields)
+      .update({ ...rest, descricao, xp_recompensa: xp })
       .eq("id", id)
       .eq("user_id", userId)
       .select(HABIT_COLS)

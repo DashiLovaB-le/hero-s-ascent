@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { chatCompletion } from "@/mentor/openrouter";
+import { HABIT_XP_DEFAULT, resolveHabitXpReward } from "@/lib/habit-xp";
 
 const ATTR = [
   "forca",
@@ -26,7 +27,8 @@ const CAT = [
 const habitSuggestionSchema = z.object({
   titulo: z.string().trim().min(2).max(80),
   descricao: z.string().trim().max(280).optional(),
-  xp_recompensa: z.number().int().min(5).max(50).default(15),
+  /** Ignorado no insert — XP vem do padrão do sistema. Mantido para UI legada. */
+  xp_recompensa: z.number().int().min(5).max(50).optional().default(HABIT_XP_DEFAULT),
   atributo: z.enum(ATTR),
   categoria: z.enum(CAT),
 });
@@ -158,6 +160,7 @@ export const suggestHabitsFromGoals = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { userId, supabase } = context;
     checkRateLimit(userId);
+    const xp = await resolveHabitXpReward();
 
     const cats =
       data.categories?.length
@@ -170,7 +173,7 @@ export const suggestHabitsFromGoals = createServerFn({ method: "POST" })
       .eq("id", userId)
       .maybeSingle();
 
-    const fallback = fallbackHabits(cats, 5);
+    const fallback = stampXp(fallbackHabits(cats, 5), xp);
 
     if (!process.env.OPENROUTER_API_KEY) {
       return { habits: fallback, source: "fallback" as const };
@@ -187,7 +190,8 @@ export const suggestHabitsFromGoals = createServerFn({ method: "POST" })
             role: "system",
             content: `Você é Charlie, mentor do V-Project. Sugira hábitos diários práticos em JSON.
 Responda SOMENTE um objeto JSON: { "habits": [ ... ] }
-Cada hábito: titulo (pt-BR, curto), descricao (opcional), xp_recompensa (10-25), atributo (um de: ${ATTR.join(", ")}), categoria (um de: ${CAT.join(", ")}).
+Cada hábito: titulo (pt-BR, curto), descricao (1 frase concreta, opcional mas útil), atributo (um de: ${ATTR.join(", ")}), categoria (um de: ${CAT.join(", ")}).
+NÃO invente xp_recompensa — o sistema define o XP.
 Máximo 5 hábitos. Prefira 1 por categoria focada. Tom masculino direto, sem fluff.`,
           },
           {
@@ -206,14 +210,18 @@ ${goalsText}`,
       const parsed = JSON.parse(result.content) as { habits?: unknown };
       const arr = z.array(habitSuggestionSchema).min(1).max(5).safeParse(parsed.habits);
       if (!arr.success) {
-        return { habits: fallback, source: "fallback" as const };
+        return { habits: stampXp(fallback, xp), source: "fallback" as const };
       }
-      return { habits: arr.data, source: "ai" as const };
+      return { habits: stampXp(arr.data, xp), source: "ai" as const };
     } catch (e) {
       console.error("[habit-suggest]", e);
-      return { habits: fallback, source: "fallback" as const };
+      return { habits: stampXp(fallback, xp), source: "fallback" as const };
     }
   });
+
+function stampXp(habits: HabitSuggestion[], xp: number): HabitSuggestion[] {
+  return habits.map((h) => ({ ...h, xp_recompensa: xp }));
+}
 
 export const createHabitsBulk = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -236,11 +244,12 @@ export const createHabitsBulk = createServerFn({ method: "POST" })
       throw new Error("Conclua o onboarding antes de criar hábitos.");
     }
 
+    const xp = await resolveHabitXpReward();
     const rows = data.habits.map((h) => ({
       user_id: userId,
       titulo: h.titulo,
-      descricao: h.descricao ?? null,
-      xp_recompensa: h.xp_recompensa,
+      descricao: h.descricao?.trim() ? h.descricao.trim() : null,
+      xp_recompensa: xp,
       atributo: h.atributo,
       categoria: h.categoria,
       ativo: true,

@@ -7,6 +7,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { evaluateProgress } from "@/lib/progress-engine";
 import { ensureChapterMissions } from "@/lib/missions-core";
 import { hojeISO } from "@/lib/datetime";
+import { resolveHabitXpReward } from "@/lib/habit-xp";
 
 type Client = SupabaseClient<Database>;
 
@@ -549,13 +550,14 @@ export const createHabitForGoal = createServerFn({ method: "POST" })
     if (!goal) throw new Error("Meta não encontrada.");
     if (goal.status === "concluida") throw new Error("Meta já concluída.");
 
+    const xp = await resolveHabitXpReward();
     const { data: row, error } = await supabase
       .from("habits")
       .insert({
         user_id: userId,
         titulo: data.titulo,
         descricao: `Sustenta a meta: ${goal.titulo}`,
-        xp_recompensa: 10,
+        xp_recompensa: xp,
         atributo: ATTR_BY_CAT[goal.categoria],
         categoria: goal.categoria,
         goal_id: goal.id,
