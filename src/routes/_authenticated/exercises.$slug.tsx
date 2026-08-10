@@ -13,6 +13,7 @@ import {
   startExerciseSession,
 } from "@/lib/exercise.functions";
 import { EXERCISE_CONSENT_VERSION, PUSHUP_SLUG } from "@/lib/exercise-xp";
+import { getExerciseDefinition } from "@/lib/exercise/registry";
 import { showXpGainPopup } from "@/components/XpGainPopup";
 import { ExerciseSessionCameraModal } from "@/components/ExerciseSessionCameraModal";
 import { ExerciseRankingCard } from "@/components/ExerciseRankingCard";
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/_authenticated/exercises/$slug")({
 
 function ExerciseSessionPage() {
   const { slug } = Route.useParams();
+  const def = getExerciseDefinition(slug);
   const qc = useQueryClient();
   const ensureFn = useServerFn(ensureValidatedExerciseHabit);
   const startFn = useServerFn(startExerciseSession);
@@ -39,6 +41,7 @@ function ExerciseSessionPage() {
 
   const pageQuery = useQuery({
     queryKey: ["exercise-page", slug] as const,
+    enabled: Boolean(def),
     queryFn: () =>
       runQueryFn(
         async () => {
@@ -101,9 +104,10 @@ function ExerciseSessionPage() {
     },
     onSuccess: (res, metrics) => {
       resetSessionLocal();
+      const unit = def?.mode === "hold" ? "s" : "reps";
       showXpGainPopup({
         xp: res.xpGanho,
-        detail: `${res.metrics?.reps_validas ?? metrics.reps_validas} reps · forma ${res.metrics?.forma_pct ?? metrics.forma_pct}%`,
+        detail: `${res.metrics?.reps_validas ?? metrics.reps_validas}${unit} · forma ${res.metrics?.forma_pct ?? metrics.forma_pct}%`,
       });
       void qc.invalidateQueries({ queryKey: ["exercise-page", slug] });
       void qc.invalidateQueries({ queryKey: ["journey"] });
@@ -130,6 +134,17 @@ function ExerciseSessionPage() {
     resetSessionLocal();
   }, [slug]);
 
+  if (!def) {
+    return (
+      <div className="space-y-4 p-6">
+        <p className="text-destructive">Exercício desconhecido.</p>
+        <Link to="/fitness">
+          <Button variant="outline">Voltar ao Fitness</Button>
+        </Link>
+      </div>
+    );
+  }
+
   if (pageQuery.isLoading) {
     return <div className="p-6 text-sm text-muted-foreground">Carregando exercício…</div>;
   }
@@ -139,8 +154,11 @@ function ExerciseSessionPage() {
         <p className="text-destructive">
           {pageQuery.error instanceof Error ? pageQuery.error.message : "Exercício indisponível."}
         </p>
-        <Link to="/habits">
-          <Button variant="outline">Voltar aos hábitos</Button>
+        <p className="text-xs text-muted-foreground">
+          Se o tipo ainda não existe no banco, rode a migration de Fitness.
+        </p>
+        <Link to="/fitness">
+          <Button variant="outline">Voltar ao Fitness</Button>
         </Link>
       </div>
     );
@@ -153,7 +171,7 @@ function ExerciseSessionPage() {
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div className="flex items-start gap-3">
-        <Link to="/habits" className="mt-1">
+        <Link to={isPushup ? "/habits" : "/fitness"} className="mt-1">
           <Button size="icon" variant="ghost" aria-label="Voltar">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -162,8 +180,7 @@ function ExerciseSessionPage() {
           <p className="text-[0.65rem] uppercase tracking-[0.28em] text-hero">Exercício validado</p>
           <h1 className="font-display text-2xl font-bold">{exerciseType.nome}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {exerciseType.descricao ??
-              "A câmera acompanha a execução sem gravar vídeo. XP híbrido: base + reps × forma."}
+            {exerciseType.descricao ?? def.shortBlurb}
           </p>
         </div>
       </div>
@@ -176,28 +193,27 @@ function ExerciseSessionPage() {
           <div className="min-w-0 flex-1 space-y-2 text-sm">
             <p>
               XP: base <strong>{exerciseType.xp_base}</strong> +{" "}
-              <strong>{exerciseType.xp_por_rep_valida}</strong>/rep válida · teto{" "}
+              <strong>{exerciseType.xp_por_rep_valida}</strong>/
+              {def.mode === "hold" ? "s" : "rep"} · teto{" "}
               <strong>{exerciseType.xp_sessao_max}</strong>/sessão · máx.{" "}
               <strong>{exerciseType.sessoes_por_dia_max}</strong>/dia
             </p>
             <p className="text-xs text-muted-foreground">
               Estimativa de execução — não é avaliação médica. Nada de vídeo é salvo.
             </p>
-            {isPushup ? (
-              <label className="flex items-start gap-2 text-xs leading-snug">
-                <input
-                  type="checkbox"
-                  className="mt-0.5"
-                  checked={consent}
-                  onChange={(e) => setConsent(e.target.checked)}
-                  disabled={cameraOpen}
-                />
-                <span>
-                  Autorizo o uso da câmera neste dispositivo só para acompanhar a sessão em tempo
-                  real (consentimento {EXERCISE_CONSENT_VERSION}).
-                </span>
-              </label>
-            ) : null}
+            <label className="flex items-start gap-2 text-xs leading-snug">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                disabled={cameraOpen}
+              />
+              <span>
+                Autorizo o uso da câmera neste dispositivo só para acompanhar a sessão em tempo
+                real (consentimento {EXERCISE_CONSENT_VERSION}).
+              </span>
+            </label>
           </div>
         </div>
 
@@ -230,7 +246,7 @@ function ExerciseSessionPage() {
                 <p className="text-xs text-muted-foreground">
                   {new Date(s.started_at).toLocaleString("pt-BR")}
                   {s.metrics
-                    ? ` · ${s.metrics.reps_validas} reps · forma ${s.metrics.forma_pct ?? "—"}%`
+                    ? ` · ${s.metrics.reps_validas} ${def.mode === "hold" ? "s" : "reps"} · forma ${s.metrics.forma_pct ?? "—"}%`
                     : ""}
                 </p>
               </div>
@@ -242,6 +258,7 @@ function ExerciseSessionPage() {
 
       <ExerciseSessionCameraModal
         open={cameraOpen && Boolean(sessionId)}
+        slug={slug}
         exerciseName={exerciseType.nome}
         busy={busy}
         onCloseRequest={() => {

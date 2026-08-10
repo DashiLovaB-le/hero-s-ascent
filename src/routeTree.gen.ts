@@ -48,6 +48,7 @@ import { Route as AuthenticatedMentorRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedJourneyRouteImport } from './routes/_authenticated/journey'
 import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated/habits'
 import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
+import { Route as AuthenticatedFitnessRouteImport } from './routes/_authenticated/fitness'
 import { Route as DashitecnologyUsersIndexRouteImport } from './routes/dashitecnology/users.index'
 import { Route as DashitecnologyUsersUserIdRouteImport } from './routes/dashitecnology/users.$userId'
 import { Route as AuthenticatedExercisesRankingRouteImport } from './routes/_authenticated/exercises.ranking'
@@ -252,6 +253,11 @@ const AuthenticatedGoalsRoute = AuthenticatedGoalsRouteImport.update({
   path: '/goals',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedFitnessRoute = AuthenticatedFitnessRouteImport.update({
+  id: '/fitness',
+  path: '/fitness',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const DashitecnologyUsersIndexRoute =
   DashitecnologyUsersIndexRouteImport.update({
     id: '/',
@@ -285,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/obrigado': typeof ObrigadoRoute
   '/parceiros': typeof ParceirosRoute
   '/sobre': typeof SobreRoute
+  '/fitness': typeof AuthenticatedFitnessRoute
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/journey': typeof AuthenticatedJourneyRoute
@@ -328,6 +335,7 @@ export interface FileRoutesByTo {
   '/obrigado': typeof ObrigadoRoute
   '/parceiros': typeof ParceirosRoute
   '/sobre': typeof SobreRoute
+  '/fitness': typeof AuthenticatedFitnessRoute
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/journey': typeof AuthenticatedJourneyRoute
@@ -373,6 +381,7 @@ export interface FileRoutesById {
   '/obrigado': typeof ObrigadoRoute
   '/parceiros': typeof ParceirosRoute
   '/sobre': typeof SobreRoute
+  '/_authenticated/fitness': typeof AuthenticatedFitnessRoute
   '/_authenticated/goals': typeof AuthenticatedGoalsRoute
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/journey': typeof AuthenticatedJourneyRoute
@@ -419,6 +428,7 @@ export interface FileRouteTypes {
     | '/obrigado'
     | '/parceiros'
     | '/sobre'
+    | '/fitness'
     | '/goals'
     | '/habits'
     | '/journey'
@@ -462,6 +472,7 @@ export interface FileRouteTypes {
     | '/obrigado'
     | '/parceiros'
     | '/sobre'
+    | '/fitness'
     | '/goals'
     | '/habits'
     | '/journey'
@@ -506,6 +517,7 @@ export interface FileRouteTypes {
     | '/obrigado'
     | '/parceiros'
     | '/sobre'
+    | '/_authenticated/fitness'
     | '/_authenticated/goals'
     | '/_authenticated/habits'
     | '/_authenticated/journey'
@@ -830,6 +842,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGoalsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/fitness': {
+      id: '/_authenticated/fitness'
+      path: '/fitness'
+      fullPath: '/fitness'
+      preLoaderRoute: typeof AuthenticatedFitnessRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/dashitecnology/users/': {
       id: '/dashitecnology/users/'
       path: '/'
@@ -862,6 +881,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedFitnessRoute: typeof AuthenticatedFitnessRoute
   AuthenticatedGoalsRoute: typeof AuthenticatedGoalsRoute
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedJourneyRoute: typeof AuthenticatedJourneyRoute
@@ -874,6 +894,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedFitnessRoute: AuthenticatedFitnessRoute,
   AuthenticatedGoalsRoute: AuthenticatedGoalsRoute,
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedJourneyRoute: AuthenticatedJourneyRoute,

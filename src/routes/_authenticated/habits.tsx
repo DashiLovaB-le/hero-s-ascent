@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Plus, Trash2, Pencil, Sparkles, Check, ChevronsUp, ArrowRight } from "lucide-react";
+import { Plus, Trash2, Pencil, Sparkles, Check, ChevronsUp, ArrowRight, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -327,6 +327,22 @@ function HabitsPage() {
             <p className="mt-0.5 text-xs text-muted-foreground">
               Sessão com câmera · sem gravar vídeo · XP por evidência
               {validatedHabits.length > 0 ? " · hábito ativo" : ""}
+            </p>
+          </div>
+          <ArrowRight className="h-4 w-4 shrink-0 text-hero" />
+        </div>
+      </Link>
+
+      <Link to="/fitness" className="block">
+        <div className="cp-panel flex items-center gap-4 border border-transparent bg-card p-4 transition-[filter] hover:brightness-110">
+          <div className="grid h-12 w-12 place-items-center bg-hero/15 text-hero">
+            <Dumbbell className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">Charlie Fitness</p>
+            <p className="font-display text-lg leading-tight">Treino em casa</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Hub completo · agachamento, prancha e mais · câmera on-device
             </p>
           </div>
           <ArrowRight className="h-4 w-4 shrink-0 text-hero" />

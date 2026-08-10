@@ -17,4 +17,26 @@ export default defineConfig({
   nitro: {
     preset: "vercel",
   },
+  vite: {
+    // Windows + projeto grande: cold start do SSR pode passar de 60s e o module-runner
+    // estoura `transport invoke timed out` ao importar virtual:tanstack-start-server-entry.
+    // Ignorar pastas nativas/artefatos reduz I/O do watcher; warmup antecipa o grafo SSR.
+    server: {
+      watch: {
+        ignored: [
+          "**/android/**",
+          "**/ios/**",
+          "**/.vercel/**",
+          "**/www/**",
+          "**/.wrangler/**",
+          "**/ml/.venv/**",
+          "**/ml/**/__pycache__/**",
+          "**/supabase/functions/**/.deno/**",
+        ],
+      },
+      warmup: {
+        ssrFiles: ["./src/server.ts", "./src/start.ts", "./src/router.tsx"],
+      },
+    },
+  },
 });

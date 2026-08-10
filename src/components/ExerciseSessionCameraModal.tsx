@@ -3,12 +3,14 @@ import { Camera, RefreshCw, Square, SwitchCamera, X } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useExerciseCamera } from "@/lib/useExerciseCamera";
-import { usePushupPoseTracker } from "@/lib/exercise/usePushupPoseTracker";
+import { useExercisePoseTracker } from "@/lib/exercise/useExercisePoseTracker";
+import { getExerciseDefinition } from "@/lib/exercise/registry";
 import { isNativePlatform, requestSessionWakeLock } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 
 export type ExerciseSessionCameraModalProps = {
   open: boolean;
+  slug: string;
   exerciseName: string;
   busy?: boolean;
   onCloseRequest: () => void;
@@ -31,17 +33,20 @@ function formatElapsed(ms: number) {
 const STAGE_LABEL: Record<string, string> = {
   framing: "Enquadramento",
   calibrating: "Calibração",
-  tracking: "Contando",
+  tracking: "Executando",
 };
 
 export function ExerciseSessionCameraModal({
   open,
+  slug,
   exerciseName,
   busy,
   onCloseRequest,
   onComplete,
   onCancel,
 }: ExerciseSessionCameraModalProps) {
+  const def = getExerciseDefinition(slug);
+  const mode = def?.mode ?? "reps";
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [elapsedMs, setElapsedMs] = useState(0);
   const [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
@@ -55,7 +60,6 @@ export function ExerciseSessionCameraModal({
 
   const live = open && state === "live" && !error;
 
-  // Sessão de flexão: manter tela acesa (mobile / nativo)
   useEffect(() => {
     if (!open) return;
     let release: (() => void) | undefined;
@@ -74,7 +78,8 @@ export function ExerciseSessionCameraModal({
     };
   }, [open]);
 
-  const { session, ready, poseError, recalibrate } = usePushupPoseTracker({
+  const { session, ready, poseError, recalibrate } = useExercisePoseTracker({
+    slug,
     enabled: live,
     video: videoEl,
     canvas: canvasEl,
@@ -83,6 +88,8 @@ export function ExerciseSessionCameraModal({
 
   const counter = session.counter;
   const isTracking = session.stage === "tracking";
+  const holdSec = Math.floor((counter.holdMs ?? 0) / 1000);
+  const minHold = def?.minHoldSecToFinish ?? 5;
 
   useEffect(() => {
     if (!open) {
@@ -105,7 +112,6 @@ export function ExerciseSessionCameraModal({
     return () => window.clearInterval(id);
   }, [open, isTracking]);
 
-  // Trocar câmera invalida o ângulo calibrado — recomeça o fluxo.
   const prevFacingRef = useRef(facingMode);
   useEffect(() => {
     if (prevFacingRef.current === facingMode) return;
@@ -123,7 +129,9 @@ export function ExerciseSessionCameraModal({
     state === "live" &&
     !error &&
     isTracking &&
-    (counter.repsValidas > 0 || counter.repsInvalidas > 0);
+    (mode === "hold"
+      ? holdSec >= minHold
+      : counter.repsValidas > 0 || counter.repsInvalidas > 0);
 
   const coachTone =
     session.flash === "valid"
@@ -238,16 +246,18 @@ export function ExerciseSessionCameraModal({
                 <div className="flex items-end gap-6 rounded-lg bg-black/55 px-5 py-3 backdrop-blur-sm">
                   <div className="text-center">
                     <p className="font-mono text-4xl font-semibold tabular-nums text-hero">
-                      {counter.repsValidas}
+                      {mode === "hold" ? holdSec : counter.repsValidas}
                     </p>
-                    <p className="text-[0.65rem] uppercase tracking-wider text-white/70">Válidas</p>
+                    <p className="text-[0.65rem] uppercase tracking-wider text-white/70">
+                      {mode === "hold" ? "Segundos" : "Válidas"}
+                    </p>
                   </div>
                   <div className="text-center">
                     <p className="font-mono text-2xl tabular-nums text-white/85">
-                      {counter.repsInvalidas}
+                      {mode === "hold" ? counter.repsInvalidas : counter.repsInvalidas}
                     </p>
                     <p className="text-[0.65rem] uppercase tracking-wider text-white/55">
-                      Inválidas
+                      {mode === "hold" ? "Quebras" : "Inválidas"}
                     </p>
                   </div>
                 </div>
@@ -264,7 +274,7 @@ export function ExerciseSessionCameraModal({
 
               {session.stage === "framing" ? (
                 <p className="text-center text-xs text-white/55">
-                  Celular estável · corpo inteiro na guia · braços estendidos
+                  Celular estável · corpo na guia · posição inicial
                 </p>
               ) : null}
             </div>
@@ -310,7 +320,7 @@ export function ExerciseSessionCameraModal({
               <p className="font-mono text-lg text-foreground">
                 {isTracking ? `${counter.amplitudeMedia}%` : "—"}
               </p>
-              <p>Amplitude</p>
+              <p>{mode === "hold" ? "Progresso" : "Amplitude"}</p>
             </div>
             <div>
               <p className="font-mono text-lg text-foreground">
@@ -322,7 +332,7 @@ export function ExerciseSessionCameraModal({
               <p className="font-mono text-lg text-foreground">
                 {counter.elbowAngle != null ? `${Math.round(counter.elbowAngle)}°` : "—"}
               </p>
-              <p>Cotovelo</p>
+              <p>Ângulo</p>
             </div>
           </div>
 
@@ -332,7 +342,10 @@ export function ExerciseSessionCameraModal({
               disabled={!canFinish}
               onClick={() =>
                 onComplete({
-                  reps_validas: counter.repsValidas,
+                  reps_validas: Math.max(
+                    1,
+                    mode === "hold" ? holdSec : counter.repsValidas,
+                  ),
                   reps_invalidas: counter.repsInvalidas,
                   forma_pct: counter.formaPct,
                   amplitude_media: counter.amplitudeMedia,
@@ -348,8 +361,10 @@ export function ExerciseSessionCameraModal({
           {!canFinish && state === "live" && !error ? (
             <p className="text-xs text-muted-foreground">
               {isTracking
-                ? "Faça ao menos uma repetição para encerrar."
-                : "Enquadre, calibre (~3s parado) e depois conte as reps."}
+                ? mode === "hold"
+                  ? `Segure pelo menos ${minHold}s alinhado para encerrar.`
+                  : "Faça ao menos uma repetição para encerrar."
+                : "Enquadre, calibre (~3s parado) e depois execute."}
             </p>
           ) : null}
         </div>

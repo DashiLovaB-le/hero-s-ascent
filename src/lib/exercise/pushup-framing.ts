@@ -26,6 +26,7 @@ export type FramingIssue =
   | "elbows"
   | "wrists"
   | "hips"
+  | "ankles"
   | "outside_guide"
   | "too_small"
   | "too_large";
@@ -62,6 +63,7 @@ const KEY_GROUPS: Array<{ issue: FramingIssue; idxs: number[]; minVis: number }>
 export function evaluateFraming(
   landmarks: LandmarkPoint[] | null | undefined,
   guide: GuideRect = DEFAULT_GUIDE,
+  opts?: { requireAnkles?: boolean },
 ): FramingReport {
   if (!landmarks || landmarks.length < 29) {
     return { ok: false, issues: ["no_pose"], coverage: 0, shoulderSpan: null };
@@ -70,7 +72,16 @@ export function evaluateFraming(
   const issues: FramingIssue[] = [];
   const visiblePts: LandmarkPoint[] = [];
 
-  for (const group of KEY_GROUPS) {
+  const groups = [...KEY_GROUPS];
+  if (opts?.requireAnkles) {
+    groups.push({
+      issue: "ankles",
+      idxs: [LM.LEFT_ANKLE, LM.RIGHT_ANKLE],
+      minVis: 0.25,
+    });
+  }
+
+  for (const group of groups) {
     const pts = group.idxs
       .map((i) => landmarks[i])
       .filter((p): p is LandmarkPoint => !!p && vis(p) >= group.minVis);
@@ -122,6 +133,7 @@ export const FRAMING_COPY: Record<FramingIssue, string> = {
   elbows: "Cotovelos precisam aparecer.",
   wrists: "Mãos/punhos na câmera.",
   hips: "Inclua o quadril no enquadramento.",
+  ankles: "Mostre os tornozelos / pernas.",
   outside_guide: "Centralize o tronco na guia.",
   too_small: "Aproxime-se um pouco da câmera.",
   too_large: "Afaste-se um pouco da câmera.",
