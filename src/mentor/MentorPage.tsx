@@ -23,6 +23,7 @@ import {
 import { parseMentorAiPayload } from "@/mentor/context";
 import { mentorThreadQueryOptions, type MentorThreadData } from "@/mentor/queries";
 import { readMentorFocusMode, writeMentorFocusMode } from "@/mentor/focus-mode";
+import { CharlieChessModal } from "@/mentor/CharlieChessModal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -62,6 +63,7 @@ export function MentorPage() {
   );
   const [presencePending, setPresencePending] = useState(false);
   const [focusMode, setFocusMode] = useState(() => readMentorFocusMode());
+  const [chessOpen, setChessOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const presenceStarted = useRef(false);
 
@@ -500,26 +502,50 @@ export function MentorPage() {
             <p className="truncate text-[0.65rem] uppercase tracking-[0.2em] text-muted-foreground">
               {focusMode ? "Modo foco" : "Conversa"}
             </p>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={toggleFocusMode}
-              aria-pressed={focusMode}
-              aria-label={focusMode ? "Mostrar menu e navbar" : "Esconder menu e navbar"}
-              title={focusMode ? "Mostrar menu" : "Ampliar área do chat"}
-            >
-              <img
-                src="/icons/full-screen-chat.png"
-                alt=""
-                className="mentor-focus-icon h-3.5 w-3.5 object-contain"
-                aria-hidden
-              />
-              <span className="hidden sm:inline">
-                {focusMode ? "Mostrar menu" : "Ampliar chat"}
-              </span>
-            </Button>
+            <div className="flex shrink-0 items-center gap-0.5">
+              {focusMode ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    // Tira o foco do trigger antes do Dialog aplicar aria-hidden no layout
+                    (document.activeElement as HTMLElement | null)?.blur?.();
+                    setChessOpen(true);
+                  }}
+                  aria-label="Jogar xadrez com o Charlie"
+                  title="Xadrez com Charlie"
+                >
+                  <img
+                    src="/icons/chess.png"
+                    alt=""
+                    className="h-3.5 w-3.5 object-contain"
+                    aria-hidden
+                  />
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={toggleFocusMode}
+                aria-pressed={focusMode}
+                aria-label={focusMode ? "Mostrar menu e navbar" : "Esconder menu e navbar"}
+                title={focusMode ? "Mostrar menu" : "Ampliar área do chat"}
+              >
+                <img
+                  src="/icons/full-screen-chat.png"
+                  alt=""
+                  className="mentor-focus-icon h-3.5 w-3.5 object-contain"
+                  aria-hidden
+                />
+                <span className="hidden sm:inline">
+                  {focusMode ? "Mostrar menu" : "Ampliar chat"}
+                </span>
+              </Button>
+            </div>
           </div>
 
           <ScrollArea className="min-h-0 min-w-0 flex-1">
@@ -605,6 +631,8 @@ export function MentorPage() {
           </div>
         </div>
       </div>
+
+      <CharlieChessModal open={chessOpen} onOpenChange={setChessOpen} />
     </div>
   );
 }

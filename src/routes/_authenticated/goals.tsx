@@ -484,7 +484,7 @@ function GoalCard({
         goal.overdue && "border-amber-500/40",
       )}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-lg">{c?.emoji}</span>
@@ -504,11 +504,8 @@ function GoalCard({
             {c?.nome}
             {prazoLabel ? ` · até ${prazoLabel}` : ""}
           </p>
-          {goal.motivo ? (
-            <p className="mt-2 text-sm text-foreground/80">“{goal.motivo}”</p>
-          ) : null}
         </div>
-        <div className="flex flex-wrap gap-1">
+        <div className="flex shrink-0 flex-wrap justify-end gap-1">
           {goal.status === "ativa" ? (
             <>
               <Button size="sm" className="shadow-hero" disabled={busy} onClick={onComplete}>
@@ -537,6 +534,12 @@ function GoalCard({
           </Button>
         </div>
       </div>
+
+      {goal.motivo ? (
+        <p className="mt-3 w-full text-sm leading-relaxed text-foreground/80">
+          “{goal.motivo}”
+        </p>
+      ) : null}
 
       {!compact ? (
         <>

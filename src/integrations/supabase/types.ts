@@ -1531,6 +1531,42 @@ export type Database = {
         }
         Relationships: []
       }
+      charlie_chess_games: {
+        Row: {
+          id: string
+          user_id: string
+          fen: string
+          pgn: string
+          status: string
+          player_color: string
+          result_reason: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          fen?: string
+          pgn?: string
+          status?: string
+          player_color?: string
+          result_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          fen?: string
+          pgn?: string
+          status?: string
+          player_color?: string
+          result_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       charlie_alarms: {
         Row: {
           id: string
