@@ -5,11 +5,11 @@ Alinhado ao código atual (`src/lib/exercise/*`, `exercise.functions.ts`, `exerc
 
 | Campo | Valor |
 | --- | --- |
-| **Status** | Fase 1 código + seeds entregues; Fase 2/3 e aceite device pendentes |
+| **Status** | Fase 2 código + migration prontos; aceite device + Fase 3 pendentes |
 | **Produto** | “Treino com o Charlie” — não biblioteca genérica de academia |
 | **Privacidade** | Pose **on-device**; **sem** gravar/enviar vídeo |
 | **Base** | MediaPipe PoseLandmarker (já em produção na flexão) |
-| **Atualizado** | 2026-08-10 (implementação engine + hub + seeds) |
+| **Atualizado** | 2026-08-10 (Workout Engine + templates + player) |
 
 ---
 
@@ -135,7 +135,7 @@ Já existe:
 - [x] Engine genérico (`ExerciseDefinition` + registry)
 - [x] Slugs: `squat`, `plank`, `lunge`, `situp`, `glute_bridge` (+ `pushup`)
 - [x] Hub `/fitness` + card em `/habits`
-- [ ] Workout multi-exercício (Fase 2)
+- [x] Workout multi-exercício (Fase 2)
 - [ ] Charlie montando treinos (Fase 3)
 
 Arquivos âncora:
@@ -266,43 +266,43 @@ Objetivo: uma sessão = sequência de exercícios, não só um movimento avulso.
 
 #### 2A — Modelo de dados
 
-- [ ] Spec de `workout_templates` (catálogo global ou seed)
-  - [ ] id, slug, título, dificuldade, duração alvo, lista ordenada de steps
-- [ ] Spec de `workout_sessions`
-  - [ ] user_id, template_id (nullable se custom), status, started/ended
-  - [ ] steps: exercise_type_id, target reps/hold/sets, rest_ms
-- [ ] Spec de progresso do step (ligar a `exercise_sessions` existentes **ou** metrics embutidas)
-- [ ] Migration + RLS (padrão: SELECT own; writes service role / server fn)
-- [ ] Decisão: treino gera **uma** activity/XP consolidada **ou** XP por exercício (recomendado: consolidada + breakdown)
+- [x] Spec de `workout_templates` (catálogo global ou seed)
+  - [x] id, slug, título, dificuldade, duração alvo, lista ordenada de steps
+- [x] Spec de `workout_sessions`
+  - [x] user_id, template_id (nullable se custom), status, started/ended
+  - [x] steps: exercise_type_id, target reps/hold/sets, rest_ms
+- [x] Spec de progresso do step (ligar a `exercise_sessions` existentes **ou** metrics embutidas)
+- [x] Migration + RLS (padrão: SELECT own; writes service role / server fn)
+- [x] Decisão: treino gera **uma** activity/XP consolidada **ou** XP por exercício (recomendado: consolidada + breakdown)
 
 #### 2B — Server / XP
 
-- [ ] `startWorkout` / `advanceWorkoutStep` / `completeWorkout` / `cancelWorkout`
-- [ ] Descanso: timer client-side; server só marca timestamps
-- [ ] Cap anti-farm (ex.: N treinos/dia ou teto XP workout)
-- [ ] Integração atributos (Força / Disciplina) alinhada a `progress-engine`
+- [x] `startWorkout` / `advanceWorkoutStep` / `completeWorkout` / `cancelWorkout`
+- [x] Descanso: timer client-side; server só marca timestamps
+- [x] Cap anti-farm (ex.: N treinos/dia ou teto XP workout)
+- [x] Integração atributos (Força / Disciplina) alinhada a `progress-engine`
 
 #### 2C — UI hub `/fitness` (completo)
 
 O **card novo em `/habits` → `/fitness`** e a lista de exercícios avulsos **já existem** (shell Fase 1). Nesta fase o hub ganha o player de treino.
 
 - [x] Hub `/fitness` shell + lista avulsa
-  - [ ] Escolha: Força / Peito e braços / Pernas / Corpo inteiro / Core  
-  - [ ] Preview do treino (lista de steps)
+  - [x] Escolha: Força / Peito e braços / Pernas / Corpo inteiro / Core  
+  - [x] Preview do treino (lista de steps)
   - [x] Lista de exercícios avulsos → `/exercises/$slug`
-- [ ] Player de treino
-  - [ ] Step atual → abre câmera do `ExerciseDefinition`
-  - [ ] Entre steps: tela de descanso + “Próximo”
-  - [ ] Fim: resumo XP + reps/holds
-- [ ] Histórico curto (últimos treinos)
+- [x] Player de treino
+  - [x] Step atual → abre câmera do `ExerciseDefinition`
+  - [x] Entre steps: tela de descanso + “Próximo”
+  - [x] Fim: resumo XP + reps/holds
+- [x] Histórico curto (últimos treinos)
 - [x] Regressão: card de flexão em `/habits` ainda aponta só para `/exercises/pushup`
 
 #### 2D — Templates seed (corpo inteiro)
 
-- [ ] Template **Corpo inteiro 12 min** (usa catálogo §1.4)
-- [ ] Template **Pernas**
-- [ ] Template **Push + core**
-- [ ] (Opcional) dificuldade fácil/médio via reps/hold menores
+- [x] Template **Corpo inteiro 12 min** (usa catálogo §1.4)
+- [x] Template **Pernas**
+- [x] Template **Push + core**
+- [x] (Opcional) dificuldade fácil/médio via reps/hold menores
 
 **Gate Fase 2:** 1 template corpo inteiro completo em device + XP creditado 1×.
 

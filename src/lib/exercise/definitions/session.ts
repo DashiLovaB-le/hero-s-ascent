@@ -29,7 +29,7 @@ import type {
 type CounterLike = {
   update: (
     landmarks: LandmarkPoint[] | null | undefined,
-    nowMs?: number,
+    nowMs: number,
   ) => ExerciseCounterSnapshot;
   reset: () => ExerciseCounterSnapshot;
   snapshot: () => ExerciseCounterSnapshot;
@@ -188,10 +188,7 @@ export function createGenericExerciseSession(opts: {
     }
 
     // tracking
-    counterSnap =
-      opts.mode === "hold"
-        ? counter.update(landmarks, nowMs)
-        : counter.update(landmarks);
+    counterSnap = counter.update(landmarks, nowMs);
 
     if (opts.mode === "reps") {
       if (counterSnap.repsValidas > lastRepsValid) {

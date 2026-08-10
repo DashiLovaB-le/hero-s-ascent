@@ -53,6 +53,8 @@ import { Route as DashitecnologyUsersIndexRouteImport } from './routes/dashitecn
 import { Route as DashitecnologyUsersUserIdRouteImport } from './routes/dashitecnology/users.$userId'
 import { Route as AuthenticatedExercisesRankingRouteImport } from './routes/_authenticated/exercises.ranking'
 import { Route as AuthenticatedExercisesSlugRouteImport } from './routes/_authenticated/exercises.$slug'
+import { Route as AuthenticatedFitnessWorkoutSlugRouteImport } from './routes/_authenticated/fitness.workout.$slug'
+import { Route as AuthenticatedFitnessPlayWorkoutIdRouteImport } from './routes/_authenticated/fitness.play.$workoutId'
 
 const SobreRoute = SobreRouteImport.update({
   id: '/sobre',
@@ -282,6 +284,18 @@ const AuthenticatedExercisesSlugRoute =
     path: '/exercises/$slug',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedFitnessWorkoutSlugRoute =
+  AuthenticatedFitnessWorkoutSlugRouteImport.update({
+    id: '/workout/$slug',
+    path: '/workout/$slug',
+    getParentRoute: () => AuthenticatedFitnessRoute,
+  } as any)
+const AuthenticatedFitnessPlayWorkoutIdRoute =
+  AuthenticatedFitnessPlayWorkoutIdRouteImport.update({
+    id: '/play/$workoutId',
+    path: '/play/$workoutId',
+    getParentRoute: () => AuthenticatedFitnessRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -291,7 +305,7 @@ export interface FileRoutesByFullPath {
   '/obrigado': typeof ObrigadoRoute
   '/parceiros': typeof ParceirosRoute
   '/sobre': typeof SobreRoute
-  '/fitness': typeof AuthenticatedFitnessRoute
+  '/fitness': typeof AuthenticatedFitnessRouteWithChildren
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/journey': typeof AuthenticatedJourneyRoute
@@ -327,6 +341,8 @@ export interface FileRoutesByFullPath {
   '/exercises/ranking': typeof AuthenticatedExercisesRankingRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
   '/dashitecnology/users/': typeof DashitecnologyUsersIndexRoute
+  '/fitness/play/$workoutId': typeof AuthenticatedFitnessPlayWorkoutIdRoute
+  '/fitness/workout/$slug': typeof AuthenticatedFitnessWorkoutSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -335,7 +351,7 @@ export interface FileRoutesByTo {
   '/obrigado': typeof ObrigadoRoute
   '/parceiros': typeof ParceirosRoute
   '/sobre': typeof SobreRoute
-  '/fitness': typeof AuthenticatedFitnessRoute
+  '/fitness': typeof AuthenticatedFitnessRouteWithChildren
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/journey': typeof AuthenticatedJourneyRoute
@@ -370,6 +386,8 @@ export interface FileRoutesByTo {
   '/exercises/ranking': typeof AuthenticatedExercisesRankingRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
   '/dashitecnology/users': typeof DashitecnologyUsersIndexRoute
+  '/fitness/play/$workoutId': typeof AuthenticatedFitnessPlayWorkoutIdRoute
+  '/fitness/workout/$slug': typeof AuthenticatedFitnessWorkoutSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -381,7 +399,7 @@ export interface FileRoutesById {
   '/obrigado': typeof ObrigadoRoute
   '/parceiros': typeof ParceirosRoute
   '/sobre': typeof SobreRoute
-  '/_authenticated/fitness': typeof AuthenticatedFitnessRoute
+  '/_authenticated/fitness': typeof AuthenticatedFitnessRouteWithChildren
   '/_authenticated/goals': typeof AuthenticatedGoalsRoute
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/journey': typeof AuthenticatedJourneyRoute
@@ -417,6 +435,8 @@ export interface FileRoutesById {
   '/_authenticated/exercises/ranking': typeof AuthenticatedExercisesRankingRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
   '/dashitecnology/users/': typeof DashitecnologyUsersIndexRoute
+  '/_authenticated/fitness/play/$workoutId': typeof AuthenticatedFitnessPlayWorkoutIdRoute
+  '/_authenticated/fitness/workout/$slug': typeof AuthenticatedFitnessWorkoutSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -464,6 +484,8 @@ export interface FileRouteTypes {
     | '/exercises/ranking'
     | '/dashitecnology/users/$userId'
     | '/dashitecnology/users/'
+    | '/fitness/play/$workoutId'
+    | '/fitness/workout/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -507,6 +529,8 @@ export interface FileRouteTypes {
     | '/exercises/ranking'
     | '/dashitecnology/users/$userId'
     | '/dashitecnology/users'
+    | '/fitness/play/$workoutId'
+    | '/fitness/workout/$slug'
   id:
     | '__root__'
     | '/'
@@ -553,6 +577,8 @@ export interface FileRouteTypes {
     | '/_authenticated/exercises/ranking'
     | '/dashitecnology/users/$userId'
     | '/dashitecnology/users/'
+    | '/_authenticated/fitness/play/$workoutId'
+    | '/_authenticated/fitness/workout/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -877,11 +903,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedExercisesSlugRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/fitness/workout/$slug': {
+      id: '/_authenticated/fitness/workout/$slug'
+      path: '/workout/$slug'
+      fullPath: '/fitness/workout/$slug'
+      preLoaderRoute: typeof AuthenticatedFitnessWorkoutSlugRouteImport
+      parentRoute: typeof AuthenticatedFitnessRoute
+    }
+    '/_authenticated/fitness/play/$workoutId': {
+      id: '/_authenticated/fitness/play/$workoutId'
+      path: '/play/$workoutId'
+      fullPath: '/fitness/play/$workoutId'
+      preLoaderRoute: typeof AuthenticatedFitnessPlayWorkoutIdRouteImport
+      parentRoute: typeof AuthenticatedFitnessRoute
+    }
   }
 }
 
+interface AuthenticatedFitnessRouteChildren {
+  AuthenticatedFitnessPlayWorkoutIdRoute: typeof AuthenticatedFitnessPlayWorkoutIdRoute
+  AuthenticatedFitnessWorkoutSlugRoute: typeof AuthenticatedFitnessWorkoutSlugRoute
+}
+
+const AuthenticatedFitnessRouteChildren: AuthenticatedFitnessRouteChildren = {
+  AuthenticatedFitnessPlayWorkoutIdRoute:
+    AuthenticatedFitnessPlayWorkoutIdRoute,
+  AuthenticatedFitnessWorkoutSlugRoute: AuthenticatedFitnessWorkoutSlugRoute,
+}
+
+const AuthenticatedFitnessRouteWithChildren =
+  AuthenticatedFitnessRoute._addFileChildren(AuthenticatedFitnessRouteChildren)
+
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedFitnessRoute: typeof AuthenticatedFitnessRoute
+  AuthenticatedFitnessRoute: typeof AuthenticatedFitnessRouteWithChildren
   AuthenticatedGoalsRoute: typeof AuthenticatedGoalsRoute
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
   AuthenticatedJourneyRoute: typeof AuthenticatedJourneyRoute
@@ -894,7 +948,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedFitnessRoute: AuthenticatedFitnessRoute,
+  AuthenticatedFitnessRoute: AuthenticatedFitnessRouteWithChildren,
   AuthenticatedGoalsRoute: AuthenticatedGoalsRoute,
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
   AuthenticatedJourneyRoute: AuthenticatedJourneyRoute,

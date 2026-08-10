@@ -106,7 +106,10 @@ export function createAngleRepCounter(opts: {
     return snapshot();
   }
 
-  function update(landmarks: LandmarkPoint[] | null | undefined): ExerciseCounterSnapshot {
+  function update(
+    landmarks: LandmarkPoint[] | null | undefined,
+    _nowMs?: number,
+  ): ExerciseCounterSnapshot {
     if (!landmarks || landmarks.length < 29) {
       feedback = "need_pose";
       angle = null;

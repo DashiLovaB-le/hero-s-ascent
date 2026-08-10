@@ -1696,6 +1696,101 @@ export type Database = {
         }
         Relationships: []
       }
+      workout_templates: {
+        Row: {
+          id: string
+          slug: string
+          titulo: string
+          descricao: string | null
+          difficulty: string
+          duration_min: number
+          region: string
+          steps: Json
+          ativo: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          slug: string
+          titulo: string
+          descricao?: string | null
+          difficulty?: string
+          duration_min?: number
+          region?: string
+          steps?: Json
+          ativo?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          slug?: string
+          titulo?: string
+          descricao?: string | null
+          difficulty?: string
+          duration_min?: number
+          region?: string
+          steps?: Json
+          ativo?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      workout_sessions: {
+        Row: {
+          id: string
+          user_id: string
+          template_id: string | null
+          template_slug: string
+          status: Database["public"]["Enums"]["workout_session_status"]
+          started_at: string
+          ended_at: string | null
+          progress: Json
+          xp_ganho: number
+          consent_version: string
+          client_meta: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          template_id?: string | null
+          template_slug: string
+          status?: Database["public"]["Enums"]["workout_session_status"]
+          started_at?: string
+          ended_at?: string | null
+          progress?: Json
+          xp_ganho?: number
+          consent_version?: string
+          client_meta?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          template_id?: string | null
+          template_slug?: string
+          status?: Database["public"]["Enums"]["workout_session_status"]
+          started_at?: string
+          ended_at?: string | null
+          progress?: Json
+          xp_ganho?: number
+          consent_version?: string
+          client_meta?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_sessions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "workout_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1722,6 +1817,7 @@ export type Database = {
         | "conhecimento"
         | "lideranca"
       exercise_session_status: "active" | "completed" | "cancelled" | "rejected"
+      workout_session_status: "active" | "completed" | "cancelled"
       goal_category:
         | "corpo"
         | "mente"
@@ -1886,6 +1982,7 @@ export const Constants = {
         "lideranca",
       ],
       exercise_session_status: ["active", "completed", "cancelled", "rejected"],
+      workout_session_status: ["active", "completed", "cancelled"],
       goal_category: [
         "corpo",
         "mente",
