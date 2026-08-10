@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SobreRouteImport } from './routes/sobre'
 import { Route as ParceirosRouteImport } from './routes/parceiros'
 import { Route as ObrigadoRouteImport } from './routes/obrigado'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
@@ -52,6 +53,11 @@ import { Route as DashitecnologyUsersUserIdRouteImport } from './routes/dashitec
 import { Route as AuthenticatedExercisesRankingRouteImport } from './routes/_authenticated/exercises.ranking'
 import { Route as AuthenticatedExercisesSlugRouteImport } from './routes/_authenticated/exercises.$slug'
 
+const SobreRoute = SobreRouteImport.update({
+  id: '/sobre',
+  path: '/sobre',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParceirosRoute = ParceirosRouteImport.update({
   id: '/parceiros',
   path: '/parceiros',
@@ -278,6 +284,7 @@ export interface FileRoutesByFullPath {
   '/maintenance': typeof MaintenanceRoute
   '/obrigado': typeof ObrigadoRoute
   '/parceiros': typeof ParceirosRoute
+  '/sobre': typeof SobreRoute
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/journey': typeof AuthenticatedJourneyRoute
@@ -320,6 +327,7 @@ export interface FileRoutesByTo {
   '/maintenance': typeof MaintenanceRoute
   '/obrigado': typeof ObrigadoRoute
   '/parceiros': typeof ParceirosRoute
+  '/sobre': typeof SobreRoute
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
   '/journey': typeof AuthenticatedJourneyRoute
@@ -364,6 +372,7 @@ export interface FileRoutesById {
   '/maintenance': typeof MaintenanceRoute
   '/obrigado': typeof ObrigadoRoute
   '/parceiros': typeof ParceirosRoute
+  '/sobre': typeof SobreRoute
   '/_authenticated/goals': typeof AuthenticatedGoalsRoute
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
   '/_authenticated/journey': typeof AuthenticatedJourneyRoute
@@ -409,6 +418,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/obrigado'
     | '/parceiros'
+    | '/sobre'
     | '/goals'
     | '/habits'
     | '/journey'
@@ -451,6 +461,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/obrigado'
     | '/parceiros'
+    | '/sobre'
     | '/goals'
     | '/habits'
     | '/journey'
@@ -494,6 +505,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/obrigado'
     | '/parceiros'
+    | '/sobre'
     | '/_authenticated/goals'
     | '/_authenticated/habits'
     | '/_authenticated/journey'
@@ -539,11 +551,19 @@ export interface RootRouteChildren {
   MaintenanceRoute: typeof MaintenanceRoute
   ObrigadoRoute: typeof ObrigadoRoute
   ParceirosRoute: typeof ParceirosRoute
+  SobreRoute: typeof SobreRoute
   AlarmRitualRoute: typeof AlarmRitualRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sobre': {
+      id: '/sobre'
+      path: '/sobre'
+      fullPath: '/sobre'
+      preLoaderRoute: typeof SobreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parceiros': {
       id: '/parceiros'
       path: '/parceiros'
@@ -944,6 +964,7 @@ const rootRouteChildren: RootRouteChildren = {
   MaintenanceRoute: MaintenanceRoute,
   ObrigadoRoute: ObrigadoRoute,
   ParceirosRoute: ParceirosRoute,
+  SobreRoute: SobreRoute,
   AlarmRitualRoute: AlarmRitualRoute,
 }
 export const routeTree = rootRouteImport

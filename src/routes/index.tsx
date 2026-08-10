@@ -115,7 +115,16 @@ function Landing() {
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <Link to="/parceiros">
+            <Link to="/sobre">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="lp-btn lp-btn-sm h-8 rounded-none px-3 text-xs text-[#FFE7D0]/80 hover:bg-white/10 hover:text-[#FFE7D0]"
+              >
+                Sobre
+              </Button>
+            </Link>
+            <Link to="/parceiros" className="hidden sm:block">
               <Button
                 variant="ghost"
                 size="sm"
@@ -455,7 +464,13 @@ function Landing() {
 
       <footer className="border-t border-white/10 bg-[#1B1B1B] py-5 text-center text-[10px] tracking-[0.12em] text-[#FFE7D0]/40 sm:text-xs">
         <p>V-PROJECT — Você não precisa de mais motivação. Você precisa de um sistema.</p>
-        <p className="mt-2">
+        <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          <Link
+            to="/sobre"
+            className="text-[#FFE7D0]/55 underline-offset-2 hover:text-hero hover:underline"
+          >
+            Sobre
+          </Link>
           <Link
             to="/parceiros"
             className="text-[#FFE7D0]/55 underline-offset-2 hover:text-hero hover:underline"
