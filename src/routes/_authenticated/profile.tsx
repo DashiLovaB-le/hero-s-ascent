@@ -33,6 +33,7 @@ import { WallpaperSettings } from "@/components/WallpaperSettings";
 import { TelegramSettingsCard } from "@/notifications/TelegramSettingsCard";
 import { PushSettingsCard } from "@/notifications/PushSettingsCard";
 import { CharlieAlarmSettingsCard } from "@/components/CharlieAlarmSettingsCard";
+import { RankingSettingsCard } from "@/components/RankingSettingsCard";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -482,6 +483,10 @@ function ProfilePage() {
 
       <Card className="border-transparent p-6">
         <PushSettingsCard />
+      </Card>
+
+      <Card className="border-transparent p-6">
+        <RankingSettingsCard />
       </Card>
 
       <Card className="border-transparent p-6">

@@ -961,6 +961,7 @@ export type Database = {
           nome: string
           onboarding_completo: boolean
           tour_visto: boolean
+          ranking_opt_in: boolean
           streak_atual: number
           streak_maximo: number
           ultimo_dia_completo: string | null
@@ -986,6 +987,7 @@ export type Database = {
           nome?: string
           onboarding_completo?: boolean
           tour_visto?: boolean
+          ranking_opt_in?: boolean
           streak_atual?: number
           streak_maximo?: number
           ultimo_dia_completo?: string | null
@@ -1011,6 +1013,7 @@ export type Database = {
           nome?: string
           onboarding_completo?: boolean
           tour_visto?: boolean
+          ranking_opt_in?: boolean
           streak_atual?: number
           streak_maximo?: number
           ultimo_dia_completo?: string | null

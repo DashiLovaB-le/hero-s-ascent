@@ -60,6 +60,8 @@ export type MentorContextInput = {
   mlScores?: MlScoresV1 | null;
   challengePolicyHint?: string | null;
   checkinsSummary?: string | null;
+  /** Resumo do ritual de xadrez (null = omitir). */
+  chessSummary?: string | null;
   personality?: { slug: string; name: string } | null;
   /** Override explícito da fase (ex.: follow-up VERIFY→LEARN). */
   cyclePhaseHint?: string | null;
@@ -311,6 +313,7 @@ export function buildMentorContextBlock(input: MentorContextInput): string {
     input.checkinsSummary
       ? input.checkinsSummary
       : "CHECK-INS: ausentes. Não invente sono, energia ou humor.",
+    input.chessSummary ? input.chessSummary : null,
     input.daysSinceLastVisit != null
       ? `Dias desde a última visita estimada: ${input.daysSinceLastVisit}`
       : "Visita recente ou primeira sessão",
@@ -408,6 +411,11 @@ SINAIS ML
 CHECK-INS
 - Se houver bloco CHECK-INS com sono/energia/humor, use no máximo um detalhe quando for relevante (amanhecer, corpo, recuperação).
 - Se CHECK-INS disser ausentes, não invente.
+
+XADREZ (ritual)
+- Se houver linha "Xadrez (ritual...)" no contexto, use no máximo um detalhe de tom (paciência, presença, consistência do ritual).
+- Não vire coach de abertura, não invente lances, Elo, FEN/PGN nem peça análise de partida.
+- Se não houver linha de xadrez, ignore o tema.
 
 DESAFIOS vs HÁBITOS NOVOS (discernimento obrigatório)
 - challenge = missão COM PRAZO (ex.: "por 3 dias", "até sexta", sprint). Pode vincular habit_id de hábito JÁ existente.

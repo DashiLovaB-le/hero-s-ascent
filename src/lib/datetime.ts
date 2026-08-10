@@ -131,3 +131,37 @@ export function eachDateKeyInclusive(fromKey: string, toKey: string): string[] {
   }
   return out;
 }
+
+/** Segunda=0 … Domingo=6 no fuso do produto. */
+export function weekdayMondayIndex(date: Date = new Date(), timeZone: string = APP_TIMEZONE): number {
+  const wd = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(date);
+  const map: Record<string, number> = {
+    Mon: 0,
+    Tue: 1,
+    Wed: 2,
+    Thu: 3,
+    Fri: 4,
+    Sat: 5,
+    Sun: 6,
+  };
+  return map[wd] ?? 0;
+}
+
+/** Semana civil (segunda→domingo) em `timeZone`, com limites UTC para query. */
+export function weekBoundsMondayUtcIso(
+  date: Date = new Date(),
+  timeZone: string = APP_TIMEZONE,
+): { weekStartKey: string; weekEndKey: string; startIso: string; endExclusiveIso: string } {
+  const today = calendarDateInTz(date, timeZone);
+  const weekStartKey = addDaysToDateKey(today, -weekdayMondayIndex(date, timeZone));
+  const weekEndKey = addDaysToDateKey(weekStartKey, 6);
+  const startIso = zonedDateTimeToUtc(weekStartKey, 0, 0, 0, timeZone).toISOString();
+  const endExclusiveIso = zonedDateTimeToUtc(
+    addDaysToDateKey(weekStartKey, 7),
+    0,
+    0,
+    0,
+    timeZone,
+  ).toISOString();
+  return { weekStartKey, weekEndKey, startIso, endExclusiveIso };
+}

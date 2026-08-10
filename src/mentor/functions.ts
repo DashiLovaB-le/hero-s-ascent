@@ -29,6 +29,7 @@ import { addDaysToDateKey, calendarDateInTz, hourInTz, hojeISO } from "@/lib/dat
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { assembleMentorGoals } from "@/lib/mentor-goals";
 import { resolveHabitXpReward } from "@/lib/habit-xp";
+import { summarizeChessForMentor } from "@/mentor/chess-context";
 
 type Client = SupabaseClient<Database>;
 
@@ -251,8 +252,19 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
       .maybeSingle();
   }
 
-  const [attrsRes, habitsRes, goalsRes, todayRes, compsRes, memRes, chalRes, lastMsgRes, objRes, mlRes] =
-    await Promise.all([
+  const [
+    attrsRes,
+    habitsRes,
+    goalsRes,
+    todayRes,
+    compsRes,
+    memRes,
+    chalRes,
+    lastMsgRes,
+    objRes,
+    mlRes,
+    chessRes,
+  ] = await Promise.all([
       supabase
         .from("attributes")
         .select(
@@ -306,6 +318,14 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
         .eq("ativo", true)
         .maybeSingle(),
       supabase.from("user_ml_scores").select("*").eq("user_id", userId).maybeSingle(),
+      supabase
+        .from("charlie_chess_games")
+        .select("status, result_reason, updated_at, created_at")
+        .eq("user_id", userId)
+        .in("status", ["won", "lost", "draw"])
+        .gte("updated_at", new Date(Date.now() - 30 * 86_400_000).toISOString())
+        .order("updated_at", { ascending: false })
+        .limit(40),
     ]);
 
   for (const [label, res] of [
@@ -330,6 +350,11 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
   // user_ml_scores optional until migration
   if (mlRes.error && !/does not exist|user_ml_scores/i.test(mlRes.error.message)) {
     console.error("[mentor] ml scores", mlRes.error.message);
+  }
+
+  // charlie_chess_games optional until migration
+  if (chessRes.error && !/does not exist|charlie_chess_games/i.test(chessRes.error.message)) {
+    console.error("[mentor] chess games", chessRes.error.message);
   }
 
   if (!profileRes.data || !attrsRes.data) {
@@ -407,6 +432,12 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
     checkinsSummary = `CHECK-INS (mais recentes): ${lines.join(" | ")}`;
   }
 
+  const chessSummary = chessRes.error
+    ? null
+    : summarizeChessForMentor(chessRes.data ?? [], {
+        timezone: profileLoc.location_timezone,
+      }).line;
+
   const since14 = `${addDaysToDateKey(hoje, -14)}T00:00:00.000Z`;
   const since7 = addDaysToDateKey(hoje, -6);
   const goalRows = (goalsRes.data ?? []).filter((g) => {
@@ -460,6 +491,7 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
     weather,
     mlScores,
     checkinsSummary,
+    chessSummary,
   };
 }
 
@@ -530,6 +562,7 @@ async function callMentor(
     mlScores: snap.mlScores,
     challengePolicyHint: challengePolicy.promptHint,
     checkinsSummary: snap.checkinsSummary,
+    chessSummary: snap.chessSummary,
     personality: { slug: promptMeta.slug, name: promptMeta.name },
     cyclePhaseHint: opts.cyclePhaseHint ?? null,
   });

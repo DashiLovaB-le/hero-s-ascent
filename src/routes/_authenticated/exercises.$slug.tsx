@@ -15,6 +15,7 @@ import {
 import { EXERCISE_CONSENT_VERSION, PUSHUP_SLUG } from "@/lib/exercise-xp";
 import { showXpGainPopup } from "@/components/XpGainPopup";
 import { ExerciseSessionCameraModal } from "@/components/ExerciseSessionCameraModal";
+import { ExerciseRankingCard } from "@/components/ExerciseRankingCard";
 import { Button } from "@/components/ui/button";
 import { runQueryFn } from "@/lib/safe-query";
 
@@ -106,6 +107,7 @@ function ExerciseSessionPage() {
       });
       void qc.invalidateQueries({ queryKey: ["exercise-page", slug] });
       void qc.invalidateQueries({ queryKey: ["journey"] });
+      void qc.invalidateQueries({ queryKey: ["exercise-ranking"] });
     },
     onError: (e) => toast.error(e.message),
   });
@@ -211,6 +213,7 @@ function ExerciseSessionPage() {
       </div>
 
       <section className="space-y-3">
+        {isPushup ? <ExerciseRankingCard slug={slug} /> : null}
         <p className="text-[0.65rem] uppercase tracking-[0.22em] text-muted-foreground">
           Sessões recentes
         </p>

@@ -49,6 +49,7 @@ import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
 import { Route as DashitecnologyUsersIndexRouteImport } from './routes/dashitecnology/users.index'
 import { Route as DashitecnologyUsersUserIdRouteImport } from './routes/dashitecnology/users.$userId'
+import { Route as AuthenticatedExercisesRankingRouteImport } from './routes/_authenticated/exercises.ranking'
 import { Route as AuthenticatedExercisesSlugRouteImport } from './routes/_authenticated/exercises.$slug'
 
 const ParceirosRoute = ParceirosRouteImport.update({
@@ -257,6 +258,12 @@ const DashitecnologyUsersUserIdRoute =
     path: '/$userId',
     getParentRoute: () => DashitecnologyUsersRoute,
   } as any)
+const AuthenticatedExercisesRankingRoute =
+  AuthenticatedExercisesRankingRouteImport.update({
+    id: '/exercises/ranking',
+    path: '/exercises/ranking',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedExercisesSlugRoute =
   AuthenticatedExercisesSlugRouteImport.update({
     id: '/exercises/$slug',
@@ -303,6 +310,7 @@ export interface FileRoutesByFullPath {
   '/dashitecnology/wisdom': typeof DashitecnologyWisdomRoute
   '/dashitecnology/': typeof DashitecnologyIndexRoute
   '/exercises/$slug': typeof AuthenticatedExercisesSlugRoute
+  '/exercises/ranking': typeof AuthenticatedExercisesRankingRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
   '/dashitecnology/users/': typeof DashitecnologyUsersIndexRoute
 }
@@ -343,6 +351,7 @@ export interface FileRoutesByTo {
   '/dashitecnology/wisdom': typeof DashitecnologyWisdomRoute
   '/dashitecnology': typeof DashitecnologyIndexRoute
   '/exercises/$slug': typeof AuthenticatedExercisesSlugRoute
+  '/exercises/ranking': typeof AuthenticatedExercisesRankingRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
   '/dashitecnology/users': typeof DashitecnologyUsersIndexRoute
 }
@@ -387,6 +396,7 @@ export interface FileRoutesById {
   '/dashitecnology/wisdom': typeof DashitecnologyWisdomRoute
   '/dashitecnology/': typeof DashitecnologyIndexRoute
   '/_authenticated/exercises/$slug': typeof AuthenticatedExercisesSlugRoute
+  '/_authenticated/exercises/ranking': typeof AuthenticatedExercisesRankingRoute
   '/dashitecnology/users/$userId': typeof DashitecnologyUsersUserIdRoute
   '/dashitecnology/users/': typeof DashitecnologyUsersIndexRoute
 }
@@ -431,6 +441,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/wisdom'
     | '/dashitecnology/'
     | '/exercises/$slug'
+    | '/exercises/ranking'
     | '/dashitecnology/users/$userId'
     | '/dashitecnology/users/'
   fileRoutesByTo: FileRoutesByTo
@@ -471,6 +482,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/wisdom'
     | '/dashitecnology'
     | '/exercises/$slug'
+    | '/exercises/ranking'
     | '/dashitecnology/users/$userId'
     | '/dashitecnology/users'
   id:
@@ -514,6 +526,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/wisdom'
     | '/dashitecnology/'
     | '/_authenticated/exercises/$slug'
+    | '/_authenticated/exercises/ranking'
     | '/dashitecnology/users/$userId'
     | '/dashitecnology/users/'
   fileRoutesById: FileRoutesById
@@ -811,6 +824,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashitecnologyUsersUserIdRouteImport
       parentRoute: typeof DashitecnologyUsersRoute
     }
+    '/_authenticated/exercises/ranking': {
+      id: '/_authenticated/exercises/ranking'
+      path: '/exercises/ranking'
+      fullPath: '/exercises/ranking'
+      preLoaderRoute: typeof AuthenticatedExercisesRankingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/exercises/$slug': {
       id: '/_authenticated/exercises/$slug'
       path: '/exercises/$slug'
@@ -830,6 +850,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedStoreRoute: typeof AuthenticatedStoreRoute
   AuthenticatedExercisesSlugRoute: typeof AuthenticatedExercisesSlugRoute
+  AuthenticatedExercisesRankingRoute: typeof AuthenticatedExercisesRankingRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -841,6 +862,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedStoreRoute: AuthenticatedStoreRoute,
   AuthenticatedExercisesSlugRoute: AuthenticatedExercisesSlugRoute,
+  AuthenticatedExercisesRankingRoute: AuthenticatedExercisesRankingRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

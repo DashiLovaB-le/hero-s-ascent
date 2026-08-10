@@ -14,10 +14,10 @@ import { AuthTerminal3D } from "@/components/auth/AuthTerminal3D";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { hud?: "3d" } => {
     /** Extra opcional: terminal Three.js. Padrão = 2D robusto. */
-    hud: search.hud === "3d" ? ("3d" as const) : undefined,
-  }),
+    return search.hud === "3d" ? { hud: "3d" } : {};
+  },
   component: AuthPage,
 });
 
