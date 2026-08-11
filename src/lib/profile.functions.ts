@@ -164,11 +164,27 @@ export const getProfilePanorama = createServerFn({ method: "POST" })
       Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)) + 1,
     );
 
-    const [levels, wallpapers, account] = await Promise.all([
+    const [levels, wallpapers, account, chessProgressRes] = await Promise.all([
       loadLevelsFromDb(),
       loadWallpapersFromDb(),
       loadAccountAuth(userId),
+      supabaseAdmin
+        .from("charlie_chess_progress")
+        .select("level, wins_at_level, wins_total, losses_total, draws_total")
+        .eq("user_id", userId)
+        .maybeSingle(),
     ]);
+
+    const chessProgress =
+      !chessProgressRes.error && chessProgressRes.data
+        ? {
+            level: Number(chessProgressRes.data.level) || 1,
+            wins_at_level: Number(chessProgressRes.data.wins_at_level) || 0,
+            wins_total: Number(chessProgressRes.data.wins_total) || 0,
+            losses_total: Number(chessProgressRes.data.losses_total) || 0,
+            draws_total: Number(chessProgressRes.data.draws_total) || 0,
+          }
+        : { level: 1, wins_at_level: 0, wins_total: 0, losses_total: 0, draws_total: 0 };
 
     return {
       profile: profileRes.data,
@@ -180,6 +196,7 @@ export const getProfilePanorama = createServerFn({ method: "POST" })
       levels,
       wallpapers,
       account,
+      chessProgress,
       rhythm: {
         days: rhythmDays,
         periodDays: days.length,

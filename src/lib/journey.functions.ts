@@ -142,7 +142,8 @@ export const getJourney = createServerFn({ method: "POST" })
       throw new Error("Não foi possível inicializar seu perfil de herói. Tente sair e entrar de novo.");
     }
 
-    const [levels, wallpapers, habitXpReward, alterEgoRes, proofStats] = await Promise.all([
+    const [levels, wallpapers, habitXpReward, alterEgoRes, proofStats, chessProgressRes] =
+      await Promise.all([
       loadLevelsFromDb(),
       loadWallpapersFromDb(),
       resolveHabitXpReward(),
@@ -154,6 +155,11 @@ export const getJourney = createServerFn({ method: "POST" })
       import("@/lib/identity-proofs").then(({ getIdentityProofStats }) =>
         getIdentityProofStats(supabase as Client, userId, hoje),
       ),
+      supabaseAdmin
+        .from("charlie_chess_progress")
+        .select("level, wins_at_level, wins_total, losses_total, draws_total")
+        .eq("user_id", userId)
+        .maybeSingle(),
     ]);
 
     const alterEgo =
@@ -172,6 +178,17 @@ export const getJourney = createServerFn({ method: "POST" })
           }
         : null;
 
+    const chessProgress =
+      !chessProgressRes.error && chessProgressRes.data
+        ? {
+            level: Number(chessProgressRes.data.level) || 1,
+            wins_at_level: Number(chessProgressRes.data.wins_at_level) || 0,
+            wins_total: Number(chessProgressRes.data.wins_total) || 0,
+            losses_total: Number(chessProgressRes.data.losses_total) || 0,
+            draws_total: Number(chessProgressRes.data.draws_total) || 0,
+          }
+        : { level: 1, wins_at_level: 0, wins_total: 0, losses_total: 0, draws_total: 0 };
+
     return {
       profile: profileRes.data,
       attributes: attrsRes.data,
@@ -183,6 +200,7 @@ export const getJourney = createServerFn({ method: "POST" })
       habitXpReward,
       alterEgo,
       proofStats,
+      chessProgress,
     };
   });
 

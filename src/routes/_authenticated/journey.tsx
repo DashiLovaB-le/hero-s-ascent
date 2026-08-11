@@ -16,6 +16,7 @@ import { setWallpaperCatalog } from "@/lib/wallpapers";
 import { chapterName } from "@/lib/chapters";
 import { MentorJourneyCard } from "@/mentor/MentorJourneyCard";
 import { AlterEgoJourneyCard } from "@/components/AlterEgoJourneyCard";
+import { ChessJourneyCard } from "@/components/ChessJourneyCard";
 import { CheckinCard } from "@/components/CheckinCard";
 import { WeatherCard } from "@/components/WeatherCard";
 import { Button } from "@/components/ui/button";
@@ -334,6 +335,7 @@ function JourneyPage() {
         proofStats={data.proofStats}
         identityArc={identityArcForChapter(profile.capitulo_atual)}
       />
+      <ChessJourneyCard chess={data.chessProgress} />
       <MentorJourneyCard />
       <CheckinCard />
 

@@ -292,6 +292,35 @@ function ProfilePage() {
         ) : null}
       </Card>
 
+      <Card className="border-transparent p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Xadrez · Charlie
+            </p>
+            <h2 className="mt-1 font-display text-lg font-semibold">
+              Nível {data.chessProgress.level}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {data.chessProgress.level >= 10
+                ? "Nível máximo"
+                : `${data.chessProgress.wins_at_level}/3 vitórias no nível atual`}
+            </p>
+          </div>
+          <Link
+            to="/mentor"
+            className="text-xs text-hero underline-offset-2 hover:underline"
+          >
+            Jogar
+          </Link>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+          <StatCell label="Vitórias" value={String(data.chessProgress.wins_total)} />
+          <StatCell label="Empates" value={String(data.chessProgress.draws_total)} />
+          <StatCell label="Derrotas" value={String(data.chessProgress.losses_total)} />
+        </div>
+      </Card>
+
       {/* 2. Radar de atributos */}
       <Card className="border-transparent p-6">
         <h2 className="font-display text-lg font-semibold">Atributos</h2>

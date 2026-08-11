@@ -1654,6 +1654,7 @@ export type Database = {
           status: string
           player_color: string
           result_reason: string | null
+          difficulty_level: number
           created_at: string
           updated_at: string
         }
@@ -1665,6 +1666,7 @@ export type Database = {
           status?: string
           player_color?: string
           result_reason?: string | null
+          difficulty_level?: number
           created_at?: string
           updated_at?: string
         }
@@ -1676,7 +1678,38 @@ export type Database = {
           status?: string
           player_color?: string
           result_reason?: string | null
+          difficulty_level?: number
           created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      charlie_chess_progress: {
+        Row: {
+          user_id: string
+          level: number
+          wins_at_level: number
+          wins_total: number
+          losses_total: number
+          draws_total: number
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          level?: number
+          wins_at_level?: number
+          wins_total?: number
+          losses_total?: number
+          draws_total?: number
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          level?: number
+          wins_at_level?: number
+          wins_total?: number
+          losses_total?: number
+          draws_total?: number
           updated_at?: string
         }
         Relationships: []

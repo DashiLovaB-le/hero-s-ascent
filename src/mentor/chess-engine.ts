@@ -1,4 +1,10 @@
 import { Chess, type Color, type Move, type Square } from "chess.js";
+import {
+  blunderChanceForChessLevel,
+  clampChessLevel,
+  noiseForChessLevel,
+  searchDepthForChessLevel,
+} from "@/mentor/chess-progress";
 
 const PIECE_VALUE: Record<string, number> = {
   p: 100,
@@ -26,7 +32,6 @@ function evaluate(game: Chess, forColor: Color): number {
       score += cell.color === forColor ? v : -v;
     }
   }
-  // Prefer center control lightly
   const center: Square[] = ["d4", "e4", "d5", "e5"];
   for (const sq of center) {
     const p = game.get(sq);
@@ -44,7 +49,7 @@ function minimax(
   alpha: number,
   beta: number,
 ): number {
-  if (depth === 0 || game.isGameOver()) {
+  if (depth <= 0 || game.isGameOver()) {
     return evaluate(game, forColor);
   }
 
@@ -74,18 +79,37 @@ function minimax(
   return best;
 }
 
-/** Lance fraco/médio do Charlie (depth 2). */
-export function pickCharlieMove(fen: string, charlieColor: Color = "b"): Move | null {
+function shuffleInPlace<T>(arr: T[]): void {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+  }
+}
+
+/**
+ * Lance do Charlie com dificuldade progressiva (nível 1–10).
+ * Níveis baixos: mais ruído / blunders; altos: busca mais profunda.
+ */
+export function pickCharlieMove(
+  fen: string,
+  charlieColor: Color = "b",
+  level = 5,
+): Move | null {
   const game = new Chess(fen);
   if (game.isGameOver() || game.turn() !== charlieColor) return null;
 
   const moves = game.moves({ verbose: true });
   if (!moves.length) return null;
 
-  // Embaralha levemente para variedade
-  for (let i = moves.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [moves[i], moves[j]] = [moves[j]!, moves[i]!];
+  const L = clampChessLevel(level);
+  const depth = searchDepthForChessLevel(L);
+  const noise = noiseForChessLevel(L);
+  const blunder = blunderChanceForChessLevel(L);
+
+  shuffleInPlace(moves);
+
+  if (blunder > 0 && Math.random() < blunder) {
+    return moves[Math.floor(Math.random() * moves.length)]!;
   }
 
   let bestMove = moves[0]!;
@@ -93,10 +117,12 @@ export function pickCharlieMove(fen: string, charlieColor: Color = "b"): Move | 
 
   for (const m of moves) {
     game.move(m);
-    const score = minimax(game, 1, false, charlieColor, -Infinity, Infinity);
+    const score =
+      depth <= 0
+        ? evaluate(game, charlieColor)
+        : minimax(game, depth, false, charlieColor, -Infinity, Infinity);
     game.undo();
-    // Ruído pequeno para não ser previsível
-    const noisy = score + (Math.random() * 20 - 10);
+    const noisy = noise > 0 ? score + (Math.random() * noise * 2 - noise) : score;
     if (noisy > bestScore) {
       bestScore = noisy;
       bestMove = m;

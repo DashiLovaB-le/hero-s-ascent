@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "postinstall": "patch-package",
-    "test:ml": "tsx --test src/lib/ml/features.test.ts src/lib/ml/adaptive.test.ts src/lib/ml/agent.test.ts src/lib/ml/identity-adherence.test.ts src/lib/datetime.test.ts src/lib/alter-ego.test.ts src/lib/identity-proofs.test.ts src/lib/identity-evening-report.test.ts src/mentor/context.cycle.test.ts src/mentor/chess-context.test.ts src/notifications/charlie-telegram-voice.test.ts",
+    "test:ml": "tsx --test src/lib/ml/features.test.ts src/lib/ml/adaptive.test.ts src/lib/ml/agent.test.ts src/lib/ml/identity-adherence.test.ts src/lib/datetime.test.ts src/lib/alter-ego.test.ts src/lib/identity-proofs.test.ts src/lib/identity-evening-report.test.ts src/mentor/context.cycle.test.ts src/mentor/chess-context.test.ts src/mentor/chess-progress.test.ts src/notifications/charlie-telegram-voice.test.ts",
     "cap:sync": "npx cap sync",
     "cap:open:android": "npx cap open android",
     "cap:build:apk": "npx cap sync android && cd android && gradlew.bat assembleDebug --no-daemon",

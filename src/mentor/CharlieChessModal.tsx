@@ -8,12 +8,19 @@ import { toast } from "sonner";
 import { Pause, Play, RotateCcw, X } from "lucide-react";
 
 import {
+  getChessProgress,
   getOrCreateChessGame,
   saveChessGame,
   startNewChessGame,
   type CharlieChessGame,
+  type CharlieChessProgress,
 } from "@/mentor/chess.functions";
 import { outcomeFromGame, pickCharlieMove } from "@/mentor/chess-engine";
+import {
+  CHESS_WINS_TO_ADVANCE,
+  defaultChessProgress,
+  selectableChessLevels,
+} from "@/mentor/chess-progress";
 import {
   Dialog,
   DialogContent,
@@ -59,8 +66,11 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
   const getFn = useServerFn(getOrCreateChessGame);
   const saveFn = useServerFn(saveChessGame);
   const newFn = useServerFn(startNewChessGame);
+  const progressFn = useServerFn(getChessProgress);
 
   const [gameRow, setGameRow] = useState<CharlieChessGame | null>(null);
+  const [progress, setProgress] = useState<CharlieChessProgress>(defaultChessProgress);
+  const [chosenLevel, setChosenLevel] = useState(1);
   const [fen, setFen] = useState(START_FEN);
   const [booting, setBooting] = useState(false);
   const [thinking, setThinking] = useState(false);
@@ -87,6 +97,7 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
     gameRow?.status === "won" || gameRow?.status === "lost" || gameRow?.status === "draw";
   const canPlay =
     Boolean(gameRow) && !finished && gameRow?.status !== "paused" && !thinking && !booting;
+  const levels = useMemo(() => selectableChessLevels(progress.level), [progress.level]);
 
   const syncBoardSize = useCallback(() => {
     const el = boardWrapRef.current;
@@ -118,7 +129,7 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
       const current = gameRowRef.current;
       if (!current) return;
       try {
-        const row = await saveFn({
+        const res = await saveFn({
           data: {
             id: current.id,
             fen: next.fen,
@@ -127,8 +138,15 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
             result_reason: next.result_reason,
           },
         });
-        gameRowRef.current = row;
-        setGameRow(row);
+        gameRowRef.current = res.game;
+        setGameRow(res.game);
+        if (res.progress) {
+          setProgress(res.progress);
+          setChosenLevel((prev) => Math.min(prev, res.progress!.level));
+        }
+        if (res.leveledUp && res.progress) {
+          toast.success(`Nível ${res.progress.level} desbloqueado.`);
+        }
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Falha ao salvar partida.");
       }
@@ -158,10 +176,11 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
       thinkingRef.current = true;
       setThinking(true);
       setSelectedSquare(null);
+      const level = current.difficulty_level || 1;
 
       window.setTimeout(() => {
         try {
-          const move = pickCharlieMove(fromFen, "b");
+          const move = pickCharlieMove(fromFen, "b", level);
           const chess = new Chess(fromFen);
           if (move) chess.move(move);
           const nextFen = chess.fen();
@@ -171,7 +190,12 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
 
           const out = outcomeFromGame(chess, current.player_color);
           if (out) {
-            const updated = { ...current, fen: nextFen, status: out.status, result_reason: out.reason };
+            const updated = {
+              ...current,
+              fen: nextFen,
+              status: out.status,
+              result_reason: out.reason,
+            };
             gameRowRef.current = updated;
             setGameRow(updated);
             persistDebounced({
@@ -222,7 +246,12 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
 
       const out = outcomeFromGame(chess, current.player_color);
       if (out) {
-        const updated = { ...current, fen: nextFen, status: out.status, result_reason: out.reason };
+        const updated = {
+          ...current,
+          fen: nextFen,
+          status: out.status,
+          result_reason: out.reason,
+        };
         gameRowRef.current = updated;
         setGameRow(updated);
         persistDebounced({
@@ -250,18 +279,14 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
     let cancelled = false;
     setBooting(true);
     setError(null);
-    setThinking(false);
-    thinkingRef.current = false;
     setSelectedSquare(null);
-    setFen(START_FEN);
-    fenRef.current = START_FEN;
-    gameRef.current = new Chess(START_FEN);
-    setGameRow(null);
-    gameRowRef.current = null;
 
     void (async () => {
       try {
-        const row = await getFn({ data: undefined as unknown as never });
+        const [row, prog] = await Promise.all([
+          getFn({ data: undefined as unknown as never }),
+          progressFn({ data: undefined as unknown as never }),
+        ]);
         if (cancelled) return;
         const chess = new Chess(row.fen);
         gameRef.current = chess;
@@ -269,50 +294,42 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
         fenRef.current = chess.fen();
         setGameRow(row);
         setFen(chess.fen());
-        setBooting(false);
+        setProgress(prog);
+        setChosenLevel(row.difficulty_level || prog.level);
         if (row.status === "active" && chess.turn() === "b" && !chess.isGameOver()) {
           runCharlieMove(chess.fen());
         }
       } catch (e) {
         if (cancelled) return;
-        const msg = e instanceof Error ? e.message : "Falha ao abrir a partida.";
         console.error("[charlie-chess] boot", e);
-        setError(msg);
-        setBooting(false);
-        toast.error(msg);
+        setError(e instanceof Error ? e.message : "Falha ao abrir o xadrez.");
+      } finally {
+        if (!cancelled) setBooting(false);
       }
     })();
 
     return () => {
       cancelled = true;
-      if (persistTimer.current) clearTimeout(persistTimer.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- boot once per open
   }, [open]);
 
   const legalTargets = useMemo(() => {
-    if (!selectedSquare || !canPlay) return new Set<string>();
+    if (!selectedSquare) return [] as Square[];
     const chess = new Chess(fen);
-    return new Set(
-      chess.moves({ square: selectedSquare, verbose: true }).map((m) => m.to),
-    );
-  }, [selectedSquare, canPlay, fen]);
+    return chess.moves({ square: selectedSquare, verbose: true }).map((m) => m.to as Square);
+  }, [fen, selectedSquare]);
 
   const squareStyles = useMemo(() => {
-    const styles: Record<string, React.CSSProperties> = {};
+    const styles: Record<string, Record<string, string>> = {};
     if (selectedSquare) {
-      styles[selectedSquare] = {
-        background: "rgba(252, 110, 32, 0.55)",
-      };
+      styles[selectedSquare] = { background: "rgba(252,110,32,0.45)" };
     }
-    for (const sq of legalTargets) {
-      styles[sq] = {
-        background:
-          "radial-gradient(circle, rgba(252,110,32,0.55) 22%, transparent 24%)",
-      };
+    for (const t of legalTargets) {
+      styles[t] = { background: "rgba(252,110,32,0.22)" };
     }
     return styles;
-  }, [selectedSquare, legalTargets]);
+  }, [legalTargets, selectedSquare]);
 
   function handleSquareClick({ square }: { square: string }) {
     if (!canPlay) return;
@@ -320,28 +337,16 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
     const chess = new Chess(fenRef.current);
     if (chess.turn() !== "w") return;
 
-    const piece = chess.get(sq);
-
     if (selectedSquare) {
       if (selectedSquare === sq) {
         setSelectedSquare(null);
         return;
       }
-      if (piece?.color === "w") {
-        setSelectedSquare(sq);
-        return;
-      }
-      const ok = applyPlayerMove(selectedSquare, sq);
-      if (!ok) {
-        // destino inválido — se clicou casa vazia, limpa; senão mantém
-        if (!piece) setSelectedSquare(null);
-      }
-      return;
+      if (applyPlayerMove(selectedSquare, sq)) return;
     }
-
-    if (piece?.color === "w") {
-      setSelectedSquare(sq);
-    }
+    const piece = chess.get(sq);
+    if (piece?.color === "w") setSelectedSquare(sq);
+    else setSelectedSquare(null);
   }
 
   function onPieceDrop({
@@ -384,13 +389,14 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
     setBooting(true);
     setError(null);
     try {
-      const row = await newFn({ data: undefined as unknown as never });
+      const row = await newFn({ data: { difficultyLevel: chosenLevel } });
       const chess = new Chess(row.fen);
       gameRef.current = chess;
       gameRowRef.current = row;
       fenRef.current = chess.fen();
       setGameRow(row);
       setFen(chess.fen());
+      setChosenLevel(row.difficulty_level);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Falha ao criar partida.";
       setError(msg);
@@ -414,6 +420,11 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
     onOpenChange(next);
   }
 
+  const winProgressLabel =
+    progress.level >= 10
+      ? "Nível máximo"
+      : `${progress.wins_at_level}/${CHESS_WINS_TO_ADVANCE} vitórias no nível ${progress.level}`;
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} modal>
       <DialogContent
@@ -427,7 +438,6 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
           paddingBottom: "max(0.5rem, var(--safe-area-inset-bottom, 0px))",
         }}
         onOpenAutoFocus={(e) => {
-          // Foca o título do modal (evita botão externo com foco + aria-hidden)
           e.preventDefault();
           const title = (e.currentTarget as HTMLElement).querySelector<HTMLElement>(
             "[data-chess-dialog-title]",
@@ -499,6 +509,43 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
             </div>
           ) : (
             <>
+              <div className="flex w-full max-w-[520px] flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div className="text-xs text-muted-foreground">
+                  <p>
+                    Seu nível:{" "}
+                    <span className="font-semibold text-hero">{progress.level}</span>
+                    {" · "}
+                    {winProgressLabel}
+                  </p>
+                  <p className="mt-0.5">
+                    Placar: {progress.wins_total}V · {progress.draws_total}E ·{" "}
+                    {progress.losses_total}D
+                    {gameRow ? ` · partida no nível ${gameRow.difficulty_level}` : null}
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  Jogar no nível
+                  <select
+                    className="rounded border border-border bg-surface px-2 py-1 text-foreground"
+                    value={chosenLevel}
+                    disabled={booting || thinking || (Boolean(gameRow) && !finished)}
+                    onChange={(e) => setChosenLevel(Number(e.target.value))}
+                    title={
+                      gameRow && !finished
+                        ? "Termine ou inicie uma nova partida para trocar o nível"
+                        : undefined
+                    }
+                  >
+                    {levels.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                        {n === progress.level ? " (atual)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
               <div
                 ref={boardWrapRef}
                 className="relative w-full max-w-[520px] touch-manipulation select-none"
@@ -532,7 +579,8 @@ export function CharlieChessModal({ open, onOpenChange }: Props) {
                 ) : null}
               </div>
               <p className="max-w-md text-center text-xs text-muted-foreground">
-                No celular: toque na peça, depois na casa. No PC também dá para arrastar.
+                3 vitórias no nível atual desbloqueiam o próximo. Você pode revisitar níveis já
+                conquistados ao iniciar uma nova partida.
               </p>
             </>
           )}
