@@ -113,7 +113,10 @@ function GoalsPage() {
         xp: r.xpGain,
         detail: r.chapterChanged
           ? `Capítulo ${r.chapterChanged.to}: ${r.chapterChanged.nome}`
-          : "Meta conquistada",
+          : "Meta conquistada · prova de identidade",
+      });
+      toast.message("Prova de identidade", {
+        description: "Conquistar a meta reforça quem você decidiu se tornar.",
       });
       await invalidate();
     },
@@ -170,6 +173,9 @@ function GoalsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-bold">Metas</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Cada meta é uma missão da identidade que você está construindo.
+        </p>
         <p className="text-sm text-muted-foreground">
           O norte da jornada — ligue hábitos, acompanhe o ritmo e conquiste.
         </p>

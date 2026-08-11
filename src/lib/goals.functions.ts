@@ -464,16 +464,37 @@ export const completeGoal = createServerFn({ method: "POST" })
       if (drop.length) await supabaseAdmin.from("mentor_memories").delete().in("id", drop);
     }
 
-    const progress = await evaluateProgress(supabase as Client, userId, before, {
-      ...before,
-      xp_total: afterXp,
+    const { emitIdentityProof, getIdentityProofStats } = await import("@/lib/identity-proofs");
+    await emitIdentityProof(supabase as Client, {
+      userId,
+      sourceType: "goal",
+      sourceId: data.id,
+      label: `Conquistou a meta: ${goal.titulo}`,
+      atributo: ATTR_BY_CAT[goal.categoria as keyof typeof ATTR_BY_CAT] ?? null,
     });
+    const proofStats = await getIdentityProofStats(supabase as Client, userId);
+
+    const progress = await evaluateProgress(
+      supabase as Client,
+      userId,
+      before,
+      {
+        ...before,
+        xp_total: afterXp,
+      },
+      {
+        proofsWeek: proofStats.week,
+        proofsTotal: proofStats.total,
+      },
+    );
 
     return {
       xpGain,
       xpTotal: progress.xp_total,
       unlockedAchievements: progress.unlockedAchievements,
       chapterChanged: progress.chapterChanged,
+      identityProof: true as const,
+      proofStats,
     };
   });
 

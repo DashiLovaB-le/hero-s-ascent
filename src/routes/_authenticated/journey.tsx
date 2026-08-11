@@ -15,12 +15,15 @@ import { calcularNivel, fraseDoDia, ATRIBUTO_LABELS } from "@/lib/journey";
 import { setWallpaperCatalog } from "@/lib/wallpapers";
 import { chapterName } from "@/lib/chapters";
 import { MentorJourneyCard } from "@/mentor/MentorJourneyCard";
+import { AlterEgoJourneyCard } from "@/components/AlterEgoJourneyCard";
 import { CheckinCard } from "@/components/CheckinCard";
 import { WeatherCard } from "@/components/WeatherCard";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
 import { showXpGainPopup } from "@/components/XpGainPopup";
+import { firstCodigoLine } from "@/lib/alter-ego";
+import { identityArcForChapter } from "@/lib/identity-proofs";
 
 function JourneyPending() {
   return (
@@ -109,10 +112,19 @@ function JourneyPage() {
       if (res.unlockedAchievements?.length) {
         detailParts.push(res.unlockedAchievements.map((a) => a.titulo).join(", "));
       }
+      const codigo = firstCodigoLine(data.alterEgo);
+      if (codigo) {
+        detailParts.push("Prova de identidade");
+      }
       showXpGainPopup({
         xp: res.xpGanho,
         detail: detailParts.join(" · "),
       });
+      if (codigo) {
+        toast.message("Prova de identidade", {
+          description: "Você agiu como o homem que decidiu se tornar.",
+        });
+      }
       if (res.chapterChanged) {
         toast.success(`Capítulo ${res.chapterChanged.to}: ${res.chapterChanged.nome}`);
       }
@@ -122,6 +134,7 @@ function JourneyPage() {
       void queryClient.invalidateQueries({ queryKey: ["missions"] });
       void queryClient.invalidateQueries({ queryKey: ["activity-history"] });
       void queryClient.invalidateQueries({ queryKey: ["profile-panorama"] });
+      void queryClient.invalidateQueries({ queryKey: ["identity-proofs"] });
     },
     onError: (err, _id, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(["journey"], ctx.prev);
@@ -175,6 +188,10 @@ function JourneyPage() {
               <h1 className="truncate font-display text-2xl font-bold">{profile.nome}</h1>
               <p className="mt-1 truncate text-sm text-muted-foreground">
                 Capítulo {profile.capitulo_atual} — {chapterName(profile.capitulo_atual)}
+                <span className="text-muted-foreground/70">
+                  {" "}
+                  · {identityArcForChapter(profile.capitulo_atual).nome}
+                </span>
               </p>
             </div>
           </div>
@@ -312,6 +329,11 @@ function JourneyPage() {
         )}
       </Card>
 
+      <AlterEgoJourneyCard
+        alterEgo={data.alterEgo}
+        proofStats={data.proofStats}
+        identityArc={identityArcForChapter(profile.capitulo_atual)}
+      />
       <MentorJourneyCard />
       <CheckinCard />
 

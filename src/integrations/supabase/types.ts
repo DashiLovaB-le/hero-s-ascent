@@ -454,6 +454,81 @@ export type Database = {
           },
         ]
       }
+      hero_alter_ego: {
+        Row: {
+          id: string
+          user_id: string
+          nome: string
+          codigo: string[]
+          virtudes: string[]
+          inimigo: string
+          resumo: string
+          source_answers: Json
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          nome: string
+          codigo?: string[]
+          virtudes?: string[]
+          inimigo?: string
+          resumo?: string
+          source_answers?: Json
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          nome?: string
+          codigo?: string[]
+          virtudes?: string[]
+          inimigo?: string
+          resumo?: string
+          source_answers?: Json
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      identity_proofs: {
+        Row: {
+          id: string
+          user_id: string
+          source_type: string
+          source_id: string
+          atributo: string | null
+          label: string
+          dia: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          source_type: string
+          source_id: string
+          atributo?: string | null
+          label: string
+          dia: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          source_type?: string
+          source_id?: string
+          atributo?: string | null
+          label?: string
+          dia?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       exercise_types: {
         Row: {
           id: string
@@ -971,6 +1046,9 @@ export type Database = {
           telegram_chat_id: string | null
           telegram_opt_in: boolean
           telegram_linked_at: string | null
+          discord_user_id: string | null
+          discord_opt_in: boolean
+          discord_linked_at: string | null
           location_label: string | null
           location_lat: number | null
           location_lon: number | null
@@ -997,6 +1075,9 @@ export type Database = {
           telegram_chat_id?: string | null
           telegram_opt_in?: boolean
           telegram_linked_at?: string | null
+          discord_user_id?: string | null
+          discord_opt_in?: boolean
+          discord_linked_at?: string | null
           location_label?: string | null
           location_lat?: number | null
           location_lon?: number | null
@@ -1023,6 +1104,9 @@ export type Database = {
           telegram_chat_id?: string | null
           telegram_opt_in?: boolean
           telegram_linked_at?: string | null
+          discord_user_id?: string | null
+          discord_opt_in?: boolean
+          discord_linked_at?: string | null
           location_label?: string | null
           location_lat?: number | null
           location_lon?: number | null
@@ -1233,6 +1317,7 @@ export type Database = {
           energia: number | null
           humor: number | null
           nota: string | null
+          identidade_hoje: string | null
           created_at: string
           updated_at: string
         }
@@ -1245,6 +1330,7 @@ export type Database = {
           energia?: number | null
           humor?: number | null
           nota?: string | null
+          identidade_hoje?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -1257,6 +1343,7 @@ export type Database = {
           energia?: number | null
           humor?: number | null
           nota?: string | null
+          identidade_hoje?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -1338,6 +1425,30 @@ export type Database = {
         Relationships: []
       }
       telegram_link_codes: {
+        Row: {
+          code: string
+          user_id: string
+          expires_at: string
+          used_at: string | null
+          created_at: string
+        }
+        Insert: {
+          code: string
+          user_id: string
+          expires_at: string
+          used_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          code?: string
+          user_id?: string
+          expires_at?: string
+          used_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      discord_link_codes: {
         Row: {
           code: string
           user_id: string

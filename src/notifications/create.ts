@@ -1,6 +1,7 @@
 import type { Json } from "@/integrations/supabase/types";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { maybeSendTelegramNotification } from "@/notifications/telegram";
+import { maybeSendDiscordNotification } from "@/notifications/discord";
 import { maybeSendWebPushNotification } from "@/notifications/push";
 import { maybeSendNativePushNotification } from "@/notifications/push-native";
 import {
@@ -72,6 +73,8 @@ async function applyCharlieVoice(input: {
         metaNumber(input.metadata, "risco_streak"),
         metaNumber(input.metadata, "risco_abandono"),
       ),
+      identityCodigo: metaString(input.metadata, "identity_codigo"),
+      identityInimigo: metaString(input.metadata, "identity_inimigo"),
       fallbackTitulo: input.titulo,
       fallbackCorpo: input.corpo,
     });
@@ -107,6 +110,13 @@ export async function createNotification(input: {
 
   await Promise.all([
     maybeSendTelegramNotification({
+      userId: input.userId,
+      tipo: input.tipo,
+      titulo: voiced.titulo,
+      corpo: voiced.corpo,
+      metadata: input.metadata,
+    }),
+    maybeSendDiscordNotification({
       userId: input.userId,
       tipo: input.tipo,
       titulo: voiced.titulo,

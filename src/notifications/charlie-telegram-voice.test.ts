@@ -68,4 +68,30 @@ describe("charlie telegram voice", () => {
     });
     assert.match(v.corpo, /Treinar 20 min/);
   });
+
+  it("streak_risk com identity_codigo cita o código", () => {
+    const v = voiceCharlieNotification({
+      tipo: "streak_risk",
+      personalitySlug: "classico",
+      streak: 8,
+      intensity: "high",
+      identityCodigo: "Faço o difícil primeiro",
+      identityInimigo: "Procrastinação",
+      fallbackTitulo: "Sua streak está em risco",
+      fallbackCorpo: "Sequência de 8 dias",
+    });
+    assert.match(v.corpo, /Faço o difícil primeiro/);
+  });
+
+  it("habit_reminder não exige identity (guardrail)", () => {
+    const v = voiceCharlieNotification({
+      tipo: "habit_reminder",
+      personalitySlug: "classico",
+      pending: 1,
+      identityCodigo: "Não deveria aparecer em todo hábito",
+      fallbackTitulo: "x",
+      fallbackCorpo: "y",
+    });
+    assert.doesNotMatch(v.corpo, /Não deveria aparecer/);
+  });
 });

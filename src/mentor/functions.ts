@@ -264,6 +264,7 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
     objRes,
     mlRes,
     chessRes,
+    alterEgoRes,
   ] = await Promise.all([
       supabase
         .from("attributes")
@@ -326,6 +327,11 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
         .gte("updated_at", new Date(Date.now() - 30 * 86_400_000).toISOString())
         .order("updated_at", { ascending: false })
         .limit(40),
+      supabase
+        .from("hero_alter_ego")
+        .select("nome, codigo, virtudes, inimigo, resumo, active")
+        .eq("user_id", userId)
+        .maybeSingle(),
     ]);
 
   for (const [label, res] of [
@@ -355,6 +361,14 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
   // charlie_chess_games optional until migration
   if (chessRes.error && !/does not exist|charlie_chess_games/i.test(chessRes.error.message)) {
     console.error("[mentor] chess games", chessRes.error.message);
+  }
+
+  // hero_alter_ego optional until migration
+  if (
+    alterEgoRes.error &&
+    !/does not exist|hero_alter_ego/i.test(alterEgoRes.error.message)
+  ) {
+    console.error("[mentor] alter ego", alterEgoRes.error.message);
   }
 
   if (!profileRes.data || !attrsRes.data) {
@@ -418,8 +432,30 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
     }
   }
 
+  const chessSummary = chessRes.error
+    ? null
+    : summarizeChessForMentor(chessRes.data ?? [], {
+        timezone: profileLoc.location_timezone,
+      }).line;
+
+  const alterEgoRow =
+    !alterEgoRes.error && alterEgoRes.data && alterEgoRes.data.active !== false
+      ? {
+          nome: String(alterEgoRes.data.nome ?? ""),
+          codigo: Array.isArray(alterEgoRes.data.codigo)
+            ? alterEgoRes.data.codigo.map(String)
+            : [],
+          virtudes: Array.isArray(alterEgoRes.data.virtudes)
+            ? alterEgoRes.data.virtudes.map(String)
+            : [],
+          inimigo: String(alterEgoRes.data.inimigo ?? ""),
+          resumo: String(alterEgoRes.data.resumo ?? ""),
+        }
+      : null;
+
   const checkins = await loadCheckinsForMentor(supabase, userId, 5);
   let checkinsSummary: string | null = null;
+  let identidadeHoje: string | null = null;
   if (checkins.length) {
     const lines = checkins.slice(0, 3).map((c) => {
       const parts = [`dia ${c.dia}`];
@@ -427,16 +463,30 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
       if (c.sono_qualidade != null) parts.push(`qualidade ${c.sono_qualidade}/5`);
       if (c.energia != null) parts.push(`energia ${c.energia}/5`);
       if (c.humor != null) parts.push(`humor ${c.humor}/5`);
+      if ((c as { identidade_hoje?: string | null }).identidade_hoje) {
+        parts.push(`identidade ${(c as { identidade_hoje: string }).identidade_hoje}`);
+      }
       return parts.join(", ");
     });
     checkinsSummary = `CHECK-INS (mais recentes): ${lines.join(" | ")}`;
+    const todayRow = checkins.find((c) => c.dia === hoje);
+    identidadeHoje =
+      (todayRow as { identidade_hoje?: string | null } | undefined)?.identidade_hoje ?? null;
   }
 
-  const chessSummary = chessRes.error
-    ? null
-    : summarizeChessForMentor(chessRes.data ?? [], {
-        timezone: profileLoc.location_timezone,
-      }).line;
+  const {
+    getIdentityProofStats,
+    listRecentIdentityProofs,
+    formatIdentityProofsForMentor,
+  } = await import("@/lib/identity-proofs");
+  const proofStats = await getIdentityProofStats(supabase, userId, hoje);
+  const recentProofs = await listRecentIdentityProofs(supabase, userId, 5);
+  const identityProofsSummary = formatIdentityProofsForMentor({
+    alterEgoNome: alterEgoRow?.nome,
+    stats: proofStats,
+    recentLabels: recentProofs.map((p) => p.label),
+    identidadeHoje,
+  });
 
   const since14 = `${addDaysToDateKey(hoje, -14)}T00:00:00.000Z`;
   const since7 = addDaysToDateKey(hoje, -6);
@@ -492,6 +542,8 @@ async function loadJourneySnapshot(supabase: Client, userId: string) {
     mlScores,
     checkinsSummary,
     chessSummary,
+    alterEgo: alterEgoRow,
+    identityProofsSummary,
   };
 }
 
@@ -564,6 +616,8 @@ async function callMentor(
     checkinsSummary: snap.checkinsSummary,
     chessSummary: snap.chessSummary,
     personality: { slug: promptMeta.slug, name: promptMeta.name },
+    alterEgo: snap.alterEgo,
+    identityProofsSummary: snap.identityProofsSummary,
     cyclePhaseHint: opts.cyclePhaseHint ?? null,
   });
 
@@ -749,6 +803,7 @@ async function callMentor(
         metadata.adaptive_challenge = true;
         metadata.adaptive_reasons = challengePolicy.reasons;
         const { createNotification } = await import("@/notifications/create");
+        const codigoLine = snap.alterEgo?.codigo?.[0]?.trim() || null;
         await createNotification({
           userId,
           tipo: "mentor_challenge",
@@ -758,6 +813,13 @@ async function callMentor(
             challenge_id: chal.id,
             href: "/mentor",
             ml_guided: true,
+            ...(codigoLine
+              ? {
+                  identity_codigo: codigoLine,
+                  identity_inimigo: snap.alterEgo?.inimigo || null,
+                  alter_ego_nome: snap.alterEgo?.nome ?? null,
+                }
+              : {}),
           },
         });
       }
@@ -1250,11 +1312,29 @@ export const updateMentorChallenge = createServerFn({ method: "POST" })
       },
     });
 
-    const { evaluateProgress } = await import("@/lib/progress-engine");
-    const progress = await evaluateProgress(supabase, userId, before, {
-      ...before,
-      xp_total: novoXp,
+    const { emitIdentityProof, getIdentityProofStats } = await import("@/lib/identity-proofs");
+    await emitIdentityProof(supabase, {
+      userId,
+      sourceType: "challenge",
+      sourceId: chal.id,
+      label: `Desafio concluído: ${chal.titulo}`,
     });
+    const proofStats = await getIdentityProofStats(supabase, userId);
+
+    const { evaluateProgress } = await import("@/lib/progress-engine");
+    const progress = await evaluateProgress(
+      supabase,
+      userId,
+      before,
+      {
+        ...before,
+        xp_total: novoXp,
+      },
+      {
+        proofsWeek: proofStats.week,
+        proofsTotal: proofStats.total,
+      },
+    );
 
     const [enriched] = await enrichChallenges(supabase, userId, [updated]);
     const followUp = await maybeChallengeFollowUp(supabase, userId, {
@@ -1266,6 +1346,8 @@ export const updateMentorChallenge = createServerFn({ method: "POST" })
       challenge: enriched,
       xpGanho: chal.xp_recompensa + progress.xpBonusTotal,
       unlockedAchievements: progress.unlockedAchievements,
+      identityProof: true as const,
+      proofStats,
       chapterChanged: progress.chapterChanged,
       ...followUp,
     };

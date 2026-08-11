@@ -46,12 +46,12 @@ Não é uma rede social. É um app individual de progresso, ritmo diário e ment
 Landing (/)
   → Auth (/auth)  — login / cadastro / Google
   → Trigger Supabase cria profiles + attributes + user_roles
-  → /journey (dashboard)
+  → /journey  — dashboard: nível, XP, streak, hábitos, **alter ego**, card do Charlie, check-in
        → se onboarding incompleto → /onboarding
-       → hábitos declarados do dia, XP, streak, card do Charlie, **check-in**
   → /habits  — CRUD + concluir (declarados) + card Exercício validado
   → /exercises/pushup — sessão de flexão (câmera + pose on-device)
   → /goals   — metas (norte, prazo, progresso, vínculo com hábitos)
+  → /identity — Alter Ego do herói (código, virtudes; ≠ personalidade do Charlie) — ver `plans/alter-ego.md`
   → /mentor  — chat Charlie, presença, desafios, sugestões, xadrez (modo foco), sinais ML
   → /store   — loja de personalidades do Charlie (ativação real do tom)
   → /profile — identidade, atributos, cidade, wallpaper, Telegram, Web Push, despertador (nativo)
@@ -80,10 +80,11 @@ Layout compartilhado:
 
 | Rota | Função |
 | --- | --- |
-| `/journey` | Dashboard: nível, XP, streak, hábitos **declarados** do dia, check-in, atributos, entrada para Charlie |
+| `/journey` | Dashboard: nível, XP, streak, hábitos **declarados** do dia, **alter ego**, check-in, atributos, entrada para Charlie |
 | `/habits` | CRUD de hábitos declarados (título, **detalhes/descrição**, XP fixo do sistema) + card exercício validado + sugerir com Charlie |
 | `/exercises/$slug` | Sessão validada (MVP: `pushup`) — câmera ao vivo, calibração, contagem por pose |
 | `/goals` | Metas com status, motivo, prazo, norte, progresso 7d e vínculo com hábitos |
+| `/identity` | Alter Ego do herói (criar/editar/regenerar código) — ver [`plans/alter-ego.md`](alter-ego.md) |
 | `/mentor` | Chat com Charlie; **xadrez** no Modo foco; link **Configurar Personalidade** → `/store` |
 | `/store` | Loja de personalidades (cards cyberpunk); confirmar ativa `profiles.charlie_personality` |
 | `/profile` | Perfil, radar, ritmo, troféus, localização/clima, wallpapers, Telegram, Web Push / push nativo, **despertador** |
@@ -475,6 +476,22 @@ Doc canônico: `plans/PlanejamentoMobile-Capacitor.md`.
 
 ---
 
+## 12b. Discord
+
+| Peça | Detalhe |
+| --- | --- |
+| Bot | `Charlie` (Application ID em `DISCORD_APPLICATION_ID`) |
+| UI vínculo | `DiscordSettingsCard` em `/profile` |
+| Vínculo | Perfil → código one-time → DM `/vincular` |
+| Webhook | `discord-webhook`; assinatura Ed25519 (`DISCORD_PUBLIC_KEY`) |
+| Opt-in | `profiles.discord_opt_in` |
+| Create + espelho | `src/notifications/create.ts` + `discord.ts` (+ `notification-jobs`) |
+| Admin | `/dashitecnology/discord` |
+
+**Tipos espelhados:** mesmos do Telegram. Canal: **só DM** (MVP).
+
+---
+
 ## 13. Modelo de dados (Supabase)
 
 | Tabela | Papel |
@@ -495,6 +512,7 @@ Doc canônico: `plans/PlanejamentoMobile-Capacitor.md`.
 | `mentor_*` | Mensagens, memórias, desafios, objetivos |
 | `notifications` | Centro in-app |
 | `telegram_link_codes` | Códigos one-time |
+| `discord_link_codes` | Códigos one-time Discord |
 | `user_features` | Feature store ML (Fase 1) |
 | `user_ml_scores` | Scores produção `heuristic_v1` → Charlie |
 | `user_ml_scores_shadow` | Scores sklearn (shadow, Fase 2) |
@@ -555,7 +573,11 @@ Cliente e servidor devem apontar para o **mesmo** projeto Supabase (`VITE_*` ali
 | `TELEGRAM_BOT_TOKEN` | Server / Edge | Bot API |
 | `TELEGRAM_BOT_USERNAME` | Server | Deep link |
 | `TELEGRAM_WEBHOOK_SECRET` | Edge webhook | Validação Telegram |
-| `APP_PUBLIC_URL` | Server | Links em mensagens Telegram |
+| `DISCORD_BOT_TOKEN` | Server / Edge | Bot API Discord |
+| `DISCORD_PUBLIC_KEY` | Edge webhook | Assinatura Interactions |
+| `DISCORD_APPLICATION_ID` | Server | Deep link / commands |
+| `DISCORD_BOT_USERNAME` | Server | UI (`Charlie`) |
+| `APP_PUBLIC_URL` | Server | Links em mensagens Telegram/Discord |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Server | Web Push |
 | `VITE_VAPID_PUBLIC_KEY` | Client (opcional) | Fallback público VAPID no build |
 | `SUPABASE_TOKEN` | Local / CLI (opcional) | Access token Supabase CLI / ops — **não** no browser |
@@ -580,7 +602,7 @@ No **Vercel**, as mesmas variáveis precisam estar em Environment Variables (Pro
 
 ```bash
 npx supabase functions deploy notification-jobs ml-features-job \
-  agent-initiatives-job telegram-webhook \
+  agent-initiatives-job telegram-webhook discord-webhook \
   --project-ref gmzddccyikpxbiozsiue --no-verify-jwt --use-api
 ```
 

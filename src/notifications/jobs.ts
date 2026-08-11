@@ -270,6 +270,26 @@ async function sendDailyProductReminders(admin: Admin, hoje: string) {
     (mlRows ?? []).map((r) => [r.user_id, scoresFromMlRow(r)]),
   );
 
+  const { data: alterEgoRows } = await admin
+    .from("hero_alter_ego")
+    .select("user_id, nome, inimigo, codigo, active")
+    .in("user_id", userIds)
+    .eq("active", true);
+
+  const alterEgoByUser = new Map(
+    (alterEgoRows ?? []).map((r) => {
+      const codigo = Array.isArray(r.codigo) ? r.codigo.map(String) : [];
+      return [
+        r.user_id,
+        {
+          nome: String(r.nome),
+          inimigo: String(r.inimigo ?? ""),
+          codigoLine: codigo[0]?.trim() || null,
+        },
+      ] as const;
+    }),
+  );
+
   for (const [userId, habitIds] of habitsByUser) {
     const profile = profileById.get(userId);
     if (!profile) continue;
@@ -299,6 +319,7 @@ async function sendDailyProductReminders(admin: Admin, hoje: string) {
           ...decision.metadataExtra,
           adaptive_reasons: decision.reasons,
           weekday_weakest_label: mlByUser.get(userId)?.weekday_weakest_label ?? null,
+          // guardrail: sem identity_* em habit_reminder
         },
         dia: hoje,
       });
@@ -306,17 +327,25 @@ async function sendDailyProductReminders(admin: Admin, hoje: string) {
     }
 
     if (decision.sendStreakRisk) {
+      const ego = alterEgoByUser.get(userId);
       const res = await createNotificationOncePerDay({
         userId,
         tipo: "streak_risk",
         titulo: decision.streakTitulo,
         corpo: decision.streakCorpo,
         metadata: {
-          href: "/habits",
+          href: ego ? "/identity" : "/habits",
           streak: profile.streak_atual,
           ...decision.metadataExtra,
           adaptive_reasons: decision.reasons,
           weekday_weakest_label: mlByUser.get(userId)?.weekday_weakest_label ?? null,
+          ...(ego?.codigoLine
+            ? {
+                identity_codigo: ego.codigoLine,
+                identity_inimigo: ego.inimigo || null,
+                alter_ego_nome: ego.nome,
+              }
+            : {}),
         },
         dia: hoje,
       });

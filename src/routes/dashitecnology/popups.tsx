@@ -26,6 +26,10 @@ import {
   type AppPopupRow,
 } from "@/lib/popup.functions";
 
+const CUSTOM_TARGET_VALUE = "__custom__";
+
+const KNOWN_TARGET_PATHS = new Set(POPUP_TARGET_OPTIONS.map((o) => o.value));
+
 export const Route = createFileRoute("/dashitecnology/popups")({
   loader: ({ context }) =>
     context.queryClient.ensureQueryData({
@@ -65,7 +69,7 @@ function emptyForm() {
     body_link_ativo: false,
     body_link_label: "",
     body_link_url: "",
-    target_path: "/journey" as (typeof POPUP_TARGET_OPTIONS)[number]["value"],
+    target_path: "/journey",
     ativo: false,
     starts_at: toLocalInput(start.toISOString()),
     expires_at: toLocalInput(end.toISOString()),
@@ -167,7 +171,7 @@ function PopupsAdminPage() {
       body_link_ativo: Boolean(item.body_link_ativo),
       body_link_label: item.body_link_label ?? "",
       body_link_url: item.body_link_url ?? "",
-      target_path: item.target_path as (typeof POPUP_TARGET_OPTIONS)[number]["value"],
+      target_path: item.target_path,
       ativo: item.ativo,
       starts_at: toLocalInput(item.starts_at),
       expires_at: toLocalInput(item.expires_at),
@@ -175,10 +179,14 @@ function PopupsAdminPage() {
     });
   }
 
+  const targetSelectValue = (KNOWN_TARGET_PATHS as Set<string>).has(form.target_path)
+    ? form.target_path
+    : CUSTOM_TARGET_VALUE;
+
   return (
     <AdminShell
       title="Pop-ups"
-      subtitle="Anúncios temporários por página — fora das notificações. Abrem ao carregar a rota."
+      subtitle="Anúncios temporários por página — qualquer rota do app (exceto /dashitecnology). Abrem ao carregar a rota."
       actions={
         <Button
           type="button"
@@ -301,25 +309,46 @@ function PopupsAdminPage() {
               <div className="space-y-1.5">
                 <Label>Página alvo *</Label>
                 <Select
-                  value={form.target_path}
+                  value={targetSelectValue}
                   onValueChange={(v) =>
                     setForm((f) => ({
                       ...f,
-                      target_path: v as (typeof POPUP_TARGET_OPTIONS)[number]["value"],
+                      target_path: v === CUSTOM_TARGET_VALUE ? "" : v,
                     }))
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Escolha a página" />
                   </SelectTrigger>
                   <SelectContent>
                     {POPUP_TARGET_OPTIONS.map((o) => (
                       <SelectItem key={o.value} value={o.value}>
-                        {o.label}
+                        {o.label} ({o.value})
                       </SelectItem>
                     ))}
+                    <SelectItem value={CUSTOM_TARGET_VALUE}>
+                      Outra página (path personalizado)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
+                {targetSelectValue === CUSTOM_TARGET_VALUE ? (
+                  <div className="space-y-1.5 pt-1">
+                    <Input
+                      value={form.target_path}
+                      onChange={(e) => setForm((f) => ({ ...f, target_path: e.target.value }))}
+                      placeholder="/fitness/workout/meu-treino"
+                      maxLength={120}
+                      required
+                    />
+                    <p className="text-[11px] text-white/40">
+                      Qualquer rota do app (ex.: /identity, /fitness). Exceto /dashitecnology.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-white/40">
+                    Ou escolha “Outra página” para informar qualquer path fora do control room.
+                  </p>
+                )}
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">

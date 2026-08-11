@@ -21,6 +21,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { to: "/dashitecnology/agent", label: "Agente" },
   { to: "/dashitecnology/notifications", label: "Notificações" },
   { to: "/dashitecnology/telegram", label: "Telegram" },
+  { to: "/dashitecnology/discord", label: "Discord" },
   { to: "/dashitecnology/jobs", label: "Jobs" },
   { to: "/dashitecnology/checkins", label: "Check-ins" },
   { to: "/dashitecnology/content", label: "Conteúdo" },

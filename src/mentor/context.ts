@@ -5,6 +5,10 @@ import {
   formatMentorGoalsBlock,
   type MentorGoalItem,
 } from "@/lib/mentor-goals";
+import {
+  formatAlterEgoBlock,
+  type AlterEgoContext,
+} from "@/lib/alter-ego";
 
 export type MentorPresenceKind = "welcome" | "morning" | "evening" | "return" | "insight" | null;
 
@@ -63,6 +67,10 @@ export type MentorContextInput = {
   /** Resumo do ritual de xadrez (null = omitir). */
   chessSummary?: string | null;
   personality?: { slug: string; name: string } | null;
+  /** Alter Ego do herói (identidade — ≠ personalidade do Charlie). */
+  alterEgo?: AlterEgoContext | null;
+  /** Provas de identidade (Fase 2). */
+  identityProofsSummary?: string | null;
   /** Override explícito da fase (ex.: follow-up VERIFY→LEARN). */
   cyclePhaseHint?: string | null;
 };
@@ -283,6 +291,8 @@ export function buildMentorContextBlock(input: MentorContextInput): string {
     `Atributo mais fraco: ${weakest}`,
     `Atributos: ${attrs.map((a) => `${a.label}: ${a.value}`).join(", ")}`,
     formatMentorGoalsBlock(input.goals),
+    formatAlterEgoBlock(input.alterEgo),
+    input.identityProofsSummary ? input.identityProofsSummary : null,
     `Hábitos ativos (use id se vincular desafio): ${habitsWithIds || "nenhum"}`,
     `Contagem de hábitos ativos: ${input.habits.length}`,
     `Concluídos hoje (${feitosHoje.length}/${input.habits.length}): ${feitosHoje.join("; ") || "nenhum"}`,
@@ -366,6 +376,14 @@ IDENTIDADE
 - Responda em português do Brasil.
 - Use o nome do herói com parcimônia — só quando aumentar o peso da frase.
 
+ALTER EGO DO HERÓI (≠ sua personalidade)
+- Há um bloco "IDENTIDADE DO HERÓI" no contexto (nome, código, virtudes, inimigo). Isso é quem o herói quer se tornar — não é você.
+- Você é o guardião dessa identidade. Nunca fale como se fosse o alter ego. Seu nome continua Charlie.
+- Em fricção (procrastinação, skip, "deixo pra amanhã", desculpas), cite 1 linha do código com respeito.
+- O "antigo eu" são padrões a superar — nunca humilhe o herói.
+- Se a identidade ainda não estiver definida, não invente; pode incentivar criar em /identity quando couber.
+- PERSONALIDADE ATIVA DO CHARLIE (tom) é independente do Alter Ego do herói.
+
 CICLO DO MENTOR (obrigatório, interno — NÃO narre estas fases ao herói)
 1. Observar — use só o contexto (hábitos, streak, ML, check-ins, desafios ativos, memórias).
 2. Pensar — forme 1 diagnóstico implícito; não explique o raciocínio passo a passo.
@@ -402,9 +420,9 @@ CLIMA
 - Adapte sugestões ao tempo real (chuva → indoor; calor extremo → hidratação/sombra). Nunca invente clima se o contexto disser ausente.
 
 SINAIS ML
-- Há um bloco "SINAIS ML" com scores calculados (risco_streak, risco_abandono, weekday fraco, projeção de nível).
+- Há um bloco "SINAIS ML" com scores calculados (risco_streak, risco_abandono, weekday fraco, projeção de nível, Aderência recente à identidade, risco_identidade, Principal risco).
 - Use com parcimônia — cite no máximo um sinal por resposta, só quando ajudar o herói a agir.
-- Se risco_streak ou risco_abandono estiver alto (≥55%) ou houver "AÇÃO: priorize presença proativa", antecipe o padrão (ex.: "sextas caem") sem esperar o herói dizer que está desanimado.
+- Se risco_streak, risco_abandono ou risco_identidade estiver alto (≥55%) ou houver "AÇÃO: priorize presença proativa", antecipe o padrão (ex.: "sextas caem") sem esperar o herói dizer que está desanimado; em fricção, cite 1 linha do código.
 - Nunca invente sono, estresse, personalidade tipológica ou dados que não estejam no contexto.
 - Não fale de "algoritmo", "modelo" ou "machine learning" — fale como mentor que observa padrões.
 
@@ -764,9 +782,9 @@ export function presenceUserPrompt(
     case "welcome":
       return `O herói acabou de encontrar você pela primeira vez. Cumprimente-o como Charlie. Seja breve. Convide-o a falar o que busca nesta jornada — sem soar como formulário.${askHint}`;
     case "morning":
-      return `É manhã. Entregue uma presença curta de amanhecer, baseada no contexto de hoje, no OBJETIVO DO MENTOR e no clima (se houver). Sem checklist. Uma direção.${askHint}`;
+      return `É manhã. Entregue uma presença curta de amanhecer. Se houver IDENTIDADE DO HERÓI / código, cite no máximo uma linha do código como norte do dia (sem discurso longo). Baseie-se no contexto de hoje, no OBJETIVO DO MENTOR e no clima (se houver). Sem checklist. Uma direção.${askHint}`;
     case "evening":
-      return `É o fim do dia. Comente o que o herói fez (ou deixou de fazer) hoje com honestidade serena, alinhado ao OBJETIVO DO MENTOR. Pode mencionar o clima só se reforçar o fechamento. Feche o dia.${askHint}`;
+      return `É o fim do dia. Entregue um RELATÓRIO DE IDENTIDADE curto (se houver bloco PROVAS / IDENTIDADE DO HERÓI / SINAIS ML de aderência): compromissos cumpridos vs pendentes, quantas provas, aderência se houver, e se o herói falhou em algo — diga que um dia fraco não destrói a identidade. Tom sereno, alinhado ao OBJETIVO DO MENTOR. Pode mencionar o clima só se reforçar o fechamento. Feche o dia.${askHint}`;
     case "return":
       return `O herói ficou ausente. Não culpe. Chame-o de volta com dignidade. Prefira uma pergunta estruturada sobre o que o afastou (tempo, energia, ou outro).${askHint}`;
     case "insight":

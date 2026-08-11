@@ -34,6 +34,7 @@ import { Route as DashitecnologyJobsRouteImport } from './routes/dashitecnology/
 import { Route as DashitecnologyHabitsRouteImport } from './routes/dashitecnology/habits'
 import { Route as DashitecnologyGoalsRouteImport } from './routes/dashitecnology/goals'
 import { Route as DashitecnologyGamificationRouteImport } from './routes/dashitecnology/gamification'
+import { Route as DashitecnologyDiscordRouteImport } from './routes/dashitecnology/discord'
 import { Route as DashitecnologyContentRouteImport } from './routes/dashitecnology/content'
 import { Route as DashitecnologyCheckinsRouteImport } from './routes/dashitecnology/checkins'
 import { Route as DashitecnologyCharlieAlarmRouteImport } from './routes/dashitecnology/charlie-alarm'
@@ -46,6 +47,7 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedMentorRouteImport } from './routes/_authenticated/mentor'
 import { Route as AuthenticatedJourneyRouteImport } from './routes/_authenticated/journey'
+import { Route as AuthenticatedIdentityRouteImport } from './routes/_authenticated/identity'
 import { Route as AuthenticatedHabitsRouteImport } from './routes/_authenticated/habits'
 import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
 import { Route as AuthenticatedFitnessRouteImport } from './routes/_authenticated/fitness'
@@ -184,6 +186,11 @@ const DashitecnologyGamificationRoute =
     path: '/gamification',
     getParentRoute: () => DashitecnologyRouteRoute,
   } as any)
+const DashitecnologyDiscordRoute = DashitecnologyDiscordRouteImport.update({
+  id: '/discord',
+  path: '/discord',
+  getParentRoute: () => DashitecnologyRouteRoute,
+} as any)
 const DashitecnologyContentRoute = DashitecnologyContentRouteImport.update({
   id: '/content',
   path: '/content',
@@ -243,6 +250,11 @@ const AuthenticatedMentorRoute = AuthenticatedMentorRouteImport.update({
 const AuthenticatedJourneyRoute = AuthenticatedJourneyRouteImport.update({
   id: '/journey',
   path: '/journey',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedIdentityRoute = AuthenticatedIdentityRouteImport.update({
+  id: '/identity',
+  path: '/identity',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedHabitsRoute = AuthenticatedHabitsRouteImport.update({
@@ -308,6 +320,7 @@ export interface FileRoutesByFullPath {
   '/fitness': typeof AuthenticatedFitnessRouteWithChildren
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
+  '/identity': typeof AuthenticatedIdentityRoute
   '/journey': typeof AuthenticatedJourneyRoute
   '/mentor': typeof AuthenticatedMentorRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
@@ -320,6 +333,7 @@ export interface FileRoutesByFullPath {
   '/dashitecnology/charlie-alarm': typeof DashitecnologyCharlieAlarmRoute
   '/dashitecnology/checkins': typeof DashitecnologyCheckinsRoute
   '/dashitecnology/content': typeof DashitecnologyContentRoute
+  '/dashitecnology/discord': typeof DashitecnologyDiscordRoute
   '/dashitecnology/gamification': typeof DashitecnologyGamificationRoute
   '/dashitecnology/goals': typeof DashitecnologyGoalsRoute
   '/dashitecnology/habits': typeof DashitecnologyHabitsRoute
@@ -354,6 +368,7 @@ export interface FileRoutesByTo {
   '/fitness': typeof AuthenticatedFitnessRouteWithChildren
   '/goals': typeof AuthenticatedGoalsRoute
   '/habits': typeof AuthenticatedHabitsRoute
+  '/identity': typeof AuthenticatedIdentityRoute
   '/journey': typeof AuthenticatedJourneyRoute
   '/mentor': typeof AuthenticatedMentorRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
@@ -366,6 +381,7 @@ export interface FileRoutesByTo {
   '/dashitecnology/charlie-alarm': typeof DashitecnologyCharlieAlarmRoute
   '/dashitecnology/checkins': typeof DashitecnologyCheckinsRoute
   '/dashitecnology/content': typeof DashitecnologyContentRoute
+  '/dashitecnology/discord': typeof DashitecnologyDiscordRoute
   '/dashitecnology/gamification': typeof DashitecnologyGamificationRoute
   '/dashitecnology/goals': typeof DashitecnologyGoalsRoute
   '/dashitecnology/habits': typeof DashitecnologyHabitsRoute
@@ -402,6 +418,7 @@ export interface FileRoutesById {
   '/_authenticated/fitness': typeof AuthenticatedFitnessRouteWithChildren
   '/_authenticated/goals': typeof AuthenticatedGoalsRoute
   '/_authenticated/habits': typeof AuthenticatedHabitsRoute
+  '/_authenticated/identity': typeof AuthenticatedIdentityRoute
   '/_authenticated/journey': typeof AuthenticatedJourneyRoute
   '/_authenticated/mentor': typeof AuthenticatedMentorRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
@@ -414,6 +431,7 @@ export interface FileRoutesById {
   '/dashitecnology/charlie-alarm': typeof DashitecnologyCharlieAlarmRoute
   '/dashitecnology/checkins': typeof DashitecnologyCheckinsRoute
   '/dashitecnology/content': typeof DashitecnologyContentRoute
+  '/dashitecnology/discord': typeof DashitecnologyDiscordRoute
   '/dashitecnology/gamification': typeof DashitecnologyGamificationRoute
   '/dashitecnology/goals': typeof DashitecnologyGoalsRoute
   '/dashitecnology/habits': typeof DashitecnologyHabitsRoute
@@ -451,6 +469,7 @@ export interface FileRouteTypes {
     | '/fitness'
     | '/goals'
     | '/habits'
+    | '/identity'
     | '/journey'
     | '/mentor'
     | '/onboarding'
@@ -463,6 +482,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/charlie-alarm'
     | '/dashitecnology/checkins'
     | '/dashitecnology/content'
+    | '/dashitecnology/discord'
     | '/dashitecnology/gamification'
     | '/dashitecnology/goals'
     | '/dashitecnology/habits'
@@ -497,6 +517,7 @@ export interface FileRouteTypes {
     | '/fitness'
     | '/goals'
     | '/habits'
+    | '/identity'
     | '/journey'
     | '/mentor'
     | '/onboarding'
@@ -509,6 +530,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/charlie-alarm'
     | '/dashitecnology/checkins'
     | '/dashitecnology/content'
+    | '/dashitecnology/discord'
     | '/dashitecnology/gamification'
     | '/dashitecnology/goals'
     | '/dashitecnology/habits'
@@ -544,6 +566,7 @@ export interface FileRouteTypes {
     | '/_authenticated/fitness'
     | '/_authenticated/goals'
     | '/_authenticated/habits'
+    | '/_authenticated/identity'
     | '/_authenticated/journey'
     | '/_authenticated/mentor'
     | '/_authenticated/onboarding'
@@ -556,6 +579,7 @@ export interface FileRouteTypes {
     | '/dashitecnology/charlie-alarm'
     | '/dashitecnology/checkins'
     | '/dashitecnology/content'
+    | '/dashitecnology/discord'
     | '/dashitecnology/gamification'
     | '/dashitecnology/goals'
     | '/dashitecnology/habits'
@@ -770,6 +794,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashitecnologyGamificationRouteImport
       parentRoute: typeof DashitecnologyRouteRoute
     }
+    '/dashitecnology/discord': {
+      id: '/dashitecnology/discord'
+      path: '/discord'
+      fullPath: '/dashitecnology/discord'
+      preLoaderRoute: typeof DashitecnologyDiscordRouteImport
+      parentRoute: typeof DashitecnologyRouteRoute
+    }
     '/dashitecnology/content': {
       id: '/dashitecnology/content'
       path: '/content'
@@ -852,6 +883,13 @@ declare module '@tanstack/react-router' {
       path: '/journey'
       fullPath: '/journey'
       preLoaderRoute: typeof AuthenticatedJourneyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/identity': {
+      id: '/_authenticated/identity'
+      path: '/identity'
+      fullPath: '/identity'
+      preLoaderRoute: typeof AuthenticatedIdentityRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/habits': {
@@ -938,6 +976,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedFitnessRoute: typeof AuthenticatedFitnessRouteWithChildren
   AuthenticatedGoalsRoute: typeof AuthenticatedGoalsRoute
   AuthenticatedHabitsRoute: typeof AuthenticatedHabitsRoute
+  AuthenticatedIdentityRoute: typeof AuthenticatedIdentityRoute
   AuthenticatedJourneyRoute: typeof AuthenticatedJourneyRoute
   AuthenticatedMentorRoute: typeof AuthenticatedMentorRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
@@ -951,6 +990,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFitnessRoute: AuthenticatedFitnessRouteWithChildren,
   AuthenticatedGoalsRoute: AuthenticatedGoalsRoute,
   AuthenticatedHabitsRoute: AuthenticatedHabitsRoute,
+  AuthenticatedIdentityRoute: AuthenticatedIdentityRoute,
   AuthenticatedJourneyRoute: AuthenticatedJourneyRoute,
   AuthenticatedMentorRoute: AuthenticatedMentorRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
@@ -983,6 +1023,7 @@ interface DashitecnologyRouteRouteChildren {
   DashitecnologyCharlieAlarmRoute: typeof DashitecnologyCharlieAlarmRoute
   DashitecnologyCheckinsRoute: typeof DashitecnologyCheckinsRoute
   DashitecnologyContentRoute: typeof DashitecnologyContentRoute
+  DashitecnologyDiscordRoute: typeof DashitecnologyDiscordRoute
   DashitecnologyGamificationRoute: typeof DashitecnologyGamificationRoute
   DashitecnologyGoalsRoute: typeof DashitecnologyGoalsRoute
   DashitecnologyHabitsRoute: typeof DashitecnologyHabitsRoute
@@ -1009,6 +1050,7 @@ const DashitecnologyRouteRouteChildren: DashitecnologyRouteRouteChildren = {
   DashitecnologyCharlieAlarmRoute: DashitecnologyCharlieAlarmRoute,
   DashitecnologyCheckinsRoute: DashitecnologyCheckinsRoute,
   DashitecnologyContentRoute: DashitecnologyContentRoute,
+  DashitecnologyDiscordRoute: DashitecnologyDiscordRoute,
   DashitecnologyGamificationRoute: DashitecnologyGamificationRoute,
   DashitecnologyGoalsRoute: DashitecnologyGoalsRoute,
   DashitecnologyHabitsRoute: DashitecnologyHabitsRoute,

@@ -212,7 +212,9 @@ function HabitsPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="font-display text-2xl font-bold">Hábitos</h1>
-          <p className="text-sm text-muted-foreground">Rituais diários que forjam o herói.</p>
+          <p className="text-sm text-muted-foreground">
+            Rituais diários que forjam o herói — cada check é uma prova da sua identidade.
+          </p>
         </div>
         <div className="flex gap-2">
           <Button

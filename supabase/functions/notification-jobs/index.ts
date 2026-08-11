@@ -158,6 +158,13 @@ async function expireChallenges(
         corpo: voiced.corpo,
         href: "/mentor",
       });
+      await maybeDiscord(admin, {
+        userId: c.user_id,
+        tipo: "mentor_challenge_expired",
+        titulo: voiced.titulo,
+        corpo: voiced.corpo,
+        href: "/mentor",
+      });
     }
   }
   return n;
@@ -195,6 +202,7 @@ async function oncePerDay(
 
   const href = typeof metadata.href === "string" ? metadata.href : "/habits";
   await maybeTelegram(admin, { userId, tipo, titulo, corpo, href });
+  await maybeDiscord(admin, { userId, tipo, titulo, corpo, href });
   return true;
 }
 
@@ -464,6 +472,70 @@ async function maybeTelegram(
     });
   } catch (e) {
     console.error("[notification-jobs] telegram", e);
+  }
+}
+
+async function maybeDiscord(
+  admin: ReturnType<typeof createClient>,
+  input: {
+    userId: string;
+    tipo: string;
+    titulo: string;
+    corpo?: string;
+    href?: string;
+  },
+) {
+  try {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("discord_user_id, discord_opt_in")
+      .eq("id", input.userId)
+      .maybeSingle();
+
+    if (!profile?.discord_opt_in || !profile.discord_user_id) return;
+
+    const token = Deno.env.get("DISCORD_BOT_TOKEN");
+    if (!token) return;
+
+    const app =
+      (Deno.env.get("APP_PUBLIC_URL") || "https://v-project-rho.vercel.app").replace(/\/$/, "");
+    const path = input.href?.startsWith("/") ? input.href : "/habits";
+    const lines = ["Charlie"];
+    if (input.titulo?.trim()) lines.push(input.titulo.trim());
+    if (input.corpo?.trim() && input.corpo.trim() !== input.titulo?.trim()) {
+      lines.push(input.corpo.trim());
+    }
+    lines.push("", `${app}${path}`);
+    const content = lines.join("\n").slice(0, 2000);
+
+    const channelRes = await fetch("https://discord.com/api/v10/users/@me/channels", {
+      method: "POST",
+      headers: {
+        Authorization: `Bot ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ recipient_id: profile.discord_user_id }),
+    });
+    if (!channelRes.ok) {
+      console.error("[notification-jobs] discord dm channel", await channelRes.text());
+      return;
+    }
+    const channel = (await channelRes.json()) as { id?: string };
+    if (!channel.id) return;
+
+    const msgRes = await fetch(`https://discord.com/api/v10/channels/${channel.id}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bot ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ content }),
+    });
+    if (!msgRes.ok) {
+      console.error("[notification-jobs] discord send", await msgRes.text());
+    }
+  } catch (e) {
+    console.error("[notification-jobs] discord", e);
   }
 }
 

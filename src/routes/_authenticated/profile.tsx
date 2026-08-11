@@ -31,6 +31,7 @@ import { calcularNivel, ATRIBUTO_LABELS, CATEGORIAS } from "@/lib/journey";
 import { readStoredWallpaperId } from "@/lib/wallpaper-storage";
 import { WallpaperSettings } from "@/components/WallpaperSettings";
 import { TelegramSettingsCard } from "@/notifications/TelegramSettingsCard";
+import { DiscordSettingsCard } from "@/notifications/DiscordSettingsCard";
 import { PushSettingsCard } from "@/notifications/PushSettingsCard";
 import { CharlieAlarmSettingsCard } from "@/components/CharlieAlarmSettingsCard";
 import { RankingSettingsCard } from "@/components/RankingSettingsCard";
@@ -235,6 +236,12 @@ function ProfilePage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Capítulo {data.profile.capitulo_atual} — {chapterName}
               </p>
+              <Link
+                to="/identity"
+                className="mt-2 inline-flex items-center gap-1 text-xs text-hero underline-offset-2 hover:underline"
+              >
+                <Swords className="h-3.5 w-3.5" /> Alter ego / identidade
+              </Link>
             </div>
           </div>
           <div className="flex items-center gap-2 border border-strength/30 bg-strength/10 px-3 py-1.5 text-strength">
@@ -495,6 +502,10 @@ function ProfilePage() {
 
       <Card className="border-transparent p-6">
         <TelegramSettingsCard />
+      </Card>
+
+      <Card className="border-transparent p-6">
+        <DiscordSettingsCard />
       </Card>
 
       <Card className="border-transparent p-6">

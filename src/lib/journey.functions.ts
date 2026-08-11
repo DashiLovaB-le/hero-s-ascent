@@ -142,11 +142,35 @@ export const getJourney = createServerFn({ method: "POST" })
       throw new Error("Não foi possível inicializar seu perfil de herói. Tente sair e entrar de novo.");
     }
 
-    const [levels, wallpapers, habitXpReward] = await Promise.all([
+    const [levels, wallpapers, habitXpReward, alterEgoRes, proofStats] = await Promise.all([
       loadLevelsFromDb(),
       loadWallpapersFromDb(),
       resolveHabitXpReward(),
+      supabase
+        .from("hero_alter_ego")
+        .select("id, nome, codigo, virtudes, inimigo, resumo, active")
+        .eq("user_id", userId)
+        .maybeSingle(),
+      import("@/lib/identity-proofs").then(({ getIdentityProofStats }) =>
+        getIdentityProofStats(supabase as Client, userId, hoje),
+      ),
     ]);
+
+    const alterEgo =
+      !alterEgoRes.error && alterEgoRes.data && alterEgoRes.data.active !== false
+        ? {
+            id: alterEgoRes.data.id as string,
+            nome: String(alterEgoRes.data.nome),
+            codigo: Array.isArray(alterEgoRes.data.codigo)
+              ? alterEgoRes.data.codigo.map(String)
+              : [],
+            virtudes: Array.isArray(alterEgoRes.data.virtudes)
+              ? alterEgoRes.data.virtudes.map(String)
+              : [],
+            inimigo: String(alterEgoRes.data.inimigo ?? ""),
+            resumo: String(alterEgoRes.data.resumo ?? ""),
+          }
+        : null;
 
     return {
       profile: profileRes.data,
@@ -157,6 +181,8 @@ export const getJourney = createServerFn({ method: "POST" })
       levels,
       wallpapers,
       habitXpReward,
+      alterEgo,
+      proofStats,
     };
   });
 
@@ -314,6 +340,17 @@ export const completeHabit = createServerFn({ method: "POST" })
       }),
     ]);
 
+    const { emitIdentityProof, getIdentityProofStats } = await import("@/lib/identity-proofs");
+    await emitIdentityProof(supabase as Client, {
+      userId,
+      sourceType: "habit",
+      sourceId: data.habitId,
+      label: `Cumpriu o hábito: ${habit.titulo}`,
+      atributo: attrKey ?? null,
+      dia: hoje,
+    });
+    const proofStats = await getIdentityProofStats(supabase as Client, userId, hoje);
+
     const afterHabit = {
       xp_total: novoXpTotal,
       streak_atual: streak,
@@ -326,7 +363,11 @@ export const completeHabit = createServerFn({ method: "POST" })
       userId,
       beforeProgress,
       afterHabit,
-      { firstHabitEver },
+      {
+        firstHabitEver,
+        proofsWeek: proofStats.week,
+        proofsTotal: proofStats.total,
+      },
     );
 
     let finalXp = progress.xp_total;
@@ -381,6 +422,8 @@ export const completeHabit = createServerFn({ method: "POST" })
       unlockedAchievements: unlocked,
       chapterChanged,
       missionXp,
+      identityProof: true as const,
+      proofStats,
     };
   });
 

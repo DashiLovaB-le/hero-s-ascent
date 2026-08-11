@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Moon } from "lucide-react";
+import { Moon, Swords } from "lucide-react";
 import { toast } from "sonner";
 
 import { getTodayCheckin, upsertTodayCheckin } from "@/lib/checkins.functions";
 import { Button } from "@/components/ui/button";
 
-/** Check-in diário (sono / energia / humor) — ML Fase 4. */
+/** Check-in diário (sono / energia / humor / identidade) — sem XP na identidade. */
 export function CheckinCard() {
   const qc = useQueryClient();
   const getFn = useServerFn(getTodayCheckin);
@@ -22,6 +22,7 @@ export function CheckinCard() {
   const [sonoQualidade, setSonoQualidade] = useState<number | null>(null);
   const [energia, setEnergia] = useState<number | null>(null);
   const [humor, setHumor] = useState<number | null>(null);
+  const [identidade, setIdentidade] = useState<"sim" | "parcial" | "nao" | null>(null);
 
   const saved = Boolean(today);
 
@@ -33,6 +34,7 @@ export function CheckinCard() {
           sono_qualidade: sonoQualidade,
           energia,
           humor,
+          identidade_hoje: identidade,
         },
       }),
     onSuccess: () => {
@@ -42,6 +44,15 @@ export function CheckinCard() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao salvar"),
   });
 
+  const identidadeLabel =
+    today && "identidade_hoje" in today && today.identidade_hoje
+      ? today.identidade_hoje === "sim"
+        ? "agiu como a identidade"
+        : today.identidade_hoje === "parcial"
+          ? "parcialmente alinhado"
+          : "não alinhou com a identidade"
+      : null;
+
   return (
     <section className="border border-border/80 bg-surface/50 px-4 py-4">
       <div className="flex items-center gap-2">
@@ -49,7 +60,7 @@ export function CheckinCard() {
         <p className="text-[0.65rem] uppercase tracking-[0.22em] text-hero">Check-in do dia</p>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Sono, energia e humor (dia em horário de Brasília) — o Charlie só usa o que você registrar.
+        Sono, energia, humor e identidade — a pergunta de identidade não dá XP.
       </p>
 
       {saved && today ? (
@@ -60,6 +71,7 @@ export function CheckinCard() {
             today.sono_qualidade != null ? `qualidade ${today.sono_qualidade}/5` : null,
             today.energia != null ? `energia ${today.energia}/5` : null,
             today.humor != null ? `humor ${today.humor}/5` : null,
+            identidadeLabel,
           ]
             .filter(Boolean)
             .join(" · ") || "registrado"}
@@ -81,6 +93,36 @@ export function CheckinCard() {
           <ScaleRow label="Qualidade do sono" value={sonoQualidade} onChange={setSonoQualidade} />
           <ScaleRow label="Energia" value={energia} onChange={setEnergia} />
           <ScaleRow label="Humor" value={humor} onChange={setHumor} />
+
+          <div>
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Swords className="h-3.5 w-3.5 text-hero" aria-hidden />
+              Hoje você agiu como o homem que está tentando se tornar?
+            </p>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {(
+                [
+                  ["sim", "Sim"],
+                  ["parcial", "Parcialmente"],
+                  ["nao", "Não"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setIdentidade(value)}
+                  className={`px-3 py-1.5 text-sm ${
+                    identidade === value
+                      ? "bg-hero text-black"
+                      : "border border-border text-muted-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <Button
             type="button"
             size="sm"

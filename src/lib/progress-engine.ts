@@ -32,6 +32,9 @@ export type ProgressResult = {
 type ProgressFlags = {
   /** Esta ação concluiu o primeiro hábito da conta. */
   firstHabitEver?: boolean;
+  /** Contagem de provas de identidade (Alter Ego). */
+  proofsWeek?: number;
+  proofsTotal?: number;
 };
 
 function achievementPredicates(flags: ProgressFlags) {
@@ -43,6 +46,8 @@ function achievementPredicates(flags: ProgressFlags) {
     primeiro_nivel: (s: ProgressSnapshot) => calcularNivel(s.xp_total).atual.nivel >= 2,
     cavaleiro: (s: ProgressSnapshot) => calcularNivel(s.xp_total).atual.nivel >= 7,
     lenda: (s: ProgressSnapshot) => calcularNivel(s.xp_total).atual.nivel >= 12,
+    provas_7_semana: () => (flags.proofsWeek ?? 0) >= 7,
+    provas_30: () => (flags.proofsTotal ?? 0) >= 30,
   } as const;
 }
 

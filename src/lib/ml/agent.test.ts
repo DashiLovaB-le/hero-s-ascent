@@ -79,6 +79,57 @@ describe("ML Fase 4 agent", () => {
     });
     assert.equal(d.kind, "checkin_nudge");
   });
+
+  it("streak_protect cita o código do Alter Ego", () => {
+    const d = decideAgentInitiative({
+      scores: {
+        risco_streak: 0.7,
+        risco_abandono: 0.2,
+        weekday_weakest: 5,
+        weekday_weakest_label: "sexta",
+      },
+      hasCheckinToday: true,
+      hasPendingInitiative: false,
+      alreadyNotifiedToday: false,
+      quietHours: false,
+      cfSuggestion: null,
+      alterEgo: {
+        nome: "O Executor",
+        inimigo: "Procrastinação",
+        codigoLine: "Faço o difícil primeiro",
+      },
+      riscoIdentidade: 0.4,
+    });
+    assert.equal(d.kind, "streak_protect");
+    assert.match(d.corpo, /Faço o difícil primeiro/);
+    assert.match(d.corpo, /procrastinação/i);
+    assert.equal(d.href, "/identity");
+    assert.equal(d.identityMeta?.identity_codigo, "Faço o difícil primeiro");
+  });
+
+  it("checkin_nudge menciona o nome do Alter Ego", () => {
+    const d = decideAgentInitiative({
+      scores: {
+        risco_streak: 0.1,
+        risco_abandono: 0.1,
+        weekday_weakest: null,
+        weekday_weakest_label: null,
+      },
+      hasCheckinToday: false,
+      hasPendingInitiative: false,
+      alreadyNotifiedToday: false,
+      quietHours: false,
+      cfSuggestion: null,
+      hourLocalApprox: 9,
+      alterEgo: {
+        nome: "O Executor",
+        inimigo: "Procrastinação",
+        codigoLine: "Faço o difícil primeiro",
+      },
+    });
+    assert.equal(d.kind, "checkin_nudge");
+    assert.match(d.corpo, /O Executor/);
+  });
 });
 
 describe("ML Fase 4 CF", () => {

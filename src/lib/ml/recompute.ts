@@ -11,6 +11,8 @@ import {
   type UserFeaturesV1,
   type MlScoresV1,
 } from "@/lib/ml/features";
+import { mapInimigoToAtributo } from "@/lib/ml/identity-adherence";
+import { getIdentityProofStats } from "@/lib/identity-proofs";
 import { addDaysToDateKey, hojeISO } from "@/lib/datetime";
 
 type Client = SupabaseClient<Database>;
@@ -24,6 +26,10 @@ export function mlScoresFromRow(
     fatores_streak?: string[];
     fatores_abandono?: string[];
     weekday_weakest_label?: string | null;
+    identity_fatores?: string[];
+    identity_principal_risco?: string | null;
+    identity_adherence?: number;
+    risco_identidade?: number;
   };
   const weak =
     row.weekday_weakest != null && row.weekday_weakest >= 0 && row.weekday_weakest <= 6
@@ -35,12 +41,16 @@ export function mlScoresFromRow(
     risco_abandono: Number(row.risco_abandono) || 0,
     projecao_dias_proximo_nivel: row.projecao_dias_proximo_nivel,
     weekday_weakest: weak,
+    identity_adherence: Number(expl.identity_adherence) || 0,
+    risco_identidade: Number(expl.risco_identidade) || 0,
     explicacao: {
       fatores_streak: Array.isArray(expl.fatores_streak) ? expl.fatores_streak : [],
       fatores_abandono: Array.isArray(expl.fatores_abandono) ? expl.fatores_abandono : [],
       weekday_weakest_label:
         expl.weekday_weakest_label ??
         (weak != null ? WEEKDAY_LABELS[weak] : null),
+      identity_fatores: Array.isArray(expl.identity_fatores) ? expl.identity_fatores : [],
+      identity_principal_risco: expl.identity_principal_risco ?? null,
     },
   };
 }
@@ -51,37 +61,55 @@ export async function recomputeUserMl(
   asOfDate = hojeISO(),
 ): Promise<{ features: UserFeaturesV1; scores: MlScoresV1 }> {
   const from21 = addDaysToDateKey(asOfDate, -20);
+  const from7 = addDaysToDateKey(asOfDate, -6);
 
-  const [profileRes, habitsRes, compsRes, chalRes] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("xp_total, streak_atual, streak_maximo, ultimo_dia_completo")
-      .eq("id", userId)
-      .maybeSingle(),
-    supabase.from("habits").select("id").eq("user_id", userId).eq("ativo", true),
-    supabase
-      .from("habit_completions")
-      .select("habit_id, dia, xp_ganho")
-      .eq("user_id", userId)
-      .gte("dia", from21)
-      .lte("dia", asOfDate),
-    supabase
-      .from("mentor_challenges")
-      .select("status, completed_at, ends_at, created_at")
-      .eq("user_id", userId),
-  ]);
+  const [profileRes, habitsRes, compsRes, chalRes, alterEgoRes, checkinRes] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("xp_total, streak_atual, streak_maximo, ultimo_dia_completo")
+        .eq("id", userId)
+        .maybeSingle(),
+      supabase
+        .from("habits")
+        .select("id, atributo")
+        .eq("user_id", userId)
+        .eq("ativo", true),
+      supabase
+        .from("habit_completions")
+        .select("habit_id, dia, xp_ganho")
+        .eq("user_id", userId)
+        .gte("dia", from21)
+        .lte("dia", asOfDate),
+      supabase
+        .from("mentor_challenges")
+        .select("status, completed_at, ends_at, created_at")
+        .eq("user_id", userId),
+      supabase
+        .from("hero_alter_ego")
+        .select("nome, inimigo, active")
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabase
+        .from("user_checkins")
+        .select("dia, identidade_hoje")
+        .eq("user_id", userId)
+        .gte("dia", from7)
+        .lte("dia", asOfDate),
+    ]);
 
   if (profileRes.error) throw new Error(profileRes.error.message);
   if (!profileRes.data) throw new Error("Perfil não encontrado para ML.");
   if (habitsRes.error) throw new Error(habitsRes.error.message);
   if (compsRes.error) throw new Error(compsRes.error.message);
-  // challenges optional if table missing
   const challenges = chalRes.error ? [] : (chalRes.data ?? []);
+  const habits = habitsRes.data ?? [];
+  const completions = compsRes.data ?? [];
 
   const features = computeUserFeatures({
     asOfDate,
-    habitCountAtivo: habitsRes.data?.length ?? 0,
-    completions: compsRes.data ?? [],
+    habitCountAtivo: habits.length,
+    completions,
     challenges,
     streak_atual: profileRes.data.streak_atual,
     streak_maximo: profileRes.data.streak_maximo,
@@ -89,7 +117,55 @@ export async function recomputeUserMl(
     ultimo_dia_completo: profileRes.data.ultimo_dia_completo,
   });
 
-  const scores = scoreUserHeuristicV1(features, { asOfDate });
+  const alterEgo =
+    !alterEgoRes.error && alterEgoRes.data && alterEgoRes.data.active !== false
+      ? alterEgoRes.data
+      : null;
+
+  let proofsWeek = 0;
+  try {
+    proofsWeek = (await getIdentityProofStats(supabase, userId, asOfDate)).week;
+  } catch {
+    proofsWeek = 0;
+  }
+
+  const checkinsIdentidade = (checkinRes.error ? [] : (checkinRes.data ?? [])).map(
+    (c) => (c.identidade_hoje as "sim" | "parcial" | "nao" | null) ?? null,
+  );
+
+  // Skip rate no atributo do inimigo (últimos 7 dias)
+  let enemySkipRate: number | null = null;
+  const enemyAttr = mapInimigoToAtributo(alterEgo?.inimigo);
+  if (alterEgo && enemyAttr) {
+    const enemyHabits = habits.filter((h) => h.atributo === enemyAttr);
+    if (enemyHabits.length > 0) {
+      const enemyIds = new Set(enemyHabits.map((h) => h.id));
+      let daysWithEnemyHabit = 0;
+      let daysDone = 0;
+      for (let i = 0; i < 7; i++) {
+        const dia = addDaysToDateKey(asOfDate, -i);
+        const doneIds = new Set(
+          completions.filter((c) => c.dia === dia && enemyIds.has(c.habit_id)).map((c) => c.habit_id),
+        );
+        // conta dia se havia hábitos do eixo (sempre, se existem hábitos ativos)
+        daysWithEnemyHabit += 1;
+        if (doneIds.size > 0) daysDone += 1;
+      }
+      enemySkipRate = daysWithEnemyHabit > 0 ? 1 - daysDone / daysWithEnemyHabit : null;
+    }
+  }
+
+  const scores = scoreUserHeuristicV1(features, {
+    asOfDate,
+    identity: {
+      hasAlterEgo: Boolean(alterEgo),
+      proofsWeek,
+      checkinsIdentidade,
+      taxaConclusao7: features.taxa_conclusao_7,
+      enemySkipRate,
+      inimigo: alterEgo?.inimigo ?? null,
+    },
+  });
 
   const nowIso = new Date().toISOString();
 
@@ -127,6 +203,12 @@ export async function recomputeUserMl(
     }
   }
 
+  const explicacaoPersist = {
+    ...scores.explicacao,
+    identity_adherence: scores.identity_adherence,
+    risco_identidade: scores.risco_identidade,
+  };
+
   const { error: sErr } = await supabase.from("user_ml_scores").upsert(
     {
       user_id: userId,
@@ -136,7 +218,7 @@ export async function recomputeUserMl(
       risco_abandono: scores.risco_abandono,
       projecao_dias_proximo_nivel: scores.projecao_dias_proximo_nivel,
       weekday_weakest: scores.weekday_weakest,
-      explicacao: scores.explicacao as Json,
+      explicacao: explicacaoPersist as Json,
     },
     { onConflict: "user_id" },
   );

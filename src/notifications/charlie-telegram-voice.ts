@@ -25,6 +25,9 @@ export type CharlieVoiceInput = {
   kind?: string | null;
   xp?: number | null;
   intensity?: CharlieVoiceIntensity | null;
+  /** Alter Ego — só em eventos de alto valor (streak / desafio / agent protect). */
+  identityCodigo?: string | null;
+  identityInimigo?: string | null;
 };
 
 export type CharlieVoiceOutput = {
@@ -66,17 +69,36 @@ export function voiceCharlieNotification(
 
   switch (input.tipo) {
     case "habit_reminder":
+      // Guardrail: lembrete trivial NÃO usa copy de identidade
       return voiceHabitReminder(slug, name, pending, intensity);
     case "streak_risk":
-      return voiceStreakRisk(slug, name, streak, input.weekdayWeak, intensity);
+      return voiceStreakRisk(
+        slug,
+        name,
+        streak,
+        input.weekdayWeak,
+        intensity,
+        input.identityCodigo,
+        input.identityInimigo,
+      );
     case "mentor_challenge":
-      return voiceNewChallenge(slug, name, subject);
+      return voiceNewChallenge(slug, name, subject, input.identityCodigo);
     case "mentor_challenge_done":
       return voiceChallengeDone(slug, name, subject, input.xp);
     case "mentor_challenge_expired":
       return voiceChallengeExpired(slug, name, subject);
     case "agent_initiative":
-      return voiceAgent(slug, name, input.kind, subject, input.weekdayWeak, input.fallbackTitulo, input.fallbackCorpo);
+      return voiceAgent(
+        slug,
+        name,
+        input.kind,
+        subject,
+        input.weekdayWeak,
+        input.fallbackTitulo,
+        input.fallbackCorpo,
+        input.identityCodigo,
+        input.identityInimigo,
+      );
     default:
       return {
         titulo: input.fallbackTitulo,
@@ -152,12 +174,25 @@ function voiceHabitReminder(
   return bySlug[slug] ?? bySlug.classico;
 }
 
+function identityTail(codigo?: string | null, inimigo?: string | null): string {
+  const code = codigo?.trim();
+  if (code) {
+    const enemy = inimigo?.trim();
+    return enemy
+      ? ` Código: "${code}" — não alimente ${enemy.toLowerCase()}.`
+      : ` Código: "${code}"`;
+  }
+  return "";
+}
+
 function voiceStreakRisk(
   slug: string,
   name: string | null,
   streak: number | null,
   weekdayWeak: string | null | undefined,
   intensity: CharlieVoiceIntensity,
+  identityCodigo?: string | null,
+  identityInimigo?: string | null,
 ): CharlieVoiceOutput {
   const days = streak ?? 0;
   const seq = days > 0 ? `Sequência de ${days} dias` : "Sua sequência";
@@ -166,38 +201,39 @@ function voiceStreakRisk(
     weekdayWeak && weekdayWeak.trim()
       ? ` Seu padrão fraco costuma ser ${weekdayWeak.trim()} — não repita hoje.`
       : "";
+  const id = identityTail(identityCodigo, identityInimigo);
 
   const bySlug: Record<string, CharlieVoiceOutput> = {
     militar: {
       titulo: "Corrente sob fogo",
-      corpo: `${addr}${seq} em risco. Um hábito agora. Sem adiamento.${weak}`,
+      corpo: `${addr}${seq} em risco. Um hábito agora. Sem adiamento.${weak}${id}`,
     },
     estoico: {
       titulo: "A corrente pede virtude",
-      corpo: `${addr}${seq} quase cai. O que você controla é o próximo ato.${weak}`,
+      corpo: `${addr}${seq} quase cai. O que você controla é o próximo ato.${weak}${id}`,
     },
     empresarial: {
       titulo: "KPI de consistência",
-      corpo: `${addr}${seq} sob risco. Proteja o ativo com um hábito hoje.${weak}`,
+      corpo: `${addr}${seq} sob risco. Proteja o ativo com um hábito hoje.${weak}${id}`,
     },
     cristao: {
       titulo: "Não quebre a fidelidade",
-      corpo: `${addr}${seq} está em jogo. Um ato fiel hoje segura o caminho.${weak}`,
+      corpo: `${addr}${seq} está em jogo. Um ato fiel hoje segura o caminho.${weak}${id}`,
     },
     fitness: {
       titulo: "Não quebre o ciclo",
-      corpo: `${addr}${seq} em risco. Um check agora mantém o progresso.${weak}`,
+      corpo: `${addr}${seq} em risco. Um check agora mantém o progresso.${weak}${id}`,
     },
     financeiro: {
       titulo: "Não zere a série",
-      corpo: `${addr}${seq} em risco. Quite um hábito hoje e preserve o capital de disciplina.${weak}`,
+      corpo: `${addr}${seq} em risco. Quite um hábito hoje e preserve o capital de disciplina.${weak}${id}`,
     },
     classico: {
       titulo: "A corrente quase cai",
       corpo:
         intensity === "high"
-          ? `${addr}${seq} sob pressão. Um hábito agora segura o dia.${weak}`
-          : `${addr}${seq}. Conclua um hábito hoje e a jornada continua.${weak}`,
+          ? `${addr}${seq} sob pressão. Um hábito agora segura o dia.${weak}${id}`
+          : `${addr}${seq}. Conclua um hábito hoje e a jornada continua.${weak}${id}`,
     },
   };
 
@@ -208,38 +244,42 @@ function voiceNewChallenge(
   slug: string,
   name: string | null,
   subject: string | null,
+  identityCodigo?: string | null,
 ): CharlieVoiceOutput {
   const mission = subject || "um novo desafio";
   const addr = name ? `${name}, ` : "";
+  const id = identityCodigo?.trim()
+    ? ` Prove o código: "${identityCodigo.trim()}".`
+    : "";
 
   const bySlug: Record<string, CharlieVoiceOutput> = {
     militar: {
       titulo: "Nova ordem",
-      corpo: `${addr}missão: ${mission}. Aceite no mentor e execute.`,
+      corpo: `${addr}missão: ${mission}. Aceite no mentor e execute.${id}`,
     },
     estoico: {
       titulo: "Prova à frente",
-      corpo: `${addr}coloquei diante de você: ${mission}. Aja no que depende de você.`,
+      corpo: `${addr}coloquei diante de você: ${mission}. Aja no que depende de você.${id}`,
     },
     empresarial: {
       titulo: "Novo sprint",
-      corpo: `${addr}desafio aberto: ${mission}. Critério claro — execute e feche.`,
+      corpo: `${addr}desafio aberto: ${mission}. Critério claro — execute e feche.${id}`,
     },
     cristao: {
       titulo: "Um chamado prático",
-      corpo: `${addr}há um desafio para você: ${mission}. Vá com coragem e domínio próprio.`,
+      corpo: `${addr}há um desafio para você: ${mission}. Vá com coragem e domínio próprio.${id}`,
     },
     fitness: {
       titulo: "Novo estímulo",
-      corpo: `${addr}desafio no ar: ${mission}. Treine o hábito e marque no app.`,
+      corpo: `${addr}desafio no ar: ${mission}. Treine o hábito e marque no app.${id}`,
     },
     financeiro: {
       titulo: "Nova meta operacional",
-      corpo: `${addr}desafio: ${mission}. Trate como prazo — e entregue.`,
+      corpo: `${addr}desafio: ${mission}. Trate como prazo — e entregue.${id}`,
     },
     classico: {
       titulo: "Desafio do Charlie",
-      corpo: `${addr}preparei isto para você: ${mission}. Abra o mentor e aceite.`,
+      corpo: `${addr}preparei isto para você: ${mission}. Abra o mentor e aceite.${id}`,
     },
   };
 
@@ -340,9 +380,12 @@ function voiceAgent(
   weekdayWeak: string | null | undefined,
   fallbackTitulo: string,
   fallbackCorpo?: string,
+  identityCodigo?: string | null,
+  identityInimigo?: string | null,
 ): CharlieVoiceOutput {
   const addr = name ? `${name}. ` : "";
   const k = (kind ?? "").trim();
+  const id = identityTail(identityCodigo, identityInimigo);
 
   if (k === "streak_protect") {
     const weak =
@@ -352,31 +395,31 @@ function voiceAgent(
     const bySlug: Record<string, CharlieVoiceOutput> = {
       militar: {
         titulo: "Proteja a sequência",
-        corpo: `${addr}streak sob ameaça.${weak} Um hábito. Agora.`,
+        corpo: `${addr}streak sob ameaça.${weak} Um hábito. Agora.${id}`,
       },
       estoico: {
         titulo: "Proteja o que construiu",
-        corpo: `${addr}a sequência pede um ato sob seu controle.${weak}`,
+        corpo: `${addr}a sequência pede um ato sob seu controle.${weak}${id}`,
       },
       empresarial: {
         titulo: "Proteja o ativo",
-        corpo: `${addr}risco alto na sequência.${weak} Feche um hábito hoje.`,
+        corpo: `${addr}risco alto na sequência.${weak} Feche um hábito hoje.${id}`,
       },
       cristao: {
         titulo: "Guarde a corrente",
-        corpo: `${addr}sua sequência precisa de fidelidade hoje.${weak}`,
+        corpo: `${addr}sua sequência precisa de fidelidade hoje.${weak}${id}`,
       },
       fitness: {
         titulo: "Não quebre o ciclo",
-        corpo: `${addr}streak em risco.${weak} Um check segura o progresso.`,
+        corpo: `${addr}streak em risco.${weak} Um check segura o progresso.${id}`,
       },
       financeiro: {
         titulo: "Preserve a série",
-        corpo: `${addr}risco na sequência.${weak} Quite um hábito hoje.`,
+        corpo: `${addr}risco na sequência.${weak} Quite um hábito hoje.${id}`,
       },
       classico: {
         titulo: "Proteja sua sequência",
-        corpo: `${addr}a corrente está sob pressão.${weak} Um hábito hoje segura o ritmo.`,
+        corpo: `${addr}a corrente está sob pressão.${weak} Um hábito hoje segura o ritmo.${id}`,
       },
     };
     return bySlug[slug] ?? bySlug.classico;

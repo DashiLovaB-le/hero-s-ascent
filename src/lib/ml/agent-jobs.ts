@@ -128,7 +128,7 @@ async function createInitiatives(admin: Admin, hoje: string, now: Date, limit: n
   for (const p of profiles ?? []) {
     const userId = p.id;
 
-    const [mlRes, checkinRes, pendingRes, notifRes, cfRes] = await Promise.all([
+    const [mlRes, checkinRes, pendingRes, notifRes, cfRes, alterEgoRes] = await Promise.all([
       admin
         .from("user_ml_scores")
         .select("risco_streak, risco_abandono, weekday_weakest, explicacao")
@@ -158,6 +158,11 @@ async function createInitiatives(admin: Admin, hoje: string, now: Date, limit: n
         .select("peer_count, suggestions")
         .eq("user_id", userId)
         .maybeSingle(),
+      admin
+        .from("hero_alter_ego")
+        .select("nome, inimigo, codigo, active")
+        .eq("user_id", userId)
+        .maybeSingle(),
     ]);
 
     const suggestions = Array.isArray(cfRes.data?.suggestions)
@@ -180,6 +185,17 @@ async function createInitiatives(admin: Admin, hoje: string, now: Date, limit: n
         : null;
 
     const scores = scoresFromMlRow(mlRes.data);
+    const expl = (mlRes.data?.explicacao ?? {}) as {
+      risco_identidade?: number;
+      identity_adherence?: number;
+    };
+    const alterEgoRow =
+      !alterEgoRes.error && alterEgoRes.data && alterEgoRes.data.active !== false
+        ? alterEgoRes.data
+        : null;
+    const codigoArr = Array.isArray(alterEgoRow?.codigo)
+      ? alterEgoRow!.codigo.map(String)
+      : [];
     const decision = decideAgentInitiative({
       scores,
       hasCheckinToday: Boolean(checkinRes.data),
@@ -188,6 +204,14 @@ async function createInitiatives(admin: Admin, hoje: string, now: Date, limit: n
       quietHours: false,
       cfSuggestion,
       hourLocalApprox: hourInTz(now),
+      alterEgo: alterEgoRow
+        ? {
+            nome: String(alterEgoRow.nome),
+            inimigo: String(alterEgoRow.inimigo ?? ""),
+            codigoLine: codigoArr[0]?.trim() || null,
+          }
+        : null,
+      riscoIdentidade: Number(expl.risco_identidade) || 0,
     });
 
     if (!decision.create || !decision.kind) continue;
@@ -204,7 +228,10 @@ async function createInitiatives(admin: Admin, hoje: string, now: Date, limit: n
         corpo: decision.corpo,
         status: "pending",
         href: decision.href,
-        metadata: { reasons: decision.reasons } as Json,
+        metadata: {
+          reasons: decision.reasons,
+          ...(decision.identityMeta ?? {}),
+        } as Json,
         expires_at: expires.toISOString(),
       })
       .select("id")
@@ -228,6 +255,7 @@ async function createInitiatives(admin: Admin, hoje: string, now: Date, limit: n
         risco_streak: scores?.risco_streak ?? null,
         risco_abandono: scores?.risco_abandono ?? null,
         weekday_weakest_label: scores?.weekday_weakest_label ?? null,
+        ...(decision.identityMeta ?? {}),
       },
     });
 

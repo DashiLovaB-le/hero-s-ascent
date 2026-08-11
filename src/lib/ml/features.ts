@@ -5,6 +5,10 @@
 
 import { calcularNivel } from "../journey";
 import { hojeISO } from "@/lib/datetime";
+import {
+  scoreIdentityAdherence,
+  type IdentitySignalsInput,
+} from "@/lib/ml/identity-adherence";
 
 export const FEATURES_VERSION = "v1";
 export const MODEL_VERSION = "heuristic_v1";
@@ -56,10 +60,16 @@ export type MlScoresV1 = {
   risco_abandono: number;
   projecao_dias_proximo_nivel: number | null;
   weekday_weakest: number | null;
+  /** 0–1 aderência ao Alter Ego (Fase 3); 0 se sem identidade. */
+  identity_adherence: number;
+  /** 0–1 risco de negociar com o código. */
+  risco_identidade: number;
   explicacao: {
     fatores_streak: string[];
     fatores_abandono: string[];
     weekday_weakest_label: string | null;
+    identity_fatores?: string[];
+    identity_principal_risco?: string | null;
   };
 };
 
@@ -237,7 +247,11 @@ export function findWeakestWeekday(rates: Record<string, number>): number | null
 
 export function scoreUserHeuristicV1(
   features: UserFeaturesV1,
-  opts?: { asOfDate?: string; tomorrowWeekday?: number },
+  opts?: {
+    asOfDate?: string;
+    tomorrowWeekday?: number;
+    identity?: IdentitySignalsInput | null;
+  },
 ): MlScoresV1 {
   const asOf = opts?.asOfDate ?? hojeISO();
   const tomorrowWd =
@@ -310,16 +324,36 @@ export function scoreUserHeuristicV1(
     projecao = Math.max(1, Math.ceil(level.xp_para_proximo / features.media_xp_dia_21));
   }
 
+  const identity = scoreIdentityAdherence(
+    opts?.identity ?? {
+      hasAlterEgo: false,
+      proofsWeek: 0,
+      checkinsIdentidade: [],
+      taxaConclusao7: features.taxa_conclusao_7,
+    },
+  );
+
+  // Leve acoplamento: risco de identidade reforça streak/abandono sem dominar
+  if (identity.risco_identidade >= 0.55) {
+    risco_streak = round4(clamp01(risco_streak + 0.08));
+    risco_abandono = round4(clamp01(risco_abandono + 0.06));
+    fatores_streak.push("aderência à identidade sob pressão");
+  }
+
   return {
     model_version: MODEL_VERSION,
     risco_streak,
     risco_abandono,
     projecao_dias_proximo_nivel: projecao,
     weekday_weakest: weakest,
+    identity_adherence: identity.identity_adherence,
+    risco_identidade: identity.risco_identidade,
     explicacao: {
       fatores_streak,
       fatores_abandono,
       weekday_weakest_label: weakest != null ? WEEKDAY_LABELS[weakest] : null,
+      identity_fatores: identity.fatores,
+      identity_principal_risco: identity.principal_risco,
     },
   };
 }
@@ -330,6 +364,8 @@ export function formatMlSignalsForMentor(scores: MlScoresV1 | null | undefined):
   }
   const riscoStreakPct = Math.round(scores.risco_streak * 100);
   const riscoAbdPct = Math.round(scores.risco_abandono * 100);
+  const aderenciaPct = Math.round((scores.identity_adherence ?? 0) * 100);
+  const riscoIdPct = Math.round((scores.risco_identidade ?? 0) * 100);
   const weak = scores.explicacao.weekday_weakest_label;
   const proj =
     scores.projecao_dias_proximo_nivel != null
@@ -339,14 +375,20 @@ export function formatMlSignalsForMentor(scores: MlScoresV1 | null | undefined):
     ...scores.explicacao.fatores_streak.slice(0, 3),
     ...scores.explicacao.fatores_abandono.slice(0, 2),
   ];
+  const idFatores = scores.explicacao.identity_fatores?.slice(0, 3) ?? [];
+  const principal = scores.explicacao.identity_principal_risco;
+
   return [
     `SINAIS ML (model=${scores.model_version}):`,
     `risco_streak=${riscoStreakPct}%; risco_abandono=${riscoAbdPct}%`,
+    `Aderência recente à identidade=${aderenciaPct}%; risco_identidade=${riscoIdPct}%`,
+    principal ? `Principal risco de identidade: ${principal}` : null,
     weak ? `weekday mais fraco: ${weak}` : null,
     proj,
     fatores.length ? `fatores: ${fatores.join(" | ")}` : null,
-    riscoStreakPct >= 55 || riscoAbdPct >= 55
-      ? "AÇÃO: priorize presença proativa e concreta — não pergunte só 'como está'."
+    idFatores.length ? `fatores identidade: ${idFatores.join(" | ")}` : null,
+    riscoStreakPct >= 55 || riscoAbdPct >= 55 || riscoIdPct >= 55
+      ? "AÇÃO: priorize presença proativa e cite o código do Alter Ego se houver fricção — não pergunte só 'como está'."
       : null,
   ]
     .filter(Boolean)

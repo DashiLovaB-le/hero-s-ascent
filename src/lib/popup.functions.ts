@@ -5,27 +5,65 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getSupabasePublicEnv } from "@/integrations/supabase/env";
 import { assertIsAdmin } from "@/admin/auth";
 
+/** Atalhos comuns no formulário admin — qualquer path fora de /dashitecnology é aceito. */
 export const POPUP_TARGET_OPTIONS = [
   { value: "/journey", label: "Jornada" },
   { value: "/habits", label: "Hábitos" },
   { value: "/mentor", label: "Charlie / Mentor" },
   { value: "/goals", label: "Metas" },
   { value: "/profile", label: "Perfil" },
+  { value: "/identity", label: "Identidade / Alter ego" },
   { value: "/store", label: "Loja" },
+  { value: "/fitness", label: "Fitness" },
+  { value: "/exercises/ranking", label: "Ranking de exercícios" },
   { value: "/onboarding", label: "Onboarding" },
 ] as const;
 
-export type PopupTargetPath = (typeof POPUP_TARGET_OPTIONS)[number]["value"];
+export type PopupTargetPath = string;
 
-const targetPathSchema = z.enum([
-  "/journey",
-  "/habits",
-  "/mentor",
-  "/goals",
-  "/profile",
-  "/store",
-  "/onboarding",
-]);
+const POPUP_TARGET_PATH_RE = /^\/(?:[A-Za-z0-9._~\-]+(?:\/[A-Za-z0-9._~\-]+)*)?$/;
+
+/** Normaliza path de rota (sem query/hash; sem trailing slash, exceto root). */
+export function normalizePopupTargetPath(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) throw new Error("Informe a página alvo.");
+  const withoutQuery = trimmed.split("?")[0]?.split("#")[0]?.trim() ?? "";
+  if (!withoutQuery) throw new Error("Informe a página alvo.");
+  let path = withoutQuery.startsWith("/") ? withoutQuery : `/${withoutQuery}`;
+  if (path.length > 1) path = path.replace(/\/+$/, "") || "/";
+  return path;
+}
+
+export function assertAllowedPopupTargetPath(path: string): string {
+  const normalized = normalizePopupTargetPath(path);
+  if (normalized.length > 120) {
+    throw new Error("A página alvo deve ter no máximo 120 caracteres.");
+  }
+  if (normalized === "/dashitecnology" || normalized.startsWith("/dashitecnology/")) {
+    throw new Error("Não é possível definir pop-ups no módulo dashitecnology.");
+  }
+  if (!POPUP_TARGET_PATH_RE.test(normalized)) {
+    throw new Error("Caminho inválido. Use um path como /journey ou /fitness/workout/meu-treino.");
+  }
+  return normalized;
+}
+
+const targetPathSchema = z
+  .string()
+  .trim()
+  .min(1, "Informe a página alvo.")
+  .max(120)
+  .transform((value, ctx) => {
+    try {
+      return assertAllowedPopupTargetPath(value);
+    } catch (err) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: err instanceof Error ? err.message : "Página alvo inválida.",
+      });
+      return z.NEVER;
+    }
+  });
 
 export type AppPopupRow = {
   id: string;
@@ -239,7 +277,16 @@ export const getActivePopupForPath = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((i: unknown) => z.object({ path: z.string().min(1).max(120) }).parse(i))
   .handler(async ({ data }) => {
-    const path = data.path.split("?")[0]?.replace(/\/$/, "") || "/";
+    let path: string;
+    try {
+      path = normalizePopupTargetPath(data.path);
+    } catch {
+      return { popup: null };
+    }
+    // Admin nunca exibe pop-ups no control room.
+    if (path === "/dashitecnology" || path.startsWith("/dashitecnology/")) {
+      return { popup: null };
+    }
     const now = new Date().toISOString();
 
     const { data: rows, error } = await supabaseAdmin

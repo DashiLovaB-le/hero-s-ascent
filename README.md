@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Desenvolvimento masculino gamificado pela Jornada do Herói.</strong><br />
-  Hábitos, metas enriquecidas, XP, capítulos, flexão validada por pose, loja do Charlie, fundos de tela e mentor com IA — do Homem Comum à Lenda.
+  Hábitos, metas enriquecidas, XP, capítulos, exercícios validados por pose, loja do Charlie, fundos de tela e mentor com IA — do Homem Comum à Lenda.
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
 
 O **V-Project** transforma autodisciplina em uma jornada. O usuário define metas, cria hábitos diários e ganha XP — subindo de nível, mantendo streak e fortalecendo 8 atributos.
 
-Hábitos **declarados** concluem com check manual. Hábitos **validados** (MVP: flexão) exigem sessão com câmera: pose on-device (MediaPipe), calibração ao corpo, coaching de forma em tempo real e métricas persistidas — **sem gravar nem enviar vídeo**.
+Hábitos **declarados** concluem com check manual. Hábitos **validados** (flexão, agachamento, prancha, afundo, abdominal e elevação de quadril) exigem sessão com câmera: pose on-device (MediaPipe), calibração ao corpo, coaching de forma em tempo real e métricas persistidas — **sem gravar nem enviar vídeo**.
 
 Inspirado na **Jornada do Herói**, o app guia o progresso em capítulos, com visual dark cyberpunk (painéis chanfrados, accent laranja `#FC6E20`).
 
@@ -42,8 +42,9 @@ Produção: `https://v-project-rho.vercel.app` · Doc canônico: [`plans/ResumoA
 | **Auth** (`/auth`) | Login / cadastro (e-mail + senha), Google OAuth |
 | **Onboarding** | Áreas de foco e primeiras metas |
 | **Jornada** (`/journey`) | Dashboard: nível, XP, streak, hábitos declarados, check-in, atributos |
-| **Hábitos** (`/habits`) | CRUD declarados + card para exercício validado + sugerir com Charlie |
-| **Flexão** (`/exercises/pushup`) | Sessão com câmera, framing, calibração (~3s), contagem e cues de postura |
+| **Hábitos** (`/habits`) | CRUD declarados + atalho para flexão + hub Fitness + sugerir com Charlie |
+| **Fitness** (`/fitness`) | Catálogo de exercícios validados + treinos e histórico |
+| **Exercícios** (`/exercises/$slug`) | Sessão com câmera, framing, calibração (~3s), contagem/hold e cues de postura |
 | **Metas** (`/goals`) | Status, motivo, prazo, norte (máx. 3), progresso 7d, vínculo com hábitos, XP ao conquistar |
 | **Charlie** (`/mentor`) | Chat, memórias, desafios, sugestões, metas no contexto, clima, sinais ML |
 | **Loja** (`/store`) | Personalidades do Charlie — confirmar ativa o tom em `profiles.charlie_personality` |
@@ -52,14 +53,25 @@ Produção: `https://v-project-rho.vercel.app` · Doc canônico: [`plans/ResumoA
 | **ML** | Feature store, scores, lembretes/desafios adaptativos, shadow sklearn, CF, agente |
 | **Control room** (`/dashitecnology`) | Operação (heróis, jobs, ML…) — role `dashi` |
 
-### Exercícios validados (flexão)
+### Exercícios validados (pose)
 
-- Card em `/habits` → `/exercises/pushup`
-- Fluxo: enquadramento → calibração ao lockout do herói → contagem automática
-- Coaching ao vivo: profundidade, lockout, alinhamento do corpo; barra de profundidade + skeleton
-- XP **híbrido** (base + por rep válida × fator de forma, com teto e cap diário)
+Catálogo em `src/lib/exercise/registry.ts` — hub em `/fitness`, sessão em `/exercises/$slug`:
+
+| Slug | Nome | Modo | Região |
+| --- | --- | --- | --- |
+| `pushup` | Flexão | reps | push |
+| `squat` | Agachamento | reps | legs |
+| `plank` | Prancha | hold | core |
+| `lunge` | Afundo | reps | legs |
+| `situp` | Abdominal | reps | core |
+| `glute_bridge` | Elevação de quadril | reps | posterior |
+
+- Atalho em `/habits` → flexão (`/exercises/pushup`) e entrada para `/fitness`
+- Fluxo: enquadramento → calibração ao corpo → contagem automática (ou hold na prancha)
+- Coaching ao vivo: profundidade/alinhamento, cues de forma, skeleton overlay
+- XP **híbrido** (base + por rep/hold válido × fator de forma, com teto e cap diário)
 - Cancelar / 0 reps → sem XP; `completeHabit` bloqueado para hábitos validados
-- Plano: [`plans/ExerciciosValidados-Flexao.md`](plans/ExerciciosValidados-Flexao.md)
+- Plano (origem flexão): [`plans/ExerciciosValidados-Flexao.md`](plans/ExerciciosValidados-Flexao.md)
 
 ### Metas
 
@@ -176,6 +188,12 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_BOT_USERNAME=
 TELEGRAM_WEBHOOK_SECRET=
 
+# Discord (DM — mesma função do Telegram)
+DISCORD_BOT_TOKEN=
+DISCORD_PUBLIC_KEY=
+DISCORD_APPLICATION_ID=
+DISCORD_BOT_USERNAME=Charlie
+
 # Web Push (opcional)
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
@@ -228,7 +246,7 @@ Edge Functions:
 
 ```bash
 npx supabase functions deploy notification-jobs ml-features-job \
-  agent-initiatives-job telegram-webhook \
+  agent-initiatives-job telegram-webhook discord-webhook \
   --project-ref gmzddccyikpxbiozsiue --no-verify-jwt --use-api
 ```
 
@@ -238,6 +256,7 @@ npx supabase functions deploy notification-jobs ml-features-job \
 | `ml-features-job` | `0 3 * * *` | Features + scores `heuristic_v1` |
 | `agent-initiatives-job` | `0 4 * * *` | CF + iniciativas do agente |
 | `telegram-webhook` | — | Vínculo Telegram |
+| `discord-webhook` | — | Vínculo Discord (`/vincular`) |
 
 `CRON_SECRET` deve coincidir com o Vault `notification_jobs_cron_secret`.
 
@@ -266,10 +285,11 @@ Abra o endereço do terminal (geralmente `http://localhost:8080`).
 | `npm run format` | Prettier |
 | `npm run test:ml` | Testes ML (heuristic + adaptive + agent/CF) |
 
-Testes de pose/flexão (Node):
+Testes de pose/exercícios (Node):
 
 ```bash
 node --import tsx --test src/lib/exercise/pushup-counter.test.ts
+node --import tsx --test src/lib/exercise/angle-rep-counter.test.ts
 ```
 
 ---
@@ -284,7 +304,8 @@ src/
     _authenticated/
       journey.tsx
       habits.tsx
-      exercises.$slug.tsx     # Sessão validada (flexão)
+      fitness.tsx             # Hub de exercícios + treinos
+      exercises.$slug.tsx     # Sessão validada (6 exercícios)
       goals.tsx               # Metas enriquecidas
       mentor.tsx
       store.tsx               # Loja de personalidades
@@ -303,7 +324,8 @@ src/
     goals.functions.ts / mentor-goals.ts
     charlie-store.ts
     exercise.functions.ts / exercise-xp.ts
-    exercise/                 # framing, calibração, counter, overlay, MediaPipe
+    exercise/                 # registry, definitions, framing, counters, MediaPipe
+    fitness/                  # treinos e XP de workout
     useExerciseCamera.ts
     ml/
     weather.ts
@@ -332,8 +354,9 @@ supabase/
 | `/auth` | Público | Autenticação |
 | `/onboarding` | Autenticado | Primeira configuração |
 | `/journey` | Autenticado | Dashboard + check-in |
-| `/habits` | Autenticado | Hábitos declarados + entrada para flexão |
-| `/exercises/$slug` | Autenticado | Sessão de exercício validado (`pushup`) |
+| `/habits` | Autenticado | Hábitos declarados + atalho flexão / Fitness |
+| `/fitness` | Autenticado | Catálogo de exercícios validados + treinos |
+| `/exercises/$slug` | Autenticado | Sessão validada (`pushup`, `squat`, `plank`, `lunge`, `situp`, `glute_bridge`) |
 | `/goals` | Autenticado | Metas (norte, prazo, progresso, hábitos) |
 | `/mentor` | Autenticado | Charlie |
 | `/store` | Autenticado | Personalidades do Charlie |
@@ -364,7 +387,7 @@ supabase/
 | Arquivo | Conteúdo |
 | --- | --- |
 | [`plans/ResumoAplicacao.md`](plans/ResumoAplicacao.md) | Visão completa produto + engenharia |
-| [`plans/ExerciciosValidados-Flexao.md`](plans/ExerciciosValidados-Flexao.md) | Flexão validada (câmera + pose) |
+| [`plans/ExerciciosValidados-Flexao.md`](plans/ExerciciosValidados-Flexao.md) | Exercícios validados (origem: flexão; catálogo expandido no registry) |
 | [`plans/ML-fase-1.md`](plans/ML-fase-1.md) … [`ML-fase-4.md`](plans/ML-fase-4.md) | Feature store → preditivo → adaptativo → agente |
 | [`plans/Charlie-fase-1.md`](plans/Charlie-fase-1.md) | Evolução do mentor |
 | [`plans/PlanejamentoNotificacoes.md`](plans/PlanejamentoNotificacoes.md) | Canais de notificação |

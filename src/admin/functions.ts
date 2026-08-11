@@ -620,6 +620,7 @@ export const adminClearUserHistory = createServerFn({ method: "POST" })
       "user_cf_recommendations",
       "ai_usage_events",
       "telegram_link_codes",
+      "discord_link_codes",
     ] as const;
 
     const results: Array<{ table: string; deleted: number; skipped: boolean }> = [];
@@ -1139,6 +1140,39 @@ export const adminUnlinkTelegram = createServerFn({ method: "POST" })
     return { ok: true as const };
   });
 
+export const adminDiscordOverview = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await withAdmin(context.userId);
+    const { data, error } = await supabaseAdmin
+      .from("profiles")
+      .select("id, nome, discord_user_id, discord_opt_in, discord_linked_at")
+      .not("discord_user_id", "is", null)
+      .order("discord_linked_at", { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+
+    const optIn = (data ?? []).filter((r) => r.discord_opt_in).length;
+    return { links: data ?? [], linked: data?.length ?? 0, optIn };
+  });
+
+export const adminUnlinkDiscord = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((i: unknown) => z.object({ userId: z.string().uuid() }).parse(i))
+  .handler(async ({ context, data }) => {
+    await withAdmin(context.userId);
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        discord_user_id: null,
+        discord_opt_in: false,
+        discord_linked_at: null,
+      })
+      .eq("id", data.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
 export const adminCheckinsOverview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -1192,6 +1226,7 @@ export const adminSystemOverview = createServerFn({ method: "GET" })
         hasServiceRole: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
         hasCronSecret: Boolean(process.env.CRON_SECRET),
         hasTelegramToken: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+        hasDiscordToken: Boolean(process.env.DISCORD_BOT_TOKEN),
         hasOpenAi: Boolean(process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY),
         hasBootstrapEmail: Boolean(
           process.env.DASHI_BOOTSTRAP_EMAIL || process.env.ADMIN_BOOTSTRAP_EMAIL,
@@ -1199,6 +1234,7 @@ export const adminSystemOverview = createServerFn({ method: "GET" })
       },
       edgeFunctions: [
         "telegram-webhook",
+        "discord-webhook",
         "notification-jobs",
         "ml-features-job",
         "agent-initiatives-job",
