@@ -1102,6 +1102,28 @@ export const ensureMentorPresence = createServerFn({ method: "POST" })
       history,
     });
 
+    // Evening: espelha o relatório no Telegram/Discord (1×/dia; o cron também envia)
+    if (kind === "evening" && result.assistantMsg?.content) {
+      try {
+        const { createNotificationOncePerDay } = await import("@/notifications/jobs");
+        await createNotificationOncePerDay({
+          userId,
+          tipo: "identity_report",
+          titulo: "Relatório de identidade",
+          corpo: String(result.assistantMsg.content).slice(0, 900),
+          metadata: {
+            href: "/mentor",
+            kind: "evening",
+            identity_report: true,
+            message_id: result.assistantMsg.id,
+            source: "mentor_presence",
+          },
+        });
+      } catch (e) {
+        console.warn("[mentor] identity_report fan-out", e);
+      }
+    }
+
     return {
       created: true as const,
       message: result.assistantMsg,

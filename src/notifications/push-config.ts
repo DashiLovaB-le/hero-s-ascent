@@ -11,6 +11,7 @@ export const PUSH_NOTIFY_TIPOS = new Set<string>([
   "agent_initiative",
   "achievement",
   "system",
+  "identity_report",
 ]);
 
 export type NotificationSettingsRow = {
@@ -94,6 +95,7 @@ export function tipoAllowedBySettings(
     case "mentor_challenge_done":
     case "mentor_challenge_expired":
     case "mentor_presence":
+    case "identity_report":
       return settings.notify_mentor;
     case "achievement":
       return settings.notify_achievement;

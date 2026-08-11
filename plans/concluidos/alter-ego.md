@@ -323,7 +323,7 @@ Inimigo principal: …
 | Scores | `identity_adherence` / `risco_identidade` em `explicacao` via `recompute.ts` |
 | Mentor | `formatMlSignalsForMentor` + protocolo SINAIS ML + presença morning/evening |
 | Agente | `agent.ts` / `agent-jobs.ts` — copy de código/inimigo |
-| Notificações | `jobs.ts` streak_risk + `mentor_challenge`; Telegram voice; **sem** identity em habit_reminder |
+| Notificações | `jobs.ts` streak_risk + `mentor_challenge` + **`identity_report`** (Telegram/Discord no cron ~22h BRT); Telegram voice; **sem** identity em habit_reminder |
 
 ---
 

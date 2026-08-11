@@ -61,6 +61,7 @@ Deno.serve(async (req) => {
 
     let habitReminders = 0;
     let streakRisks = 0;
+    let identityReports = 0;
     let skippedReminders = false;
 
     if (quietHours && !force) {
@@ -69,6 +70,7 @@ Deno.serve(async (req) => {
       const r = await sendReminders(admin, hoje);
       habitReminders = r.habitReminders;
       streakRisks = r.streakRisks;
+      identityReports = await sendIdentityReports(admin, hoje);
     }
 
     return json({
@@ -78,6 +80,7 @@ Deno.serve(async (req) => {
       challengesExpired,
       habitReminders,
       streakRisks,
+      identityReports,
       skippedReminders,
     });
   } catch (e) {
@@ -343,6 +346,196 @@ async function sendReminders(admin: ReturnType<typeof createClient>, hoje: strin
   }
 
   return { habitReminders, streakRisks };
+}
+
+/** Espelho do builder em src/lib/identity-evening-report.ts */
+function buildIdentityEveningReportEdge(input: {
+  firstName?: string | null;
+  alterEgoNome?: string | null;
+  codigoLine?: string | null;
+  habitsDone: number;
+  habitsTotal: number;
+  proofsWeek: number;
+  identidadeHoje?: string | null;
+  aderenciaPct?: number | null;
+}) {
+  const done = Math.max(0, input.habitsDone);
+  const total = Math.max(0, input.habitsTotal);
+  const pending = Math.max(0, total - done);
+  const name = input.firstName?.trim() || null;
+  const ego = input.alterEgoNome?.trim() || null;
+  const code = input.codigoLine?.trim() || null;
+  const titulo = ego ? `Fechamento · ${ego}` : "Relatório de identidade";
+  const lines: string[] = [];
+  if (name) lines.push(`${name}.`);
+  if (total > 0) {
+    lines.push(
+      pending === 0
+        ? `Compromissos de hoje: ${done}/${total} — dia fechado.`
+        : `Compromissos de hoje: ${done}/${total} (${pending} em aberto).`,
+    );
+  } else {
+    lines.push("Sem hábitos ativos registrados hoje.");
+  }
+  lines.push(
+    input.proofsWeek === 1
+      ? "1 prova de identidade nesta semana."
+      : `${Math.max(0, input.proofsWeek)} provas de identidade nesta semana.`,
+  );
+  const id = (input.identidadeHoje ?? "").trim().toLowerCase();
+  if (id === "sim") lines.push("Check-in de identidade: sim — agiu como quem quer se tornar.");
+  else if (id === "parcial") lines.push("Check-in de identidade: parcialmente.");
+  else if (id === "nao" || id === "não") {
+    lines.push("Check-in de identidade: não — e um dia fraco não destrói a identidade.");
+  }
+  if (
+    typeof input.aderenciaPct === "number" &&
+    Number.isFinite(input.aderenciaPct) &&
+    ego
+  ) {
+    lines.push(`Aderência recente: ${Math.round(input.aderenciaPct)}%.`);
+  }
+  if (code) lines.push(`Código: "${code}"`);
+  lines.push(
+    pending > 0
+      ? "Ainda dá tempo de um ato alinhado. Um dia fraco não apaga quem você decidiu ser."
+      : "Feche o dia em paz. Amanhã o código continua.",
+  );
+  return {
+    titulo,
+    corpo: lines.join(" ").replace(/\s+/g, " ").trim(),
+  };
+}
+
+async function sendIdentityReports(
+  admin: ReturnType<typeof createClient>,
+  hoje: string,
+) {
+  let sent = 0;
+  const weekStart = (() => {
+    const d = new Date(`${hoje}T12:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() - 6);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select(
+      "id, nome, onboarding_completo, telegram_chat_id, telegram_opt_in, discord_user_id, discord_opt_in",
+    )
+    .eq("onboarding_completo", true);
+
+  const targets = (profiles ?? []).filter(
+    (p) =>
+      (p.telegram_opt_in && p.telegram_chat_id) ||
+      (p.discord_opt_in && p.discord_user_id),
+  );
+  if (!targets.length) return 0;
+
+  const userIds = targets.map((p) => p.id);
+
+  const [habitsRes, compsRes, alterEgoRes, checkinRes, mlRes, proofsRes] =
+    await Promise.all([
+      admin.from("habits").select("id, user_id").eq("ativo", true).in("user_id", userIds),
+      admin
+        .from("habit_completions")
+        .select("user_id, habit_id")
+        .eq("dia", hoje)
+        .in("user_id", userIds),
+      admin
+        .from("hero_alter_ego")
+        .select("user_id, nome, codigo, active")
+        .in("user_id", userIds)
+        .eq("active", true),
+      admin
+        .from("user_checkins")
+        .select("user_id, identidade_hoje")
+        .eq("dia", hoje)
+        .in("user_id", userIds),
+      admin.from("user_ml_scores").select("user_id, explicacao").in("user_id", userIds),
+      admin
+        .from("identity_proofs")
+        .select("user_id")
+        .in("user_id", userIds)
+        .gte("dia", weekStart)
+        .lte("dia", hoje),
+    ]);
+
+  const habitsByUser = new Map<string, string[]>();
+  for (const h of habitsRes.data ?? []) {
+    const list = habitsByUser.get(h.user_id) ?? [];
+    list.push(h.id);
+    habitsByUser.set(h.user_id, list);
+  }
+  const doneByUser = new Map<string, Set<string>>();
+  for (const row of compsRes.data ?? []) {
+    const set = doneByUser.get(row.user_id) ?? new Set<string>();
+    set.add(row.habit_id);
+    doneByUser.set(row.user_id, set);
+  }
+  const egoByUser = new Map(
+    (alterEgoRes.data ?? []).map((r) => {
+      const codigo = Array.isArray(r.codigo) ? r.codigo.map(String) : [];
+      return [
+        r.user_id,
+        { nome: String(r.nome), codigoLine: codigo[0]?.trim() || null },
+      ] as const;
+    }),
+  );
+  const checkinByUser = new Map(
+    (checkinRes.data ?? []).map((r) => [
+      r.user_id,
+      (r as { identidade_hoje?: string | null }).identidade_hoje ?? null,
+    ]),
+  );
+  const aderenciaByUser = new Map<string, number | null>();
+  for (const row of mlRes.data ?? []) {
+    const expl = (row.explicacao ?? {}) as { identity_adherence?: number };
+    const v = Number(expl.identity_adherence);
+    aderenciaByUser.set(row.user_id, Number.isFinite(v) ? Math.round(v * 100) : null);
+  }
+  const proofsWeekByUser = new Map<string, number>();
+  for (const row of proofsRes.data ?? []) {
+    proofsWeekByUser.set(row.user_id, (proofsWeekByUser.get(row.user_id) ?? 0) + 1);
+  }
+
+  for (const profile of targets) {
+    const habitIds = habitsByUser.get(profile.id) ?? [];
+    const done = doneByUser.get(profile.id) ?? new Set<string>();
+    const doneCount = habitIds.filter((id) => done.has(id)).length;
+    const ego = egoByUser.get(profile.id);
+    const firstName = profile.nome?.trim().split(/\s+/)[0] ?? null;
+    const report = buildIdentityEveningReportEdge({
+      firstName,
+      alterEgoNome: ego?.nome ?? null,
+      codigoLine: ego?.codigoLine ?? null,
+      habitsDone: doneCount,
+      habitsTotal: habitIds.length,
+      proofsWeek: proofsWeekByUser.get(profile.id) ?? 0,
+      identidadeHoje: checkinByUser.get(profile.id) ?? null,
+      aderenciaPct: aderenciaByUser.get(profile.id) ?? null,
+    });
+
+    const ok = await insertOnce(
+      admin,
+      profile.id,
+      "identity_report",
+      report.titulo,
+      report.corpo,
+      {
+        href: "/mentor",
+        kind: "evening",
+        identity_report: true,
+        ...(ego?.codigoLine
+          ? { identity_codigo: ego.codigoLine, alter_ego_nome: ego.nome }
+          : {}),
+      },
+      hoje,
+    );
+    if (ok) sent += 1;
+  }
+
+  return sent;
 }
 
 /** Espelho enxuto de src/lib/ml/adaptive.ts decideReminders (Edge). */

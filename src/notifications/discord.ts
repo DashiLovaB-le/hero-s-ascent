@@ -18,6 +18,7 @@ export const DISCORD_NOTIFY_TIPOS = new Set([
   "streak_risk",
   "agent_initiative",
   "system",
+  "identity_report",
 ]);
 
 export function getDiscordBotToken(): string | undefined {

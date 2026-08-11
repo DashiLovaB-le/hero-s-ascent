@@ -19,7 +19,7 @@ function dayBounds(dia: string) {
 /** Insert com anti-spam diário para tipos de reminder (respeita índice único). */
 export async function createNotificationOncePerDay(input: {
   userId: string;
-  tipo: Extract<NotificationTipo, "habit_reminder" | "streak_risk">;
+  tipo: Extract<NotificationTipo, "habit_reminder" | "streak_risk" | "identity_report">;
   titulo: string;
   corpo?: string;
   metadata?: Record<string, Json | undefined>;
@@ -54,6 +54,7 @@ export async function createNotificationOncePerDay(input: {
   if (!created.ok) {
     if (
       created.error?.includes("idx_notifications_user_tipo_day") ||
+      created.error?.includes("idx_notifications_identity_report_day") ||
       created.error?.toLowerCase().includes("duplicate")
     ) {
       return { ok: true as const, skipped: true as const };
@@ -69,13 +70,14 @@ export type NotificationJobsResult = {
   challengesExpired: number;
   habitReminders: number;
   streakRisks: number;
+  identityReports: number;
   skippedReminders: boolean;
 };
 
 /**
- * Gatilhos de produto (Fase 2 + ML Fase 3 adaptive).
+ * Gatilhos de produto (Fase 2 + ML Fase 3 adaptive + relatório evening).
  * - Expira desafios overdue + notifica (sempre)
- * - habit_reminder / streak_risk guiados por user_ml_scores (pula em quiet hours, salvo force)
+ * - habit_reminder / streak_risk / identity_report (pula em quiet hours, salvo force)
  *
  * Horário documentado do cron: 22:00 America/Sao_Paulo (= 01:00 UTC).
  */
@@ -92,6 +94,7 @@ export async function runProductNotificationJobs(opts?: {
 
   let habitReminders = 0;
   let streakRisks = 0;
+  let identityReports = 0;
   let skippedReminders = false;
 
   if (quietHours && !forced) {
@@ -100,6 +103,7 @@ export async function runProductNotificationJobs(opts?: {
     const reminders = await sendDailyProductReminders(supabaseAdmin, hoje);
     habitReminders = reminders.habitReminders;
     streakRisks = reminders.streakRisks;
+    identityReports = await sendEveningIdentityReports(supabaseAdmin, hoje);
   }
 
   return {
@@ -108,6 +112,7 @@ export async function runProductNotificationJobs(opts?: {
     challengesExpired,
     habitReminders,
     streakRisks,
+    identityReports,
     skippedReminders,
   };
 }
@@ -354,4 +359,149 @@ async function sendDailyProductReminders(admin: Admin, hoje: string) {
   }
 
   return { habitReminders, streakRisks };
+}
+
+/**
+ * Relatório de identidade (evening) → in-app + Telegram + Discord.
+ * Só usuários com canal opt-in (Telegram e/ou Discord).
+ */
+export async function sendEveningIdentityReports(
+  admin: Admin,
+  hoje: string,
+): Promise<number> {
+  const { buildIdentityEveningReport } = await import("@/lib/identity-evening-report");
+  const { addDaysToDateKey } = await import("@/lib/datetime");
+
+  const { data: profiles, error } = await admin
+    .from("profiles")
+    .select(
+      "id, nome, onboarding_completo, telegram_chat_id, telegram_opt_in, discord_user_id, discord_opt_in",
+    )
+    .eq("onboarding_completo", true);
+
+  if (error) {
+    console.error("[notifications] identity report profiles", error.message);
+    return 0;
+  }
+
+  const targets = (profiles ?? []).filter(
+    (p) =>
+      (p.telegram_opt_in && p.telegram_chat_id) ||
+      (p.discord_opt_in && p.discord_user_id),
+  );
+  if (!targets.length) return 0;
+
+  const userIds = targets.map((p) => p.id);
+  const weekStart = addDaysToDateKey(hoje, -6);
+
+  const [habitsRes, compsRes, alterEgoRes, checkinRes, mlRes, proofsRes] = await Promise.all([
+    admin.from("habits").select("id, user_id").eq("ativo", true).in("user_id", userIds),
+    admin
+      .from("habit_completions")
+      .select("user_id, habit_id")
+      .eq("dia", hoje)
+      .in("user_id", userIds),
+    admin
+      .from("hero_alter_ego")
+      .select("user_id, nome, codigo, active")
+      .in("user_id", userIds)
+      .eq("active", true),
+    admin
+      .from("user_checkins")
+      .select("user_id, identidade_hoje")
+      .eq("dia", hoje)
+      .in("user_id", userIds),
+    admin.from("user_ml_scores").select("user_id, explicacao").in("user_id", userIds),
+    admin
+      .from("identity_proofs")
+      .select("user_id")
+      .in("user_id", userIds)
+      .gte("dia", weekStart)
+      .lte("dia", hoje),
+  ]);
+
+  const habitsByUser = new Map<string, string[]>();
+  for (const h of habitsRes.data ?? []) {
+    const list = habitsByUser.get(h.user_id) ?? [];
+    list.push(h.id);
+    habitsByUser.set(h.user_id, list);
+  }
+
+  const doneByUser = new Map<string, Set<string>>();
+  for (const row of compsRes.data ?? []) {
+    const set = doneByUser.get(row.user_id) ?? new Set<string>();
+    set.add(row.habit_id);
+    doneByUser.set(row.user_id, set);
+  }
+
+  const egoByUser = new Map(
+    (alterEgoRes.data ?? []).map((r) => {
+      const codigo = Array.isArray(r.codigo) ? r.codigo.map(String) : [];
+      return [
+        r.user_id,
+        { nome: String(r.nome), codigoLine: codigo[0]?.trim() || null },
+      ] as const;
+    }),
+  );
+
+  const checkinByUser = new Map(
+    (checkinRes.data ?? []).map((r) => [
+      r.user_id,
+      (r as { identidade_hoje?: string | null }).identidade_hoje ?? null,
+    ]),
+  );
+
+  const aderenciaByUser = new Map<string, number | null>();
+  for (const row of mlRes.data ?? []) {
+    const expl = (row.explicacao ?? {}) as { identity_adherence?: number };
+    const v = Number(expl.identity_adherence);
+    aderenciaByUser.set(row.user_id, Number.isFinite(v) ? Math.round(v * 100) : null);
+  }
+
+  const proofsWeekByUser = new Map<string, number>();
+  for (const row of proofsRes.data ?? []) {
+    proofsWeekByUser.set(row.user_id, (proofsWeekByUser.get(row.user_id) ?? 0) + 1);
+  }
+
+  let sent = 0;
+  for (const profile of targets) {
+    const habitIds = habitsByUser.get(profile.id) ?? [];
+    const done = doneByUser.get(profile.id) ?? new Set<string>();
+    const doneCount = habitIds.filter((id) => done.has(id)).length;
+    const ego = egoByUser.get(profile.id);
+    const firstName = profile.nome?.trim().split(/\s+/)[0] ?? null;
+
+    const report = buildIdentityEveningReport({
+      firstName,
+      alterEgoNome: ego?.nome ?? null,
+      codigoLine: ego?.codigoLine ?? null,
+      habitsDone: doneCount,
+      habitsTotal: habitIds.length,
+      proofsWeek: proofsWeekByUser.get(profile.id) ?? 0,
+      identidadeHoje: checkinByUser.get(profile.id) ?? null,
+      aderenciaPct: aderenciaByUser.get(profile.id) ?? null,
+    });
+
+    const res = await createNotificationOncePerDay({
+      userId: profile.id,
+      tipo: "identity_report",
+      titulo: report.titulo,
+      corpo: report.corpo,
+      metadata: {
+        href: "/mentor",
+        kind: "evening",
+        identity_report: true,
+        ...(ego?.codigoLine
+          ? {
+              identity_codigo: ego.codigoLine,
+              alter_ego_nome: ego.nome,
+            }
+          : {}),
+      },
+      dia: hoje,
+    });
+    if (res.ok && !res.skipped) sent += 1;
+  }
+
+  return sent;
 }

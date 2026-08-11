@@ -21,6 +21,7 @@ export const NOTIFICATION_TIPOS = [
   "achievement",
   "system",
   "agent_initiative",
+  "identity_report",
 ] as const;
 
 export type NotificationTipo = (typeof NOTIFICATION_TIPOS)[number];
