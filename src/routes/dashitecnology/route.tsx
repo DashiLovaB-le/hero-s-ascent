@@ -83,8 +83,8 @@ function AdminGateLayout() {
           {gate.adminsTotal === 0 ? (
             <div className="space-y-3">
               <p className="text-sm text-white/60">
-                Nenhuma role dashi ainda. Se o seu email estiver em{" "}
-                <code className="text-[#FC6E20]">DASHI_BOOTSTRAP_EMAIL</code>, reclame o acesso:
+                Nenhuma role dashi ainda. Se o seu e-mail estiver na lista de bootstrap
+                do servidor, reclame o acesso:
               </p>
               <Button
                 onClick={() => claim.mutate()}

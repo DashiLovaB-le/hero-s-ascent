@@ -5,7 +5,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { hojeISO, ontemISO } from "@/lib/datetime";
-import { evaluateProgress } from "@/lib/progress-engine";
 import { EXERCISE_CONSENT_VERSION } from "@/lib/exercise-xp";
 import {
   WORKOUTS_PER_DAY_MAX,
@@ -363,6 +362,7 @@ export const completeWorkout = createServerFn({ method: "POST" })
       }),
     ]);
 
+    const { evaluateProgress } = await import("@/lib/progress-engine");
     const progressEval = await evaluateProgress(
       supabase as Client,
       userId,

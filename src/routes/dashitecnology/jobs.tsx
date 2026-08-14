@@ -59,7 +59,7 @@ function JobsAdminPage() {
   return (
     <AdminShell
       title="Jobs"
-      subtitle="Dispare jobs localmente (service role) ou via Edge Function (CRON_SECRET)."
+      subtitle="Dispare jobs localmente (servidor) ou via Edge Function (header de cron)."
     >
       <div className="grid gap-4 md:grid-cols-3">
         {JOBS.map((job) => (

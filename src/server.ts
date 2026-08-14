@@ -3,6 +3,7 @@ import "./lib/error-capture";
 import { recordExceptionOnActiveSpan, startOpenTelemetry } from "./instrumentation";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { applySecurityHeaders } from "./lib/security-headers";
 
 // SDK pesado só fora do Vite DEV (ou com OTEL_ENABLED=true)
 void startOpenTelemetry();
@@ -55,14 +56,18 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const normalized = await normalizeCatastrophicSsrResponse(response);
+      return applySecurityHeaders(request, normalized);
     } catch (error) {
       console.error(error);
       recordExceptionOnActiveSpan(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      return applySecurityHeaders(
+        request,
+        new Response(renderErrorPage(), {
+          status: 500,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+      );
     }
   },
 };

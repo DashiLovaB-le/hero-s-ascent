@@ -22,7 +22,8 @@ export const Route = createFileRoute("/auth")({
 });
 
 const emailSchema = z.string().trim().email("E-mail inválido").max(255);
-const passwordSchema = z.string().min(6, "Mínimo 6 caracteres").max(72);
+const loginPasswordSchema = z.string().min(6, "Mínimo 6 caracteres").max(72);
+const signupPasswordSchema = z.string().min(12, "Mínimo 12 caracteres").max(72);
 const nameSchema = z.string().trim().min(2, "Nome muito curto").max(60);
 
 const DOOR_FLAG = "v-auth-door";
@@ -129,7 +130,7 @@ function AuthPage() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const email = emailSchema.safeParse(fd.get("email"));
-    const password = passwordSchema.safeParse(fd.get("password"));
+    const password = loginPasswordSchema.safeParse(fd.get("password"));
     if (!email.success) return toast.error(email.error.issues[0].message);
     if (!password.success) return toast.error(password.error.issues[0].message);
     setLoading(true);
@@ -147,7 +148,7 @@ function AuthPage() {
     const fd = new FormData(e.currentTarget);
     const nome = nameSchema.safeParse(fd.get("nome"));
     const email = emailSchema.safeParse(fd.get("email"));
-    const password = passwordSchema.safeParse(fd.get("password"));
+    const password = signupPasswordSchema.safeParse(fd.get("password"));
     if (!nome.success) return toast.error(nome.error.issues[0].message);
     if (!email.success) return toast.error(email.error.issues[0].message);
     if (!password.success) return toast.error(password.error.issues[0].message);

@@ -4,6 +4,7 @@
  * Body: `{ "force": true }` ignora quiet hours.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { assertCronPost } from "../_shared/cron-auth.ts";
 
 const ML_HIGH = 0.55;
 const ML_MOD = 0.35;
@@ -11,18 +12,8 @@ const MIN_PEERS = 5;
 
 Deno.serve(async (req) => {
   try {
-    if (req.method !== "POST" && req.method !== "GET") {
-      return json({ error: "Method not allowed" }, 405);
-    }
-
-    const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
-    const cronHeader = req.headers.get("x-cron-secret")?.trim() ?? "";
-    const bearer =
-      req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
-    const provided = cronHeader || (bearer.includes(".") ? "" : bearer);
-    if (!cronSecret || provided !== cronSecret) {
-      return json({ error: "Unauthorized" }, 401);
-    }
+    const denied = assertCronPost(req);
+    if (denied) return denied;
 
     let force = false;
     if (req.method === "POST") {

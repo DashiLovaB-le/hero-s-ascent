@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { chatCompletion } from "@/mentor/openrouter";
 import { HABIT_XP_DEFAULT, resolveHabitXpReward } from "@/lib/habit-xp";
+import { consumeUserRateLimit } from "@/lib/rate-limit.server";
 
 const ATTR = [
   "forca",
@@ -128,17 +129,6 @@ function fallbackHabits(
   return out.slice(0, max);
 }
 
-const rateBucket = new Map<string, number>();
-
-function checkRateLimit(userId: string) {
-  const now = Date.now();
-  const last = rateBucket.get(userId) ?? 0;
-  if (now - last < 90_000) {
-    throw new Error("Aguarde cerca de 1–2 minutos antes de pedir novas sugestões.");
-  }
-  rateBucket.set(userId, now);
-}
-
 export const suggestHabitsFromGoals = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((i: unknown) =>
@@ -159,7 +149,12 @@ export const suggestHabitsFromGoals = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { userId, supabase } = context;
-    checkRateLimit(userId);
+    await consumeUserRateLimit({
+      userId,
+      action: "habit_suggest",
+      minIntervalMs: 90_000,
+      dailyMax: 20,
+    });
     const xp = await resolveHabitXpReward();
 
     const cats =
@@ -205,6 +200,7 @@ ${goalsText}`,
         temperature: 0.6,
         maxTokens: 900,
         jsonMode: true,
+        usageContext: { userId, source: "habit_suggest" },
       });
 
       const parsed = JSON.parse(result.content) as { habits?: unknown };

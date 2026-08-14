@@ -18,7 +18,7 @@ import { MENTOR_FOCUS_EVENT, readMentorFocusMode } from "@/mentor/focus-mode";
 import { isOnboardingAllowedPath } from "@/lib/chapters";
 import { ProductTour } from "@/components/onboarding/ProductTour";
 import { AppPopupHost } from "@/components/AppPopupHost";
-import { shouldOpenProductTour } from "@/lib/product-tour.functions";
+import { shouldOpenProductTour } from "@/lib/product-tour";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -167,7 +167,7 @@ function AuthedLayout() {
       </div>
 
       {!mentorFocus && (
-        <header className="sticky top-0 z-40 border-b border-border bg-background/70 backdrop-blur-md">
+        <header className="app-shell-header sticky top-0 z-40 border-b border-border bg-background/70 backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
             <Link to="/journey" preload="intent" className="flex items-center gap-2">
               <img
@@ -227,7 +227,7 @@ function AuthedLayout() {
       {onboardingCompleto ? <AppPopupHost /> : null}
 
       {!mentorFocus && (
-        <nav className="fixed bottom-0 left-0 right-0 z-40 overflow-visible border-t border-border bg-background/90 backdrop-blur-md md:hidden">
+        <nav className="app-shell-nav fixed bottom-0 left-0 right-0 z-40 overflow-visible border-t border-border bg-background/90 backdrop-blur-md md:hidden">
           <div className="relative mx-auto grid h-[64px] max-w-[370px] grid-cols-5 items-end">
             <BottomItem to="/journey" icon={<LayoutDashboard className="size-6" strokeWidth={2} />} label="Jornada" />
             <BottomItem to="/habits" icon={<Flame className="size-6" strokeWidth={2} />} label="Hábitos" />

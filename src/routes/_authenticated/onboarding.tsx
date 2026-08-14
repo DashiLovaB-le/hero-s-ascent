@@ -18,7 +18,7 @@ import {
   type HeroAlterEgo,
 } from "@/lib/alter-ego";
 import { CATEGORIAS, ATRIBUTO_LABELS } from "@/lib/journey";
-import { markPendingProductTour } from "@/lib/product-tour.functions";
+import { markPendingProductTour } from "@/lib/product-tour";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

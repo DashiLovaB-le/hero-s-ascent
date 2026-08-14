@@ -787,6 +787,15 @@
   view-transition-name: app-main;
 }
 
+/* Header/nav fora do morph do root — evita sumir por 1 frame no clique */
+.app-shell-header {
+  view-transition-name: app-shell-header;
+}
+
+.app-shell-nav {
+  view-transition-name: app-shell-nav;
+}
+
 @keyframes vt-page-fade-out {
   to {
     opacity: 0;
@@ -805,6 +814,18 @@
   animation: none;
 }
 
+::view-transition-group(app-shell-header),
+::view-transition-group(app-shell-nav) {
+  animation: none;
+}
+
+::view-transition-old(app-shell-header),
+::view-transition-new(app-shell-header),
+::view-transition-old(app-shell-nav),
+::view-transition-new(app-shell-nav) {
+  animation: none;
+}
+
 ::view-transition-group(app-main) {
   animation-duration: 150ms;
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
@@ -819,7 +840,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-main {
+  .app-main,
+  .app-shell-header,
+  .app-shell-nav {
     view-transition-name: none;
   }
 

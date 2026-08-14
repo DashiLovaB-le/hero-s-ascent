@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Check, Sparkles, ChevronRight, Trophy, Target, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,6 +25,11 @@ import { Card } from "@/components/ui/card";
 import { showXpGainPopup } from "@/components/XpGainPopup";
 import { firstCodigoLine } from "@/lib/alter-ego";
 import { identityArcForChapter } from "@/lib/identity-proofs";
+import {
+  pulseHabitComplete,
+  pulseStreakBadge,
+  useStaggerEnter,
+} from "@/components/motion/app-motion";
 
 function JourneyPending() {
   return (
@@ -84,6 +89,12 @@ function JourneyPage() {
   const { data: missionsData } = useSuspenseQuery(missionsQueryOptions());
   const queryClient = useQueryClient();
   const completeFn = useServerFn(completeHabit);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const streakBadgeRef = useRef<HTMLDivElement>(null);
+  const prevStreakRef = useRef<number | null>(null);
+  const habitBtnRefs = useRef(new Map<string, HTMLButtonElement>());
+
+  useStaggerEnter(pageRef);
 
   const profile = data.profile;
   const attrs = data.attributes;
@@ -106,6 +117,10 @@ function JourneyPage() {
           },
         });
       }
+      // Pulso após o paint do estado otimista — não atrasa a mutation.
+      requestAnimationFrame(() => {
+        pulseHabitComplete(habitBtnRefs.current.get(habitId));
+      });
       return { prev };
     },
     onSuccess: (res) => {
@@ -143,6 +158,20 @@ function JourneyPage() {
     },
   });
 
+  useEffect(() => {
+    setWallpaperCatalog(data.wallpapers);
+  }, [data.wallpapers]);
+
+  useEffect(() => {
+    if (!profile) return;
+    const prev = prevStreakRef.current;
+    prevStreakRef.current = profile.streak_atual;
+    if (prev == null) return;
+    if (profile.streak_atual > prev) {
+      pulseStreakBadge(streakBadgeRef.current);
+    }
+  }, [profile, profile?.streak_atual]);
+
   if (!profile.onboarding_completo) {
     return (
       <Card className="mx-auto max-w-lg p-8 text-center">
@@ -162,10 +191,6 @@ function JourneyPage() {
 
   const level = calcularNivel(profile.xp_total, data.levels);
 
-  useEffect(() => {
-    setWallpaperCatalog(data.wallpapers);
-  }, [data.wallpapers]);
-
   const habitsRestantes = data.habits.filter(
     (h) => !h.exercise_type_id && !data.completedToday.includes(h.id),
   );
@@ -177,8 +202,11 @@ function JourneyPage() {
   const secundarias = activeMissions.filter((m) => m.kind === "secundaria");
 
   return (
-    <div className="space-y-6">
-      <Card className="cp-brackets overflow-hidden border-transparent bg-hero-glow p-6 shadow-elevated">
+    <div ref={pageRef} className="space-y-6">
+      <Card
+        data-app-enter
+        className="cp-brackets overflow-hidden border-transparent bg-hero-glow p-6 shadow-elevated"
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
             <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-hero text-hero-foreground shadow-hero">
@@ -196,7 +224,10 @@ function JourneyPage() {
               </p>
             </div>
           </div>
-          <div className="mt-0.5 flex shrink-0 items-center gap-1.5 border border-strength/30 bg-strength/10 px-2.5 py-1.5 text-strength sm:gap-2 sm:px-3">
+          <div
+            ref={streakBadgeRef}
+            className="mt-0.5 flex shrink-0 items-center gap-1.5 border border-strength/30 bg-strength/10 px-2.5 py-1.5 text-strength sm:gap-2 sm:px-3"
+          >
             <img
               src="/animate-icons/flame.gif"
               alt=""
@@ -227,7 +258,7 @@ function JourneyPage() {
       </Card>
 
       {(principal || secundarias.length > 0) && (
-        <Card className="p-6">
+        <Card data-app-enter className="p-6">
           <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-semibold">
             <img
               src="/animate-icons/manuscript.gif"
@@ -248,7 +279,7 @@ function JourneyPage() {
         </Card>
       )}
 
-      <Card className="p-6">
+      <Card data-app-enter className="p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="font-display text-lg font-semibold">Hábitos de hoje</h2>
@@ -289,15 +320,23 @@ function JourneyPage() {
               return (
                 <li
                   key={h.id}
-                  className={`flex items-center justify-between rounded-lg border p-3 transition-all ${
+                  className={`flex items-center justify-between rounded-lg border p-3 transition-colors ${
                     done ? "border-hero/40 bg-hero/5" : "border-border bg-surface hover:border-hero/30"
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => !done && mutation.mutate(h.id)}
+                      type="button"
+                      ref={(node) => {
+                        if (node) habitBtnRefs.current.set(h.id, node);
+                        else habitBtnRefs.current.delete(h.id);
+                      }}
+                      onClick={() => {
+                        if (done || mutation.isPending) return;
+                        mutation.mutate(h.id);
+                      }}
                       disabled={done || mutation.isPending}
-                      className={`grid h-8 w-8 place-items-center rounded-full border transition ${
+                      className={`grid h-8 w-8 place-items-center rounded-full border transition-colors ${
                         done
                           ? "border-hero bg-hero text-hero-foreground"
                           : "border-border hover:border-hero"
@@ -330,18 +369,28 @@ function JourneyPage() {
         )}
       </Card>
 
-      <AlterEgoJourneyCard
-        alterEgo={data.alterEgo}
-        proofStats={data.proofStats}
-        identityArc={identityArcForChapter(profile.capitulo_atual)}
-      />
-      <ChessJourneyCard chess={data.chessProgress} />
-      <MentorJourneyCard />
-      <CheckinCard />
+      <div data-app-enter>
+        <AlterEgoJourneyCard
+          alterEgo={data.alterEgo}
+          proofStats={data.proofStats}
+          identityArc={identityArcForChapter(profile.capitulo_atual)}
+        />
+      </div>
+      <div data-app-enter>
+        <ChessJourneyCard chess={data.chessProgress} />
+      </div>
+      <div data-app-enter>
+        <MentorJourneyCard />
+      </div>
+      <div data-app-enter>
+        <CheckinCard />
+      </div>
 
-      <WeatherCard />
+      <div data-app-enter>
+        <WeatherCard />
+      </div>
 
-      <Card className="p-6">
+      <Card data-app-enter className="p-6">
         <h2 className="mb-4 font-display text-lg font-semibold">Atributos</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {Object.entries(ATRIBUTO_LABELS).map(([key, label]) => {
@@ -357,7 +406,7 @@ function JourneyPage() {
       </Card>
 
       {data.achievements.length > 0 && (
-        <Card className="p-6">
+        <Card data-app-enter className="p-6">
           <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-semibold">
             <Trophy className="h-5 w-5 text-hero" /> Conquistas recentes
           </h2>

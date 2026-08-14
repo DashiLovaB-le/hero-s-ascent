@@ -15,20 +15,20 @@ Marque `[x]` conforme concluir. Base: panorama de segurança (jul/2026).
 - [ ] **6.** Alinhar `VITE_SUPABASE_*` e `SUPABASE_*` ao **mesmo** projeto Supabase
 - [ ] **7.** Supabase Auth: Site URL + Redirect URLs com domínio Vercel (e previews se usados)
 - [ ] **8.** Bootstrap admin: setar `DASHI_BOOTSTRAP_EMAIL` → reivindicar `dashi` → **remover** o env do servidor
-- [ ] **9.** Pós-`npm run build`: grepar bundle client por `service_role`, JWT de service, `OPENROUTER`, `CRON_SECRET`, `TELEGRAM_BOT_TOKEN`
+- [x] **9.** Pós-`npm run build`: grepar bundle client por `service_role`, JWT de service, `OPENROUTER`, `CRON_SECRET`, `TELEGRAM_BOT_TOKEN`
 - [ ] **10.** Rotacionar secrets que já tenham vazado (git/chat/histórico): service role, OpenRouter, Telegram, `CRON_SECRET`, tokens `sbp_` se existirem
 
 ---
 
 ## P1 — Alto (logo no início do teste)
 
-- [ ] **11.** Rate limit **durável** (DB/contador) em `suggestHabitsFromGoals` — não usar só `Map` em memória (Vercel)
-- [ ] **12.** Teto diário de tokens/custo OpenRouter (habit-suggest + mentor) + `usageContext` / kill switch
-- [ ] **13.** Proteger `runNotificationJobs`: preferir só Edge + header `x-cron-secret`; não expor server fn ampla com secret no body; usar `crypto.timingSafeEqual`
-- [ ] **14.** Timing-safe em todos os compares de secret (cron Edge, telegram-webhook, jobs ML/agent se houver)
-- [ ] **15.** Headers de segurança na Vercel (`vercel.json` / Nitro): CSP (começar Report-Only), HSTS, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `frame-ancestors 'none'`
-- [ ] **16.** Subir senha mínima (8–12) no formulário de auth + ativar proteção de senha vazada no Supabase Auth se disponível
-- [ ] **17.** Edge cron: aceitar **somente POST**; rotacionar `CRON_SECRET` (teste → prod)
+- [x] **11.** Rate limit **durável** (DB/contador) em `suggestHabitsFromGoals` — não usar só `Map` em memória (Vercel)
+- [x] **12.** Teto diário de tokens/custo OpenRouter (habit-suggest + mentor) + `usageContext` / kill switch
+- [x] **13.** Proteger `runNotificationJobs`: preferir só Edge + header `x-cron-secret`; não expor server fn ampla com secret no body; usar `crypto.timingSafeEqual`
+- [x] **14.** Timing-safe em todos os compares de secret (cron Edge, telegram-webhook, jobs ML/agent se houver)
+- [x] **15.** Headers de segurança na Vercel (`vercel.json` / Nitro): CSP (começar Report-Only), HSTS, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `frame-ancestors 'none'`
+- [x] **16.** Subir senha mínima (8–12) no formulário de auth + ativar proteção de senha vazada no Supabase Auth se disponível
+- [x] **17.** Edge cron: aceitar **somente POST**; rotacionar `CRON_SECRET` (teste → prod)
 - [ ] **18.** Documentar no `.env.example`: `DASHI_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_EMAIL` e aviso para remover após bootstrap
 
 ---
@@ -36,7 +36,7 @@ Marque `[x]` conforme concluir. Base: panorama de segurança (jul/2026).
 ## P2 — Médio / endurecimento do produto
 
 - [x] **19.** Baixar teto de XP de hábito na API (`createHabit` / `updateHabit`) para alinhar ao CHECK do DB (ex. 10–30)
-- [ ] **20.** Impedir INSERT client de `mentor_messages` com `role = 'assistant'` (só server/service role)
+- [x] **20.** Impedir INSERT client de `mentor_messages` com `role = 'assistant'` (só server/service role)
 - [ ] **21.** Sanitizar / allowlist `image_url` de wallpapers (rejeitar `"`, schemes estranhos, hosts não confiáveis)
 - [ ] **22.** Revisar race do código Telegram (`used_at`) — update atômico / unique parcial
 - [x] **23.** Revisar RLS de `activity_history` e demais tabelas “só write server”
@@ -79,7 +79,9 @@ Marque `[x]` conforme concluir. Base: panorama de segurança (jul/2026).
 - Migration aplicada no remoto: `20260729164910_harden_progression_rls.sql` (via `db query --linked`; `db push` completo falha por histórico dessincronizado / `auth.users`).
 - Server fns de progresso/missões/mentor usam `supabaseAdmin` para writes sensíveis.
 - API + UI de hábitos: `xp_recompensa` max **50**.
-- Item **20** (`mentor_messages` role) ficou de propósito fora do P0 (quebraria Charlie no JWT user).
+- Item **20** (`mentor_messages` role): RLS `WITH CHECK (role = 'user')`; insert assistant via `supabaseAdmin`.
+- **11–17, 20 (2026-08-14):** rate limit DB `user_rate_limits` + teto OpenRouter/`OPENROUTER_KILL_SWITCH`; cron só POST + timing-safe; headers CSP Report-Only; senha mín. 12 no cadastro/troca (login ainda aceita senhas antigas ≥6). HaveIBeenPwned e rotação de `CRON_SECRET` são no painel (Auth + secrets), não no código.
+- **9 (2026-08-14):** `npm run check:bundle` (depois de `npm run build`) varre `.vercel/output/static` por nomes de secret, JWT `service_role` e valores do `.env`. Também: `npm run build:check`.
 - **Rotacionar** o token `sbp_` usado neste deploy (item 10).
 
 ---

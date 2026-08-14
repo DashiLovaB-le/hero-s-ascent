@@ -3,17 +3,13 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import {
-  MISSION_COLS,
-  ensureChapterMissions,
-  grantMissionRewards,
-  type MissionRow,
-} from "@/lib/missions-core";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { MissionRow } from "@/lib/missions-core";
 
 type Client = SupabaseClient<Database>;
 
-export { ensureChapterMissions } from "@/lib/missions-core";
+const MISSION_COLS =
+  "id, user_id, kind, capitulo, titulo, descricao, xp_recompensa, status, progresso_atual, progresso_alvo, habit_id, track, created_at, completed_at";
 
 export const listMissions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -32,6 +28,7 @@ export const listMissions = createServerFn({ method: "POST" })
 
     const capitulo = profile.capitulo_atual ?? 1;
     try {
+      const { ensureChapterMissions } = await import("@/lib/missions-core");
       await ensureChapterMissions(supabase as Client, userId, capitulo);
     } catch (e) {
       console.error("[missions] ensure", e);
@@ -104,6 +101,7 @@ export const completeMission = createServerFn({ method: "POST" })
       capitulo_atual: profile.capitulo_atual ?? 1,
     };
 
+    const { grantMissionRewards } = await import("@/lib/missions-core");
     const grant = await grantMissionRewards(supabase as Client, userId, [
       { mission: updated as MissionRow, xp: m.xp_recompensa },
     ], before);

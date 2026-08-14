@@ -10,7 +10,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { markProductTourSeen, writeLocalTourSeen } from "@/lib/product-tour.functions";
+import { markProductTourSeen } from "@/lib/product-tour.functions";
+import { writeLocalTourSeen } from "@/lib/product-tour";
 
 type ProductTourProps = {
   open: boolean;

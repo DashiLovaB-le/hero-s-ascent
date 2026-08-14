@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Plus, Trash2, Pencil, Sparkles, Check, ChevronsUp, ArrowRight, Dumbbell } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { showXpGainPopup } from "@/components/XpGainPopup";
 import { HABIT_XP_DEFAULT } from "@/lib/habit-xp";
+import { pulseHabitComplete } from "@/components/motion/app-motion";
 
 export const Route = createFileRoute("/_authenticated/habits")({
   loader: ({ context }) => context.queryClient.ensureQueryData(journeyQueryOptions()),
@@ -65,6 +66,7 @@ function HabitsPage() {
   const [editing, setEditing] = useState<HabitRow | null>(null);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<HabitSuggestion[]>([]);
+  const habitBtnRefs = useRef(new Map<string, HTMLButtonElement>());
 
   const createM = useMutation({
     mutationFn: (input: HabitFormValues) => createFn({ data: input }),
@@ -126,6 +128,9 @@ function HabitsPage() {
           completedToday: [...prev.completedToday, habitId],
         });
       }
+      requestAnimationFrame(() => {
+        pulseHabitComplete(habitBtnRefs.current.get(habitId));
+      });
       return { prev };
     },
     onSuccess: (r) => {
@@ -388,7 +393,14 @@ function HabitsPage() {
                       size="sm"
                       variant={done ? "secondary" : "default"}
                       disabled={done || completeM.isPending}
-                      onClick={() => completeM.mutate(h.id)}
+                      ref={(node) => {
+                        if (node) habitBtnRefs.current.set(h.id, node);
+                        else habitBtnRefs.current.delete(h.id);
+                      }}
+                      onClick={() => {
+                        if (done || completeM.isPending) return;
+                        completeM.mutate(h.id);
+                      }}
                     >
                       <img
                         src="/animate-icons/flame.gif"

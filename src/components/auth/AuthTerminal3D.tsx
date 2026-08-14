@@ -314,7 +314,7 @@ function AuthTerminalForm({
               type="password"
               required
               autoComplete="new-password"
-              minLength={6}
+              minLength={12}
               disabled={locked}
               className="h-9 rounded-full border-[#FC6E20]/50 bg-black/70 text-sm text-[#FFE7D0] focus-visible:ring-[#FC6E20]"
             />

@@ -138,7 +138,7 @@ export function AuthTerminal2D(props: AuthTerminal2DProps) {
                     type="password"
                     required
                     autoComplete="new-password"
-                    minLength={6}
+                    minLength={12}
                     disabled={props.locked}
                     className="auth-terminal__input"
                   />

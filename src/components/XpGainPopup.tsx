@@ -31,7 +31,10 @@ function getSnapshot(): Snapshot {
   return snapshot;
 }
 
-/** Mostra o pop-up cyberpunk de ganho de XP (substitui toast de hábito concluído). */
+/** Mostra o pop-up cyberpunk de ganho de XP (substitui toast de hábito concluído).
+ * Overlay externo: pointer-events-none — não intercepta cliques na navbar.
+ * Só o card interno recebe clique (dismiss).
+ */
 export function showXpGainPopup(payload: XpGainPopupPayload) {
   if (hideTimer) {
     clearTimeout(hideTimer);

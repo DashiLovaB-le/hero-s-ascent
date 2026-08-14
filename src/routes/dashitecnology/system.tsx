@@ -30,7 +30,7 @@ function SystemAdminPage() {
 
   const flags = [
     ["Service role", data.envFlags.hasServiceRole],
-    ["CRON_SECRET", data.envFlags.hasCronSecret],
+    ["Segredo do cron", data.envFlags.hasCronSecret],
     ["Telegram token", data.envFlags.hasTelegramToken],
     ["OpenAI/OpenRouter", data.envFlags.hasOpenAi],
     ["Bootstrap email", data.envFlags.hasBootstrapEmail],

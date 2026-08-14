@@ -8,6 +8,7 @@
  *   &secret_token=<TELEGRAM_WEBHOOK_SECRET>
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { timingSafeEqualStr } from "../_shared/cron-auth.ts";
 
 Deno.serve(async (req) => {
   try {
@@ -15,9 +16,9 @@ Deno.serve(async (req) => {
       return json({ error: "Method not allowed" }, 405);
     }
 
-    const expected = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
-    const got = req.headers.get("x-telegram-bot-api-secret-token") ?? "";
-    if (!expected || got !== expected) {
+    const expected = (Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "").trim();
+    const got = (req.headers.get("x-telegram-bot-api-secret-token") ?? "").trim();
+    if (!expected || !timingSafeEqualStr(expected, got)) {
       return json({ error: "Unauthorized" }, 401);
     }
 

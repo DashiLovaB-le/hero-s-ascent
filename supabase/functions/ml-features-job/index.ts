@@ -7,22 +7,12 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { computeUserFeatures, scoreUserHeuristicV1 } from "./compute.ts";
+import { assertCronPost } from "../_shared/cron-auth.ts";
 
 Deno.serve(async (req) => {
   try {
-    if (req.method !== "POST" && req.method !== "GET") {
-      return json({ error: "Method not allowed" }, 405);
-    }
-
-    const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
-    const cronHeader = req.headers.get("x-cron-secret")?.trim() ?? "";
-    const bearer =
-      req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
-    const provided = cronHeader || (bearer.includes(".") ? "" : bearer);
-
-    if (!cronSecret || provided !== cronSecret) {
-      return json({ error: "Unauthorized" }, 401);
-    }
+    const denied = assertCronPost(req);
+    if (denied) return denied;
 
     let limit = 500;
     if (req.method === "POST") {

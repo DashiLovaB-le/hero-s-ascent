@@ -41,6 +41,8 @@ export async function chatCompletion(opts: OpenRouterOptions): Promise<OpenRoute
   }
 
   const { resolveOpenRouterModel } = await import("@/lib/openrouter-model.server");
+  const { assertOpenRouterBudget } = await import("@/lib/openrouter-budget.server");
+  await assertOpenRouterBudget(opts.usageContext?.userId);
   const model = await resolveOpenRouterModel();
   const siteUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://v-project.app";
 

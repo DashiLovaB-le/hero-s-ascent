@@ -41,7 +41,7 @@ function money(n: number) {
 
 function sourceLabel(source: "db" | "env" | "default") {
   if (source === "db") return "salvo no control room";
-  if (source === "env") return "variável OPENROUTER_MODEL";
+  if (source === "env") return "variável de ambiente do modelo";
   return "padrão do código";
 }
 
@@ -122,7 +122,7 @@ function TokensAdminPage() {
           </Button>
         </div>
         <p className="mt-3 text-xs text-white/40">
-          Fallback: env <code className="text-white/60">OPENROUTER_MODEL</code> → padrão do código.
+          Fallback: variável de ambiente do modelo no servidor → padrão do código.
           Cache ~30s no servidor após salvar.
         </p>
       </Panel>

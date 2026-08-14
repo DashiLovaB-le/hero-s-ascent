@@ -4,8 +4,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { evaluateProgress } from "@/lib/progress-engine";
-import { ensureChapterMissions } from "@/lib/missions-core";
 import { hojeISO } from "@/lib/datetime";
 import { resolveHabitXpReward } from "@/lib/habit-xp";
 
@@ -168,6 +166,7 @@ export const getGoalsBoard = createServerFn({ method: "POST" })
       .maybeSingle();
     const capitulo = profile?.capitulo_atual ?? 1;
     try {
+      const { ensureChapterMissions } = await import("@/lib/missions-core");
       await ensureChapterMissions(supabase as Client, userId, capitulo);
     } catch {
       /* missões opcionais na página */
@@ -474,6 +473,7 @@ export const completeGoal = createServerFn({ method: "POST" })
     });
     const proofStats = await getIdentityProofStats(supabase as Client, userId);
 
+    const { evaluateProgress } = await import("@/lib/progress-engine");
     const progress = await evaluateProgress(
       supabase as Client,
       userId,

@@ -10,12 +10,6 @@ import {
   getWallpaperById,
   isWallpaperUnlocked,
 } from "@/lib/wallpapers";
-import { evaluateProgress } from "@/lib/progress-engine";
-import {
-  bumpMissionsOnHabitComplete,
-  ensureChapterMissions,
-  grantMissionRewards,
-} from "@/lib/missions-core";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loadLevelsFromDb, loadWallpapersFromDb } from "@/lib/catalog.server";
 import { hojeISO, ontemISO } from "@/lib/datetime";
@@ -376,6 +370,7 @@ export const completeHabit = createServerFn({ method: "POST" })
       capitulo_atual: beforeProgress.capitulo_atual,
     };
 
+    const { evaluateProgress } = await import("@/lib/progress-engine");
     const progress = await evaluateProgress(
       supabase as Client,
       userId,
@@ -395,6 +390,9 @@ export const completeHabit = createServerFn({ method: "POST" })
     let missionXp = 0;
 
     try {
+      const { bumpMissionsOnHabitComplete, grantMissionRewards } = await import(
+        "@/lib/missions-core"
+      );
       const grants = await bumpMissionsOnHabitComplete(
         supabase as Client,
         userId,
@@ -662,6 +660,7 @@ export const setGoals = createServerFn({ method: "POST" })
       .eq("id", userId)
       .maybeSingle();
     try {
+      const { ensureChapterMissions } = await import("@/lib/missions-core");
       await ensureChapterMissions(
         supabase as Client,
         userId,
