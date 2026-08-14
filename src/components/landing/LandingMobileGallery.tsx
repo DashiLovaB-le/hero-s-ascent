@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { SlashLabel } from "@/components/landing/LandingChrome";
+import { useLandingCarouselMotion } from "@/components/landing/useLandingCarouselMotion";
 import { cn } from "@/lib/utils";
 
 const MOBILE_SLIDES = [
@@ -38,8 +39,11 @@ const MOBILE_SLIDES = [
 
 export function LandingMobileGallery() {
   const [index, setIndex] = useState(0);
+  const stageRef = useRef<HTMLDivElement>(null);
   const total = MOBILE_SLIDES.length;
   const slide = MOBILE_SLIDES[index]!;
+
+  useLandingCarouselMotion(index, stageRef);
 
   function go(delta: number) {
     setIndex((i) => (i + delta + total) % total);
@@ -49,6 +53,7 @@ export function LandingMobileGallery() {
     <section data-lp="section" className="relative bg-[#1B1B1B] px-5 py-10 sm:px-6 sm:py-14">
       <div className="pointer-events-none absolute inset-0 lp-grid-bg opacity-30" aria-hidden />
       <div
+        ref={stageRef}
         data-lp="section-inner"
         className="relative mx-auto grid max-w-4xl items-center gap-6 md:grid-cols-[1fr_auto] md:gap-8 lg:gap-10"
       >
@@ -63,14 +68,12 @@ export function LandingMobileGallery() {
             Cinco telas. Um sistema. No seu ritmo, onde você estiver.
           </p>
 
-          <div className="mt-5 border-l-2 border-hero/50 bg-[#323232]/50 px-4 py-3 text-left">
+          <div
+            data-lp-carousel
+            className="mt-5 border-l-2 border-hero/50 bg-[#323232]/50 px-4 py-3 text-left"
+          >
             <p className="font-display text-sm tracking-[0.06em] text-hero">{slide.title}</p>
-            <p
-              key={slide.title}
-              className="mt-1.5 text-sm leading-snug text-white animate-in fade-in-0 duration-200"
-            >
-              {slide.body}
-            </p>
+            <p className="mt-1.5 text-sm leading-snug text-white">{slide.body}</p>
           </div>
 
           <ul className="mt-4 flex flex-wrap justify-center gap-2 md:justify-start">
@@ -96,6 +99,7 @@ export function LandingMobileGallery() {
         <div className="flex flex-col items-center justify-self-center md:justify-self-end">
           <div className="relative">
             <div
+              data-lp-carousel
               className="overflow-hidden border-[3px] border-[#444] bg-[#0d0d0d] shadow-[0_24px_60px_rgba(0,0,0,0.55)]"
               style={{
                 width: "min(260px, 70vw)",
@@ -104,12 +108,11 @@ export function LandingMobileGallery() {
               }}
             >
               <img
-                key={slide.src}
                 src={slide.src}
                 alt={slide.alt}
                 width={260}
                 height={520}
-                className="h-full w-full animate-in object-cover object-top fade-in-0 duration-200"
+                className="h-full w-full object-cover object-top"
                 loading={index === 0 ? "eager" : "lazy"}
                 decoding="async"
               />

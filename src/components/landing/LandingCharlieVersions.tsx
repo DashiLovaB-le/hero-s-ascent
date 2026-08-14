@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { SlashLabel } from "@/components/landing/LandingChrome";
+import { useLandingCarouselMotion } from "@/components/landing/useLandingCarouselMotion";
 import { cn } from "@/lib/utils";
 
 const CHARLIE_VERSIONS = [
@@ -57,8 +58,11 @@ const CHARLIE_VERSIONS = [
 
 export function LandingCharlieVersions() {
   const [index, setIndex] = useState(0);
+  const stageRef = useRef<HTMLDivElement>(null);
   const total = CHARLIE_VERSIONS.length;
   const version = CHARLIE_VERSIONS[index]!;
+
+  useLandingCarouselMotion(index, stageRef);
 
   function go(delta: number) {
     setIndex((i) => (i + delta + total) % total);
@@ -76,12 +80,9 @@ export function LandingCharlieVersions() {
           O Charlie adapta o tom. A disciplina continua a mesma.
         </p>
 
-        <div className="relative mt-8">
-          <div
-            key={version.slug}
-            className="lp-card cp-brackets grid items-center gap-6 p-4 sm:grid-cols-2 sm:gap-8 sm:p-6 animate-in fade-in-0 duration-200"
-          >
-            <div className="order-2 min-w-0 sm:order-1">
+        <div ref={stageRef} className="relative mt-8">
+          <div className="lp-card cp-brackets grid items-center gap-6 p-4 sm:grid-cols-2 sm:gap-8 sm:p-6">
+            <div data-lp-carousel className="order-2 min-w-0 sm:order-1">
               <p className="font-mono text-[10px] tracking-[0.22em] text-hero">
                 {String(index + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}
               </p>
@@ -94,7 +95,10 @@ export function LandingCharlieVersions() {
               <p className="mt-3 text-sm leading-relaxed text-[#FFE7D0]/65">{version.body}</p>
             </div>
 
-            <div className="order-1 flex justify-center sm:order-2 sm:justify-end">
+            <div
+              data-lp-carousel
+              className="order-1 flex justify-center sm:order-2 sm:justify-end"
+            >
               <div className="relative w-full max-w-[220px] overflow-hidden border border-hero/30 bg-[#0d0d0d] sm:max-w-[260px]">
                 <img
                   src={version.image}
@@ -123,7 +127,11 @@ export function LandingCharlieVersions() {
               <ChevronLeft className="h-4 w-4" />
             </button>
 
-            <div className="flex flex-wrap items-center justify-center gap-1.5" role="tablist" aria-label="Versões do Charlie">
+            <div
+              className="flex flex-wrap items-center justify-center gap-1.5"
+              role="tablist"
+              aria-label="Versões do Charlie"
+            >
               {CHARLIE_VERSIONS.map((v, i) => (
                 <button
                   key={v.slug}

@@ -38,9 +38,19 @@ export function TechMark({ className }: { className?: string }) {
   );
 }
 
-export function CheckItem({ children }: { children: ReactNode }) {
+export function CheckItem({
+  children,
+  className,
+  ...rest
+}: { children: ReactNode; className?: string } & React.ComponentPropsWithoutRef<"li">) {
   return (
-    <li className="flex gap-2.5 text-[13px] leading-snug text-[#FFE7D0]/85 sm:text-sm">
+    <li
+      className={cn(
+        "flex gap-2.5 text-[13px] leading-snug text-[#FFE7D0]/85 sm:text-sm",
+        className,
+      )}
+      {...rest}
+    >
       <span
         className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 bg-hero"
         style={{

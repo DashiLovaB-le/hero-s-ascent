@@ -203,17 +203,25 @@ function Landing() {
           <h2 className="mt-3.5 font-display text-xl font-bold tracking-[0.04em] text-[#FFE7D0] sm:text-2xl">
             Você já percebeu um padrão?
           </h2>
-          <div className="mt-4 space-y-2 text-sm leading-snug text-[#FFE7D0]/75 sm:text-[15px]">
-            <p>Você começa motivado.</p>
-            <p>Treina por alguns dias.</p>
-            <p>Lê alguns livros.</p>
-            <p>Define metas.</p>
-            <p className="pt-1 font-display text-base tracking-[0.04em] text-hero sm:text-lg">
+          <div
+            data-lp="dor-lines"
+            className="mt-4 space-y-2 text-sm leading-snug text-[#FFE7D0]/75 sm:text-[15px]"
+          >
+            <p data-lp="dor-line">Você começa motivado.</p>
+            <p data-lp="dor-line">Treina por alguns dias.</p>
+            <p data-lp="dor-line">Lê alguns livros.</p>
+            <p data-lp="dor-line">Define metas.</p>
+            <p
+              data-lp="dor-punch"
+              className="pt-1 font-display text-base tracking-[0.04em] text-hero sm:text-lg"
+            >
               Depois… tudo volta ao normal.
             </p>
-            <p className="pt-2">Não porque você seja incapaz.</p>
-            <p>Mas porque ninguém nos ensina a manter consistência.</p>
-            <div className="lp-card cp-brackets mt-4 p-4 sm:p-5">
+            <p data-lp="dor-line" className="pt-2">
+              Não porque você seja incapaz.
+            </p>
+            <p data-lp="dor-line">Mas porque ninguém nos ensina a manter consistência.</p>
+            <div data-lp="dor-card" className="lp-card cp-brackets mt-4 p-4 sm:p-5">
               <p className="font-display text-sm uppercase tracking-[0.04em] text-[#FFE7D0] sm:text-base">
                 Sem consistência, talento não importa.
               </p>
@@ -358,9 +366,11 @@ function Landing() {
           <h2 className="mt-3.5 font-display text-xl font-bold tracking-[0.04em] sm:text-2xl">
             Para homens que…
           </h2>
-          <ul className="mt-4 space-y-2.5">
+          <ul data-lp="for-who" className="mt-4 space-y-2.5">
             {FOR_WHO.map((item) => (
-              <CheckItem key={item}>{item}</CheckItem>
+              <CheckItem key={item} data-lp="for-who-item">
+                {item}
+              </CheckItem>
             ))}
           </ul>
         </div>
