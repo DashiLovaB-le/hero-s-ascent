@@ -153,7 +153,7 @@ export const getExerciseRanking = createServerFn({ method: "POST" })
         }
         for (const p of profiles ?? []) {
           names.set(p.id, displayName(p.nome));
-          if (p.ranking_opt_in !== false) optedInIds.add(p.id);
+          if (p.ranking_opt_in === true) optedInIds.add(p.id);
         }
       }
     }
@@ -163,7 +163,7 @@ export const getExerciseRanking = createServerFn({ method: "POST" })
       .select("nome, ranking_opt_in")
       .eq("id", userId)
       .maybeSingle();
-    const meOptedIn = meProfile?.ranking_opt_in !== false;
+    const meOptedIn = meProfile?.ranking_opt_in === true;
     if (meProfile) names.set(userId, displayName(meProfile.nome));
 
     const ranked = [...aggByUser.values()]
@@ -235,11 +235,11 @@ export const getRankingOptIn = createServerFn({ method: "GET" })
       .maybeSingle();
     if (error) {
       if (/ranking_opt_in/i.test(error.message)) {
-        return { optedIn: true };
+        return { optedIn: false };
       }
       throw new Error(error.message);
     }
-    return { optedIn: data?.ranking_opt_in !== false };
+    return { optedIn: data?.ranking_opt_in === true };
   });
 
 export const updateRankingOptIn = createServerFn({ method: "POST" })

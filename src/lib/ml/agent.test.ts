@@ -130,18 +130,42 @@ describe("ML Fase 4 agent", () => {
     assert.equal(d.kind, "checkin_nudge");
     assert.match(d.corpo, /O Executor/);
   });
+
+  it("cf_habit_hint não cita título de hábito de outro herói", () => {
+    const d = decideAgentInitiative({
+      scores: {
+        risco_streak: 0.1,
+        risco_abandono: 0.1,
+        weekday_weakest: null,
+        weekday_weakest_label: null,
+      },
+      hasCheckinToday: true,
+      hasPendingInitiative: false,
+      alreadyNotifiedToday: false,
+      quietHours: false,
+      cfSuggestion: {
+        titulo: "Meditar às 5h com João",
+        atributo: "disciplina",
+        score: 0.8,
+        from_peers: 5,
+      },
+    });
+    assert.equal(d.kind, "cf_habit_hint");
+    assert.match(d.corpo, /disciplina/);
+    assert.equal(d.corpo.includes("Meditar às 5h com João"), false);
+  });
 });
 
 describe("ML Fase 4 CF", () => {
   it("não sugere com N baixo", () => {
     const map = computeCfRecommendations([
-      { user_id: "a", weekday_rates: { "0": 1, "1": 1 }, habit_titles: ["Treino"] },
-      { user_id: "b", weekday_rates: { "0": 1, "1": 0.9 }, habit_titles: ["Leitura"] },
+      { user_id: "a", weekday_rates: { "0": 1, "1": 1 }, habit_attrs: ["forca"] },
+      { user_id: "b", weekday_rates: { "0": 1, "1": 0.9 }, habit_attrs: ["mente"] },
     ]);
     assert.equal(map.get("a")!.suggestions.length, 0);
   });
 
-  it("sugere hábito de peers similares", () => {
+  it("sugere atributo de peers similares, nunca título de hábito", () => {
     const ratesStrong = {
       "0": 0.9,
       "1": 0.9,
@@ -154,11 +178,15 @@ describe("ML Fase 4 CF", () => {
     const users = Array.from({ length: 8 }, (_, i) => ({
       user_id: `u${i}`,
       weekday_rates: ratesStrong,
-      habit_titles: i === 0 ? ["Treino"] : ["Treino", "Meditação"],
+      habit_attrs: i === 0 ? ["forca"] : ["forca", "disciplina"],
     }));
     const map = computeCfRecommendations(users, { minPeers: 5 });
     const rec = map.get("u0")!;
     assert.ok(rec.peer_count >= 5);
-    assert.ok(rec.suggestions.some((s) => /medita/i.test(s.titulo)));
+    assert.ok(rec.suggestions.some((s) => s.atributo === "disciplina"));
+    assert.equal(
+      rec.suggestions.some((s) => /medita|leitura|treino/i.test(s.titulo)),
+      false,
+    );
   });
 });

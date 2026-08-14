@@ -17,7 +17,7 @@ export function RankingSettingsCard() {
     queryFn: () => runQueryFn(() => getFn(), "Falha ao carregar preferência de ranking."),
   });
 
-  const optedIn = data?.optedIn ?? true;
+  const optedIn = data?.optedIn ?? false;
 
   const save = useMutation({
     mutationFn: (next: boolean) => updateFn({ data: { optedIn: next } }),

@@ -64,20 +64,18 @@ async function recomputeAllCf(admin: Admin, limit: number) {
 
   const { data: habits } = await admin
     .from("habits")
-    .select("user_id, titulo, atributo")
+    .select("user_id, atributo")
     .eq("ativo", true)
     .in("user_id", userIds);
 
-  const habitsByUser = new Map<string, { titles: string[]; attrs: Record<string, string> }>();
+  const attrsByUser = new Map<string, string[]>();
   for (const h of habits ?? []) {
-    const cur = habitsByUser.get(h.user_id) ?? { titles: [], attrs: {} };
-    cur.titles.push(h.titulo);
-    cur.attrs[h.titulo] = h.atributo;
-    habitsByUser.set(h.user_id, cur);
+    const list = attrsByUser.get(h.user_id) ?? [];
+    if (h.atributo) list.push(h.atributo);
+    attrsByUser.set(h.user_id, list);
   }
 
   const users = (features ?? []).map((f) => {
-    const h = habitsByUser.get(f.user_id);
     const rates =
       typeof f.weekday_rates === "object" && f.weekday_rates && !Array.isArray(f.weekday_rates)
         ? (f.weekday_rates as Record<string, number>)
@@ -85,8 +83,7 @@ async function recomputeAllCf(admin: Admin, limit: number) {
     return {
       user_id: f.user_id,
       weekday_rates: rates,
-      habit_titles: h?.titles ?? [],
-      habit_attrs: h?.attrs,
+      habit_attrs: attrsByUser.get(f.user_id) ?? [],
     };
   });
 
@@ -174,13 +171,14 @@ async function createInitiatives(admin: Admin, hoje: string, now: Date, limit: n
         }>)
       : [];
     const top = suggestions[0];
+    const atributo = (top?.atributo ?? "").trim() || null;
     const cfSuggestion =
-      top?.titulo && (cfRes.data?.peer_count ?? 0) >= 5
+      atributo && (cfRes.data?.peer_count ?? 0) >= 5
         ? {
-            titulo: top.titulo,
-            score: Number(top.score) || 0,
-            from_peers: Number(top.from_peers) || cfRes.data!.peer_count,
-            atributo: top.atributo ?? null,
+            titulo: atributo,
+            score: Number(top?.score) || 0,
+            from_peers: Number(top?.from_peers) || cfRes.data!.peer_count,
+            atributo,
           }
         : null;
 

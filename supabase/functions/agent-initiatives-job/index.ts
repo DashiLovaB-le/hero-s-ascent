@@ -103,15 +103,15 @@ async function recomputeCf(admin: ReturnType<typeof createClient>) {
 
   const { data: habits } = await admin
     .from("habits")
-    .select("user_id, titulo")
+    .select("user_id, atributo")
     .eq("ativo", true)
     .in("user_id", userIds);
 
-  const habitsByUser = new Map<string, string[]>();
+  const attrsByUser = new Map<string, string[]>();
   for (const h of habits ?? []) {
-    const list = habitsByUser.get(h.user_id) ?? [];
-    list.push(h.titulo);
-    habitsByUser.set(h.user_id, list);
+    const list = attrsByUser.get(h.user_id) ?? [];
+    if (h.atributo) list.push(h.atributo);
+    attrsByUser.set(h.user_id, list);
   }
 
   const users = (features ?? []).map((f: { user_id: string; weekday_rates: unknown }) => ({
@@ -120,7 +120,7 @@ async function recomputeCf(admin: ReturnType<typeof createClient>) {
       typeof f.weekday_rates === "object" && f.weekday_rates && !Array.isArray(f.weekday_rates)
         ? (f.weekday_rates as Record<string, number>)
         : {},
-    habit_titles: habitsByUser.get(f.user_id) ?? [],
+    habit_attrs: attrsByUser.get(f.user_id) ?? [],
   }));
 
   let written = 0;
@@ -135,22 +135,28 @@ async function recomputeCf(admin: ReturnType<typeof createClient>) {
       .sort((a, b) => b.sim - a.sim)
       .slice(0, 12);
 
-    let suggestions: Array<{ titulo: string; score: number; from_peers: number }> = [];
+    let suggestions: Array<{ titulo: string; atributo: string; score: number; from_peers: number }> = [];
     if (peers.length >= MIN_PEERS) {
-      const mine = new Set(target.habit_titles.map((t) => t.toLowerCase()));
+      const mine = new Set(
+        target.habit_attrs.map((a) => a.trim().toLowerCase()).filter(Boolean),
+      );
       const votes = new Map<string, { score: number; count: number }>();
       for (const p of peers) {
-        for (const title of p.u.habit_titles) {
-          if (!title || mine.has(title.toLowerCase())) continue;
-          const prev = votes.get(title) ?? { score: 0, count: 0 };
+        const seen = new Set<string>();
+        for (const raw of p.u.habit_attrs) {
+          const attr = raw.trim().toLowerCase();
+          if (!attr || mine.has(attr) || seen.has(attr)) continue;
+          seen.add(attr);
+          const prev = votes.get(attr) ?? { score: 0, count: 0 };
           prev.score += p.sim;
           prev.count += 1;
-          votes.set(title, prev);
+          votes.set(attr, prev);
         }
       }
       suggestions = [...votes.entries()]
-        .map(([titulo, v]) => ({
-          titulo,
+        .map(([atributo, v]) => ({
+          titulo: atributo,
+          atributo,
           score: v.score / Math.max(1, v.count),
           from_peers: v.count,
         }))
@@ -249,11 +255,12 @@ async function createInitiatives(
       href = "/journey";
     } else {
       const suggestions = Array.isArray(cfRes.data?.suggestions) ? cfRes.data!.suggestions : [];
-      const top = suggestions[0] as { titulo?: string } | undefined;
-      if (top?.titulo && (cfRes.data?.peer_count ?? 0) >= MIN_PEERS) {
+      const top = suggestions[0] as { atributo?: string; titulo?: string } | undefined;
+      const attr = (top?.atributo ?? "").trim();
+      if (attr && (cfRes.data?.peer_count ?? 0) >= MIN_PEERS) {
         kind = "cf_habit_hint";
         titulo = "Ideia de quem caminha parecido";
-        corpo = `Heróis com ritmo similar costumam manter “${top.titulo}”. Vale considerar — sem obrigação.`;
+        corpo = `Heróis com ritmo similar costumam fortalecer ${attr.toLowerCase()}. Vale um hábito nessa linha — sem obrigação.`;
         href = "/habits";
       }
     }

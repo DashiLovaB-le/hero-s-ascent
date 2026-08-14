@@ -1,6 +1,6 @@
 /**
- * Collaborative filtering leve — similaridade por weekday_rates + hábitos.
- * Só recomenda se houver peers suficientes (MIN_CF_PEERS).
+ * Collaborative filtering leve — similaridade por weekday_rates + atributos.
+ * Nunca persiste nem recomenda o título de hábito de outro herói.
  */
 
 import { MIN_CF_PEERS, type CfSuggestion } from "@/lib/ml/agent";
@@ -8,8 +8,8 @@ import { MIN_CF_PEERS, type CfSuggestion } from "@/lib/ml/agent";
 export type CfUser = {
   user_id: string;
   weekday_rates: Record<string, number>;
-  habit_titles: string[];
-  habit_attrs?: Record<string, string>;
+  /** Atributos já cobertos pelos hábitos do próprio usuário. */
+  habit_attrs: string[];
 };
 
 function cosine(a: number[], b: number[]): number {
@@ -29,9 +29,14 @@ function rateVec(rates: Record<string, number>): number[] {
   return Array.from({ length: 7 }, (_, i) => Number(rates[String(i)] ?? rates[i] ?? 0));
 }
 
+function normalizeAttr(value: string | null | undefined): string | null {
+  const key = (value ?? "").trim().toLowerCase();
+  return key || null;
+}
+
 /**
  * Para cada usuário, encontra peers por cosine(weekday_rates) e sugere
- * hábitos que peers têm e o usuário ainda não.
+ * um atributo comum entre peers que o usuário ainda não cobre.
  */
 export function computeCfRecommendations(
   users: CfUser[],
@@ -73,25 +78,28 @@ export function computeCfRecommendations(
       continue;
     }
 
-    const mine = new Set(target.habit_titles.map((t) => t.trim().toLowerCase()));
-    const votes = new Map<string, { score: number; count: number; atributo?: string | null }>();
+    const mine = new Set(
+      target.habit_attrs.map((a) => normalizeAttr(a)).filter((a): a is string => Boolean(a)),
+    );
+    const votes = new Map<string, { score: number; count: number }>();
 
     for (const p of peers) {
-      for (const title of p.user.habit_titles) {
-        const key = title.trim();
-        if (!key || mine.has(key.toLowerCase())) continue;
-        const prev = votes.get(key) ?? { score: 0, count: 0, atributo: null };
+      const seen = new Set<string>();
+      for (const raw of p.user.habit_attrs) {
+        const attr = normalizeAttr(raw);
+        if (!attr || mine.has(attr) || seen.has(attr)) continue;
+        seen.add(attr);
+        const prev = votes.get(attr) ?? { score: 0, count: 0 };
         prev.score += p.sim;
         prev.count += 1;
-        prev.atributo = p.user.habit_attrs?.[key] ?? prev.atributo;
-        votes.set(key, prev);
+        votes.set(attr, prev);
       }
     }
 
     const suggestions: CfSuggestion[] = [...votes.entries()]
-      .map(([titulo, v]) => ({
-        titulo,
-        atributo: v.atributo ?? null,
+      .map(([atributo, v]) => ({
+        titulo: atributo,
+        atributo,
         score: Math.round((v.score / Math.max(1, v.count)) * 1000) / 1000,
         from_peers: v.count,
       }))
@@ -104,10 +112,7 @@ export function computeCfRecommendations(
       suggestions,
       explicacao: {
         model: "cf_weekday_v1",
-        top_peer_sims: peers.slice(0, 3).map((p) => ({
-          user_id: p.user.user_id,
-          sim: Math.round(p.sim * 1000) / 1000,
-        })),
+        top_peer_sims: peers.slice(0, 3).map((p) => Math.round(p.sim * 1000) / 1000),
       },
     });
   }

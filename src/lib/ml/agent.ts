@@ -131,14 +131,18 @@ export function decideAgentInitiative(input: {
     };
   }
 
-  // Prioridade 3: dica CF (sem forçar identidade — evita spam)
+  // Prioridade 3: dica CF — só atributo/categoria, nunca título de hábito alheio
   if (input.cfSuggestion && input.cfSuggestion.from_peers >= MIN_CF_PEERS) {
     reasons.push("cf_habit_hint");
+    const attr = (input.cfSuggestion.atributo ?? "").trim().toLowerCase();
+    const corpo = attr
+      ? `Heróis com ritmo similar costumam fortalecer ${attr}. Vale um hábito nessa linha — sem obrigação.`
+      : "Heróis com ritmo similar costumam manter um hábito extra. Vale considerar — sem obrigação.";
     return {
       create: true,
       kind: "cf_habit_hint",
       titulo: "Ideia de quem caminha parecido",
-      corpo: `Heróis com ritmo similar costumam manter “${input.cfSuggestion.titulo}”. Vale considerar — sem obrigação.`,
+      corpo,
       href: "/habits",
       reasons,
     };

@@ -460,7 +460,7 @@ function voiceAgent(
   }
 
   if (k === "cf_habit_hint") {
-    const hint = subject || "um hábito que homens na sua trilha costumam usar";
+    const hint = "um hábito extra na mesma trilha";
     const bySlug: Record<string, CharlieVoiceOutput> = {
       militar: {
         titulo: "Sugestão tática",

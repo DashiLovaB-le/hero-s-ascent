@@ -30,7 +30,7 @@ function isOAuthCallbackUrl(url: string): boolean {
         u.hash.includes("error"))
     );
   } catch {
-    return url.includes("code=") || url.includes("access_token=");
+    return url.includes("code=") || url.includes("error=");
   }
 }
 
@@ -67,17 +67,12 @@ export async function completeOAuthFromUrl(url: string): Promise<{ handled: bool
     return { handled: true };
   }
 
-  // Implicit / hash tokens (fallback)
+  // Só PKCE (`code=`). Tokens no hash/query não são aceitos (hijack de custom scheme).
   if (url.includes("access_token=")) {
-    const hash = url.includes("#") ? url.slice(url.indexOf("#") + 1) : url.split("?")[1] ?? "";
-    const params = new URLSearchParams(hash);
-    const access_token = params.get("access_token");
-    const refresh_token = params.get("refresh_token");
-    if (access_token && refresh_token) {
-      const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-      if (error) return { handled: true, error: error.message };
-      return { handled: true };
-    }
+    return {
+      handled: true,
+      error: "Login incompleto. Feche e entre de novo com o Google.",
+    };
   }
 
   return { handled: false };
