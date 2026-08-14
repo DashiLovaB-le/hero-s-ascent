@@ -1,0 +1,30 @@
+---
+description: GSAP animated sites — use gsap-master MCP + project landing patterns
+globs: src/components/landing/**/*.{ts,tsx},src/routes/index.tsx,src/routes/sobre.tsx,**/*Gsap*.{ts,tsx}
+alwaysApply: false
+---
+
+# GSAP animated sites
+
+When creating or refining scroll/hero/UI animations in this repo:
+
+1. **Use MCP `gsap-master` first** (tools from [gsap-master-mcp-server](https://github.com/bruzethegreat/gsap-master-mcp-server)):
+   - `understand_and_create_animation` — new motion from natural language
+   - `get_gsap_api_expert` — API / plugin docs
+   - `generate_complete_setup` — framework setup (prefer React)
+   - `debug_animation_issue` — lag, ScrollTrigger, mobile
+   - `optimize_for_performance` — 60fps / mobile
+   - `create_production_pattern` — hero, scroll systems, text, transitions
+2. Optional: `annnimate` for extra GSAP patterns if useful.
+3. Adapt output to **this codebase** — do not paste vanilla/Next boilerplate blindly.
+
+## Project conventions
+
+- Library: `gsap` + `ScrollTrigger` (already in `package.json`).
+- Prefer a hook like `useLandingGsap(rootRef)` with `useLayoutEffect` + `gsap.context(..., root)` + cleanup `ctx.revert()`.
+- Mark targets with `data-lp='...'` (or similar data attrs), not fragile class-only selectors.
+- Wrap motion in `gsap.matchMedia()` + `(prefers-reduced-motion: no-preference)`.
+- Ship **2–3 intentional motions** per surface (hero timeline, section reveals, one signature effect) — not noise.
+- Prefer `autoAlpha` over `opacity`; use `power2/power3` easings; scrub/pin only when it clarifies hierarchy.
+- Desktop-only pins via nested `matchMedia("(min-width: 768px)")`.
+- Align with existing landing design rules (brand-first hero, no card clutter in hero).

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Bell, Check, X } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -239,15 +239,25 @@ export function NotificationBell() {
                             markRead.mutate(n.id);
                           }}
                         >
-                          <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                          <img
+                            src="/icons/checked.png"
+                            alt=""
+                            aria-hidden
+                            className="notif-check-unread h-3.5 w-3.5 object-contain"
+                          />
                         </Button>
                       ) : (
                         <span
-                          className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center text-hero/50"
+                          className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center opacity-55"
                           title="Lida"
                           aria-label="Lida"
                         >
-                          <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                          <img
+                            src="/icons/checked.png"
+                            alt=""
+                            aria-hidden
+                            className="h-3.5 w-3.5 object-contain"
+                          />
                         </span>
                       )}
                     </div>

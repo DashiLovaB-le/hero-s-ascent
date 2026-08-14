@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "motion": {
+      "url": "https://mcp.motion.so/mcp"
+    },
+    "higgsfield": {
+      "type": "http",
+      "url": "https://mcp.higgsfield.ai/mcp"
+    },
+    "annnimate": {
+      "url": "https://annnimate.com/api/mcp"
+    },
+    "gsap-master": {
+      "command": "npx",
+      "args": ["-y", "bruzethegreat-gsap-master-mcp-server@latest"]
+    }
+  }
+}

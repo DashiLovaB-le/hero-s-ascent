@@ -869,6 +869,23 @@
   animation: mentor-focus-icon-pulse 1.8s ease-in-out infinite;
 }
 
+/* Sino — ícone checked.png nas não lidas (pisca sutil) */
+@keyframes notif-check-blink {
+  0%,
+  100% {
+    opacity: 0.45;
+    filter: brightness(0.92);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.15);
+  }
+}
+
+@utility notif-check-unread {
+  animation: notif-check-blink 1.6s ease-in-out infinite;
+}
+
 /* Pop-up de boas-vindas (auth) — HUD cyberpunk compacto */
 .auth-welcome-dialog {
   box-shadow:
